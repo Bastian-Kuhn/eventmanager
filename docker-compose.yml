@@ -1,0 +1,23 @@
+version: "3.7"
+
+services:
+
+  redis:
+    image: redis
+    entrypoint: redis-server --appendonly yes
+
+  mongo:
+    image: mongo:4.4
+    volumes:
+      - data_db:/data/db
+  api:
+    build:
+      context: .
+    depends_on:
+      - mongo
+      - redis
+      - rq-worker
+    environment:
+      config: base
+volumes:
+  data_db:

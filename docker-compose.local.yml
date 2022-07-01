@@ -1,0 +1,7 @@
+version: "3.7"
+
+services:
+
+  api:
+    environment:
+      config: local

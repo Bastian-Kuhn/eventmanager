@@ -1,0 +1,84 @@
+{% extends "bootstrap/base.html" %}
+
+{% block title %}Tourenportal{% endblock %}
+
+{% block navbar %}
+<nav id="top-nav" class="navbar navbar-expand-lg sticky-top navbar-dark" style="background-color: #58ab27;">
+  <a class="navbar-brand" href="/"> <img src="/static/logo.png" height="60" alt=""></a>
+  <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+    <span class="navbar-toggler-icon"></span>
+  </button>
+
+  <div class="collapse navbar-collapse" id="navbarSupportedContent">
+    <ul class="navbar-nav mr-auto">
+      {% if not current_user.is_authenticated %}
+      <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.login') }}">Login</a></li>
+      <li class="nav-item"><a class="nav-link" href="{{ url_for('USER.page_user_create') }}">Registrieren</a></li>
+      {% else %}
+      <li class="nav-item"><a class="nav-link" href="{{ url_for('EVENTS.page_events', filter='my_events') }}">Meine Touren</a></li>
+          {% if current_user.has_right('guide') %}
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('EVENTS.page_create') }}">Tour erstellen</a></li>
+          {% endif %}
+          {% if current_user.is_admin() %}
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.index') }}">Admin</a></li>
+          {% endif %}
+      <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.logout') }}">Logout</a></li>
+      {% endif %}
+    </ul>
+    <form class="form-inline my-2 my-lg-0">
+     <input class="form-control mr-sm-2" type="search" placeholder="Suchen" aria-label="Suchen">
+     <button class="btn btn-outline-success my-2 my-sm-0" type="submit">Suchen</button>
+    </form>
+  </div>
+</nav>
+
+{% endblock %}
+
+{% block styles %}
+   {{super()}}
+   <link rel="stylesheet" href="{{url_for('static', filename="css/main.css")}}">
+{% endblock %}
+
+{% block scripts %}
+    {{super()}}
+    <script src="/static/js/main.js"></script>
+{% endblock %}
+
+
+
+{% block content %}
+<div class="main-container container">
+    {% for catergory, message in get_flashed_messages(with_categories=true) %}
+    <div class="alert alert-{{ catergory }} alert-dismissable">
+        <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
+        {{ message }}
+    </div>
+    {% endfor %}
+
+    {% block page_content %}{% endblock %}
+<hr>
+<footer class="page-footer font-small pt-4 mt-4">
+
+  <!-- Footer Links -->
+  <div class="container-fluid text-center text-md-left">
+    <div class="row">
+      <div class="col-md-12">
+        <ul id="nav-footer" class="nav justify-content-center">
+        </ul>
+
+      </div>
+      <!-- Grid column -->
+
+    </div>
+  </div>
+  <!-- Footer Links -->
+
+  <!-- Copyright -->
+  <div class="footer-copyright text-center py-3">© 2022 Bastian Kuhn (https://bastian-kuhn.de)
+  </div>
+  <!-- Copyright -->
+
+</footer>
+
+</div>
+{% endblock %}
