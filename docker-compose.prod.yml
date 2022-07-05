@@ -9,4 +9,4 @@ services:
     ports:
       - 8002:9090
     environment:
-      config: prod
+      config: prod_compose
