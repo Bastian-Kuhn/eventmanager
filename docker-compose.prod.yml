@@ -2,18 +2,11 @@ version: "3.7"
 
 services:
 
-  api:
+  application:
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
     ports:
       - 8002:9090
     environment:
-      config: ${config}
-
-  rq-worker:
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    environment:
-      config: ${config}
+      config: prod

@@ -10,13 +10,15 @@ services:
     image: mongo:4.4
     volumes:
       - data_db:/data/db
-  api:
+
+  application:
     build:
       context: .
+    security_opt:
+      - no-new-privileges:true
     depends_on:
       - mongo
       - redis
-      - rq-worker
     environment:
       config: base
 volumes:
