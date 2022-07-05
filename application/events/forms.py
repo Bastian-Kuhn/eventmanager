@@ -4,18 +4,13 @@ from wtforms import StringField, PasswordField, RadioField, SubmitField, Boolean
 from wtforms.validators import InputRequired, Email, EqualTo, ValidationError
 from wtforms.widgets import TextArea
 from flask import current_app
-
-
-difficulties = [
-  ("sehr leicht", "Sehr Leicht"),
-  ("leicht", "Leicht"),
-  ("mittel", "Mittel"),
-  ("schwer", "Schwer"),
-  ("sehr schwer", "sehr Schwer"),
-]
+from application.models.event import difficulties
 
 
 class EventForm(FlaskForm):
+    """
+    Event Formular
+    """
     event_name = StringField("Touren Name", validators=[InputRequired()])
     event_description = TextAreaField("Beschreibung")
     places = StringField("Plätze")
@@ -26,5 +21,14 @@ class EventForm(FlaskForm):
     tour_link = StringField("Outdooractive Link")
     difficulty = RadioField("Schwierigkeit", choices=difficulties)
     length_h = StringField("Länge in Stunden")
+    length_km= StringField("Strecke in km")
+    altitude_difference= StringField("Höhenmeter")
 
     submit = SubmitField("Anlegen")
+
+class EventRegisterForm(FlaskForm):
+    """
+    Event Register Formular
+    """
+    comment = TextAreaField("Kommentar", validators=[InputRequired()])
+    submit = SubmitField("Anmelden")

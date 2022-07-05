@@ -23,6 +23,38 @@ def _(text):
 
 AUTH = Blueprint('auth', __name__)
 
+
+def do_login(login_form, context):
+    email = login_form.login_email.data.lower()
+    password = login_form.password.data
+    user_result = User.objects(email=email, disabled__ne=True)
+    remember_login = login_form.remember_login.data
+    if user_result:
+        existing_user = user_result[0]
+    else:
+        existing_user = False
+
+    if not (existing_user and existing_user.check_password(password)):
+        flash("Wrong Password", 'danger')
+        return render_template('login.html', **context)
+
+    if existing_user.disabled:
+        flash("User Disabled", 'danger')
+        return render_template('login.html', **context)
+
+    login_user(
+        existing_user,
+        remember=remember_login,
+        duration=timedelta(
+            hours=(current_app.config['ADMIN_SESSION_HOURS'] or 8)
+        )
+    )
+    existing_user.last_login = datetime.now()
+    existing_user.save()
+    if existing_user.force_password_change:
+        return redirect(url_for("auth.change_password"))
+    return True
+
 @login_manager.user_loader
 def load_user(user_id):
     """
@@ -45,34 +77,7 @@ def login():
         'LoginForm' : login_form,
     }
     if login_form.login_submit.data and login_form.validate_on_submit():
-        email = login_form.login_email.data.lower()
-        password = login_form.password.data
-        user_result = User.objects(email=email, disabled__ne=True)
-        remember_login = login_form.remember_login.data
-        if user_result:
-            existing_user = user_result[0]
-        else:
-            existing_user = False
-
-        if not (existing_user and existing_user.check_password(password)):
-            flash("Wrong Password", 'danger')
-            return render_template('login.html', **context)
-
-        if existing_user.disabled:
-            flash("User Disabled", 'danger')
-            return render_template('login.html', **context)
-
-        login_user(
-            existing_user,
-            remember=remember_login,
-            duration=timedelta(
-                hours=(current_app.config['ADMIN_SESSION_HOURS'] or 8)
-            )
-        )
-        existing_user.last_login = datetime.now()
-        existing_user.save()
-        if existing_user.force_password_change:
-            return redirect(url_for("auth.change_password"))
+        do_login(login_form, context)
         return redirect("/")
 
     return render_template('login.html', **context)

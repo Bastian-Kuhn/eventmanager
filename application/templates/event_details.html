@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% import 'bootstrap/wtf.html' as wtf %}
+
+{% block page_content %}
+<div class="row">
+    <div class="col-sm-12">
+    <h1>{{event.event_name}}</h1>
+    </div>
+</div>
+<div class="row">
+    <div class="col-sm-12">
+    <p>{{event.event_description}}</p>
+    </div>
+</div>
+
+{% if current_user.is_authenticated %}
+ {% if current_user.participate_event(event_id) %}
+    <div class="card">
+      <div class="card-header">
+        Du nimmst bereits bei diesem Event teil
+      </div>
+    </div>
+ {% else %}
+    <div class="card">
+      <div class="card-header">
+        Tourenanmeldung
+      </div>
+      <div class="card-body">
+        <h5 class="card-title">Verbindliche Anmeldung zum Event</h5>
+        <p class="card-text">Melde dich hier verbindlich zu unserem Event an</p>
+        {{ wtf.quick_form(EventRegisterForm) }}
+      </div>
+    </div>
+ {% endif %}
+
+{% else %}
+<div class="card">
+  <div class="card-header">
+    Nicht angemeldet
+  </div>
+  <div class="card-body">
+    <h5 class="card-title">Bitte Anmelden oder Registrieren</h5>
+    <p class="card-text">Um dich zum Event anzumelden, bitte authenifiziere dich mit der Seite</p>
+    {{ wtf.quick_form(LoginForm) }}
+    <br>
+    <a href="{{ url_for('USER.page_user_create') }}" class="btn btn-secondary">Neu Registrieren</a>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -3,7 +3,11 @@
 
 {% block page_content %}
 <h1> Neue Tour anlegen</h1>
-<form>
+<form method="POST">
+
+{{ form.hidden_tag() }}
+{{ wtf.form_errors(form, hiddens='only') }}
+
  <fieldset class="form-group">
  {{ wtf.form_field(form.event_name) }}
  {{ wtf.form_field(form.event_description) }}
@@ -34,6 +38,33 @@
         </div>
  </div>
  </fieldset>
+
+ <fieldset class="form-group">
+ <div class="row">
+       <legend class="col-form-label col-sm-3 pt-0">Daten</legend>
+        <div class="col-sm-3">
+         {{ wtf.form_field(form.length_h) }}
+        </div>
+        <div class="col-sm-3">
+         {{ wtf.form_field(form.length_km) }}
+        </div>
+        <div class="col-sm-3">
+         {{ wtf.form_field(form.altitude_difference) }}
+        </div>
+
+ </div>
+ </fieldset>
+
+ <fieldset class="form-group">
+ <div class="row">
+    <div class="col-sm-12">
+        {{ wtf.form_field(form.tour_link) }}
+    </div>
+ </div>
+ </fieldset>
+
+
+        {{ wtf.form_field(form.submit) }}
 
 </form>
 {% endblock %}

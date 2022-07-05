@@ -15,7 +15,7 @@
       <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.login') }}">Login</a></li>
       <li class="nav-item"><a class="nav-link" href="{{ url_for('USER.page_user_create') }}">Registrieren</a></li>
       {% else %}
-      <li class="nav-item"><a class="nav-link" href="{{ url_for('EVENTS.page_events', filter='my_events') }}">Meine Touren</a></li>
+      <li class="nav-item"><a class="nav-link" href="{{ url_for('EVENTS.page_list', filter='my_events') }}">Meine Touren</a></li>
           {% if current_user.has_right('guide') %}
           <li class="nav-item"><a class="nav-link" href="{{ url_for('EVENTS.page_create') }}">Tour erstellen</a></li>
           {% endif %}
@@ -74,7 +74,7 @@
   <!-- Footer Links -->
 
   <!-- Copyright -->
-  <div class="footer-copyright text-center py-3">© 2022 Bastian Kuhn (https://bastian-kuhn.de)
+  <div class="footer-copyright text-center py-3">© 2022 <a href="https://bastian-kuhn.de">Bastian Kuhn</a>
   </div>
   <!-- Copyright -->
 

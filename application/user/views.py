@@ -17,7 +17,7 @@ USER = Blueprint('USER', __name__)
 @USER.route('/user/profile')
 def page_user_profil():
     """
-    User prfile
+    User profile
     """
 
     context = {}
@@ -49,7 +49,7 @@ def page_user_create():
         flash("Bitte behebe die angezeigten Fehler in den Feldern", 'danger')
 
     context = {
-        'form': form 
+        'form': form
     }
 
     return render_template('formular.html', **context)

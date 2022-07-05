@@ -7,6 +7,7 @@ from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from authlib.jose import jwt, JoseError
 from application import db
+from application.models.event import Event
 
 roles = [
   ('no_member', "Kein Vereinsmitglied"),
@@ -33,6 +34,9 @@ class User(db.Document, UserMixin):
     data_optin = db.BooleanField()
 
 
+    event_registrations = db.ListField(db.ReferenceField(Event))
+
+
 
     pwdhash = db.StringField()
 
@@ -52,6 +56,23 @@ class User(db.Document, UserMixin):
         ],
     'strict': False,
     }
+
+
+    def add_event(self, event):
+        """
+        Add Event to User
+        """
+        if event not in self.event_registrations:
+            self.event_registrations.append(event)
+            self.save()
+
+    def participate_event(self, event_id):
+        """
+        Check if user is part of event
+        """
+        if event_id in [ str(x.id) for x in self.event_registrations]:
+            return True
+        return False
 
 
     def set_password(self, password):

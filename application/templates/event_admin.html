@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% import 'bootstrap/wtf.html' as wtf %}
+
+{% block page_content %}
+<div class="row">
+    <div class="col-sm-12">
+    <h1>{{event.event_name}}</h1>
+    </div>
+</div>
+
+<div class="row">
+<table class="table table-hover">
+  <thead>
+    <tr>
+      <th scope="col">#</th>
+      <th scope="col">Vorname</th>
+      <th scope="col">Nachname</th>
+      <th scope="col">Telefon</th>
+      <th scope="col">E-Mail</th>
+      <th scope="col">Gebursdatum</th>
+      <th scope="col">Foto Optin</th>
+      <th scope="col">Vereinsmitglied</th>
+      <th scope="col">Bestätigt</th>
+      <th scope="col">Warteliste</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for part in event.participations %}
+    <tr>
+      <th scope="row">1</th>
+      <td>{{part.user.first_name}}</td>
+      <td>{{part.user.last_name}}</td>
+      <td>{{part.user.phone}}</td>
+      <td>{{part.user.email}}</td>
+      <td>{{part.user.birthdate.date()}}</td>
+      <td>{{part.user.media_optin}}</td>
+      <td>{{part.user.club_member_confirmed}}</td>
+      <td>{{part.confirmed}}</td>
+      <td>{{part.waitinglist}}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

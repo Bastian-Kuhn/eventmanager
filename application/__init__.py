@@ -134,11 +134,15 @@ from application.views.default import CustomModelView
 from application.models.user import User
 from application.views.user import UserView
 
+from application.models.event import Event
+from application.views.event import EventView
+
 
 admin = Admin(app, name="Admin", template_mode='bootstrap4',
               index_view=IndexView())
 
 #System
+admin.add_view(EventView(Event))
 admin.add_view(UserView(User, category='System'))
 admin.add_view(LogView(LogEntry, name="Log", category="System"))
 

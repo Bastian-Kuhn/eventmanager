@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+
+{% block page_content %}
+<div class="row">
+    <div class="col-sm-12">
+    <h1>{{ header }}</h1>
+    </div>
+</div>
+
+<div class="card-columns">
+{% for event in events %}
+ <div class="card">
+   <div class="card-header">
+   {{ event.event_name }}
+   </div>
+   <div class="card-body">
+     <h5 class="card-title">{{ event.event_category }}</h5>
+     <p class="card-text">{{ event.event_description[:100] }}</p>
+   </div>
+   <div class="card-footer">
+    <small class="text-muted">
+    <a href="{{ url_for('EVENTS.page_details', event_id=event.id) }}">Details</a> 
+    {% if current_user.has_right('guide') %}
+        <a href="{{ url_for('EVENTS.page_admin', event_id=event.id) }}">Admin</a>
+    {% endif %}
+    </small>
+   </div>
+ </div>
+{% endfor %}
+</div>
+{% endblock %}
