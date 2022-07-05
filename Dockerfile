@@ -21,15 +21,13 @@ ENV TZ=Europe/Berlin
 RUN ln -sf /usr/share/zoneinfo/Europe/Berlin /etc/localtime
 
 COPY requirements.txt ./
+RUN pip3 install --upgrade pip
 RUN pip3 install --no-cache-dir -r requirements.txt
 
 ARG envconfig
 ENV env=$envconfig
 
 COPY . /srv/
-
-
-RUN chmod -R 777 /srv/application/uploads/
 
 USER uwsgi
 
