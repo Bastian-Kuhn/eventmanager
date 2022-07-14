@@ -56,26 +56,45 @@ def page_details():
     """
     Detail Page for Event
     """
-    context = {}
     event_id = request.args.get('event_id')
-    context['event'] = Event.objects.get(id=event_id)
-    context['event_id'] = event_id
-    context['LoginForm'] = LoginForm(request.form)
-    context['EventRegisterForm'] = EventRegisterForm(request.form)
-    if context['EventRegisterForm'].validate_on_submit():
+
+    event = Event.objects.get(id=event_id)
+    login_form = LoginForm(request.form)
+    register_form = EventRegisterForm(request.form)
+
+    context = {
+        'event' : event,
+        'event_id': event_id,
+        'LoginForm': login_form,
+        'EventRegisterForm': register_form,
+    }
+
+    if register_form.validate_on_submit():
         data = request.form
-        if not current_user.participate_event(event_id):
-            current_user.add_event(context['event'])
+        num_participants = len(event.participations)
+        waitinglist = False
+        register_possible = True
+        if num_participants > event.places:
+            if event.waitinglist:
+                waitinglist = True
+            else:
+                flash("Das Event ist bereits voll", 'danger')
+                register_possible = False
+
+        if register_possible and not current_user.participate_event(event_id):
+            current_user.add_event(event)
             new_participation = EventParticipation()
             new_participation.comment = data['comment']
             new_participation.user = current_user
-            context['event'].participations.append(new_participation)
-            context['event'].save()
+            new_participation.waitinglist = waitinglist
+            event.participations.append(new_participation)
+            event.save()
 
     if not current_user.is_authenticated:
-        if context['LoginForm'].validate_on_submit():
-            do_login(context['LoginForm'], context)
-    if context['EventRegisterForm'].errors:
+        if login_form.validate_on_submit():
+            do_login(login_form, context)
+
+    if register_form.errors:
         flash("Bitte behebe die angezeigten Fehler in den Feldern", 'danger')
 
     return render_template('event_details.html', **context)
@@ -104,6 +123,8 @@ def page_create():
         end_datetime_str = f"{request.form['end_date']} 00:00"
         new_event.start_date = start_datetime_str
         new_event.end_date = end_datetime_str
+
+        new_event.event_owner = current_user
 
         new_event.save()
         flash("Event wurde erzeug", 'info')

@@ -1,8 +1,8 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, RadioField, SubmitField, BooleanField, \
                     TextAreaField, TimeField, DateField
-from wtforms.validators import InputRequired, Email, EqualTo, ValidationError
 from wtforms.widgets import TextArea
+from wtforms.validators import InputRequired, Email, EqualTo, ValidationError
 from flask import current_app
 from application.models.event import difficulties
 

@@ -67,4 +67,9 @@
         {{ wtf.form_field(form.submit) }}
 
 </form>
+
+ <script src="/static/js/ckeditor/ckeditor.js"></script>
+<script>
+    CKEDITOR.replace('event_description');
+</script>
 {% endblock %}

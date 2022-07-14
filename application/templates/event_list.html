@@ -15,12 +15,14 @@
    </div>
    <div class="card-body">
      <h5 class="card-title">{{ event.event_category }}</h5>
-     <p class="card-text">{{ event.event_description[:100] }}</p>
+     <p class="card-text">{{ event.event_description[:100]|safe }}</p>
    </div>
    <div class="card-footer">
+    {% set numbers = event.get_numbers() %}
+    {{ numbers['confirmed'] }}/{{ numbers['wait_for_confirm'] }}/{{ numbers['total_places'] }}, Warteliste: {{ numbers['waitlist'] }}
     <small class="text-muted">
     <a href="{{ url_for('EVENTS.page_details', event_id=event.id) }}">Details</a> 
-    {% if current_user.has_right('guide') %}
+    {% if current_user.is_authenticated and current_user.has_right('guide') %}
         <a href="{{ url_for('EVENTS.page_admin', event_id=event.id) }}">Admin</a>
     {% endif %}
     </small>

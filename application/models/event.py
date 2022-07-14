@@ -36,8 +36,9 @@ class Event(db.Document):
     event_name = db.StringField()
     event_description = db.StringField()
     event_category = db.StringField(choices=categories)
+    event_owner = db.ReferenceField('User')
 
-    places = db.StringField()
+    places = db.IntField()
     waitlist = db.BooleanField()
     start_date = db.DateTimeField()
     end_date = db.DateTimeField()
@@ -48,6 +49,25 @@ class Event(db.Document):
     altitude_difference= db.StringField()
 
     participations = db.ListField(db.EmbeddedDocumentField(EventParticipation))
+
+
+    def get_numbers(self):
+        confirmed = 0
+        wait_for_confirm = 0
+        waitlist = 0
+        for participation in self.participations:
+            if participation.confirmed:
+                confirmed += 1
+            elif not participation.waitinglist:
+                wait_for_confirm += 1
+            if participation.waitinglist:
+                waitinglist += 1
+        return {
+            'total_places' : self.places,
+            'confirmed': confirmed,
+            'wait_for_confirm': wait_for_confirm,
+            'waitlist': waitlist,
+        }
 
 
     def __str__(self):
