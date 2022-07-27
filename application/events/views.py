@@ -2,17 +2,18 @@
 Login Routes and Handling for Frontend
 """
 # pylint: disable=no-member
+
+from datetime import datetime
 from flask import request, render_template, \
      flash, redirect, Blueprint, url_for, abort
 from flask_login import current_user, login_required
-from datetime import datetime
 
 
 from application.models.event import Event, EventParticipation, categories
 from application.auth.forms import LoginForm
 from application.auth.views import do_login
+from application.events.forms import EventForm, EventRegisterForm
 
-from .forms import EventForm, EventRegisterForm
 
 
 EVENTS = Blueprint('EVENTS', __name__)
@@ -96,12 +97,17 @@ def page_participants():
     """
     Participants Page
     """
-    if not current_user.has_right('guide'):
+    event_id = request.args.get('event_id')
+
+    if not current_user.is_authenticated:
+        return redirect(url_for('auth.login'))
+
+    if not current_user.has_right('guide') and \
+        not current_user.participate_event(event_id):
         abort(403)
 
-    context = {}
-    event_id = request.args.get('event_id')
     event = Event.objects.get(id=event_id)
+    context = {}
 
     context['event'] = event
     return render_template('event_participants.html', **context)
@@ -116,8 +122,6 @@ def page_details():
     event = Event.objects.get(id=event_id)
     login_form = LoginForm(request.form)
     register_form = EventRegisterForm(request.form)
-
-    event_details = {}
 
 
     numbers = event.get_numbers()
@@ -135,6 +139,8 @@ def page_details():
       ('Höhenmeter', event.altitude_difference),
       ('Dauer in Stunden', event.length_h),
     ]
+
+    event_details = {}
     for title, data in detail_fields:
         if data:
             event_details[title] = data
@@ -147,7 +153,7 @@ def page_details():
         'EventRegisterForm': register_form,
     }
 
-    if register_form.validate_on_submit():
+    if current_user.is_authenticated and register_form.validate_on_submit():
         data = request.form
         num_participants = len(event.participations)
         waitinglist = False

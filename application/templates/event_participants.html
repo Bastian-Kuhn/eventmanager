@@ -9,6 +9,12 @@
 </div>
 
 <div class="row">
+    <div class="col-sm-12">
+     <p><a href="{{ url_for('EVENTS.page_details', event_id=event.id) }}">Zum Event</a></p>
+    </div>
+</div>
+
+<div class="row">
 <table class="table table-hover">
   <thead>
     <tr>
@@ -17,11 +23,13 @@
       <th scope="col">Nachname</th>
       <th scope="col">Telefon</th>
       <th scope="col">E-Mail</th>
+    {% if current_user.has_right('guid') %}
       <th scope="col">Gebursdatum</th>
       <th scope="col">Foto Optin</th>
       <th scope="col">Vereinsmitglied</th>
       <th scope="col">Bestätigt</th>
       <th scope="col">Warteliste</th>
+    {% endif %}
     </tr>
   </thead>
   <tbody>
@@ -32,11 +40,13 @@
       <td>{{part.user.last_name}}</td>
       <td>{{part.user.phone}}</td>
       <td>{{part.user.email}}</td>
+    {% if current_user.has_right('guid') %}
       <td>{{part.user.birthdate.date()}}</td>
       <td>{{part.user.media_optin}}</td>
       <td>{{part.user.club_member_confirmed}}</td>
       <td>{{part.confirmed}}</td>
       <td>{{part.waitinglist}}</td>
+    {% endif %}
     </tr>
   {% endfor %}
   </tbody>

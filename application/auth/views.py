@@ -36,11 +36,11 @@ def do_login(login_form, context):
 
     if not (existing_user and existing_user.check_password(password)):
         flash("Wrong Password", 'danger')
-        return render_template('login.html', **context)
+        return False
 
     if existing_user.disabled:
         flash("User Disabled", 'danger')
-        return render_template('login.html', **context)
+        return False
 
     login_user(
         existing_user,
@@ -52,7 +52,8 @@ def do_login(login_form, context):
     existing_user.last_login = datetime.now()
     existing_user.save()
     if existing_user.force_password_change:
-        return redirect(url_for("auth.change_password"))
+        flash("Change Password", 'danger')
+        return False
     return True
 
 @login_manager.user_loader
@@ -77,8 +78,9 @@ def login():
         'LoginForm' : login_form,
     }
     if login_form.login_submit.data and login_form.validate_on_submit():
-        do_login(login_form, context)
-        return redirect("/")
+        login = do_login(login_form, context)
+        if login:
+            return redirect(url_for('events.page_list'))
 
     return render_template('login.html', **context)
 

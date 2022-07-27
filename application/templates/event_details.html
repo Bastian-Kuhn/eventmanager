@@ -7,6 +7,15 @@
     <h1>{{event.event_name}}</h1>
     </div>
 </div>
+
+<div class="row">
+    <div class="col-sm-12">
+    {% if current_user.is_authenticated and (current_user.has_right('guide') or current_user.participate_event(event.id)) %}
+     <p><a href="{{ url_for('EVENTS.page_participants', event_id=event.id) }}">Teilnehmerliste</a></p>
+     {% endif %}
+    </div>
+</div>
+
 <div class="row">
     <div class="col-sm-12">
     <p>{{event.event_description|safe}}</p>

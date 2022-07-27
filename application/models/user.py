@@ -36,8 +36,6 @@ class User(db.Document, UserMixin):
 
     event_registrations = db.ListField(db.ReferenceField(Event))
 
-
-
     pwdhash = db.StringField()
 
     global_admin = db.BooleanField(default=False)
@@ -70,7 +68,7 @@ class User(db.Document, UserMixin):
         """
         Check if user is part of event
         """
-        if event_id in [ str(x.id) for x in self.event_registrations]:
+        if str(event_id) in [ str(x.id) for x in self.event_registrations]:
             return True
         return False
 

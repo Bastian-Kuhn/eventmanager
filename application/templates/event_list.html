@@ -19,8 +19,8 @@
     {% if current_user.is_authenticated and current_user.has_right('guide') %}
         <a class="card-link" href="{{ url_for('EVENTS.page_admin', event_id=event.id) }}">Bearbeiten</a>
     {% endif %}
-    {% if current_user.is_authenticated and current_user.has_right('guide') %}
-        <a class="card-link" href="{{ url_for('EVENTS.page_admin', event_id=event.id) }}">Teilnehmerliste</a>
+    {% if current_user.is_authenticated and (current_user.has_right('guide') or current_user.participate_event(event.id)) %}
+        <a class="card-link" href="{{ url_for('EVENTS.page_participants', event_id=event.id) }}">Teilnehmerliste</a>
     {% endif %}
    </div>
    <div class="card-footer">
