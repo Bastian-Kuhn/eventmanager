@@ -1,10 +1,10 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, RadioField, SubmitField, BooleanField, \
-                    TextAreaField, TimeField, DateField
+                    TextAreaField, TimeField, DateField, SelectField
 from wtforms.widgets import TextArea
 from wtforms.validators import InputRequired, Email, EqualTo, ValidationError
 from flask import current_app
-from application.models.event import difficulties
+from application.models.event import difficulties, categories
 
 
 class EventForm(FlaskForm):
@@ -12,6 +12,7 @@ class EventForm(FlaskForm):
     Event Formular
     """
     event_name = StringField("Touren Name", validators=[InputRequired()])
+    event_category = SelectField("Kategorie", choices=categories)
     event_description = TextAreaField("Beschreibung")
     places = StringField("Plätze")
     waitlist = BooleanField("Mit Warteliste")

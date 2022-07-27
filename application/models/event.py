@@ -41,9 +41,7 @@ class Event(db.Document):
     places = db.IntField()
     waitlist = db.BooleanField()
     start_date = db.DateTimeField()
-    #start_time = db.StringField() #Helper to populate form
     end_date = db.DateTimeField()
-    #end_time = db.StringField() #Helper to populate form
     tour_link = db.StringField()
     difficulty = db.StringField(choices=difficulties)
     length_h = db.StringField()

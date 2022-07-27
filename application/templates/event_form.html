@@ -10,6 +10,7 @@
 
  <fieldset class="form-group">
  {{ wtf.form_field(form.event_name) }}
+ {{ wtf.form_field(form.event_category) }}
  {{ wtf.form_field(form.event_description) }}
  </fieldset>
  <div class="form-row">
@@ -19,18 +20,18 @@
  {{ wtf.form_field(form.end_time, group_css='col-md-3') }}
  </div>
 
+<hr>
  <fieldset class="form-group">
  <div class="row">
        <legend class="col-form-label col-sm-2 pt-0">Teilnehmer</legend>
-        <div class="col-sm-5">
+        <div class="col-sm-12">
          {{ wtf.form_field(form.places) }}
-        </div>
-        <div class="col-sm-5">
          {{ wtf.form_field(form.waitlist) }}
         </div>
  </div>
  </fieldset>
 
+<hr>
  <fieldset class="form-group">
  <div class="row">
        <legend class="col-form-label col-sm-2 pt-0">Schwierigkeit</legend>
@@ -42,7 +43,7 @@
 
  <fieldset class="form-group">
  <div class="row">
-       <legend class="col-form-label col-sm-3 pt-0">Daten</legend>
+       <legend class="col-form-label col-sm-2 pt-0">Tourdaten</legend>
         <div class="col-sm-3">
          {{ wtf.form_field(form.length_h) }}
         </div>
@@ -55,7 +56,7 @@
 
  </div>
  </fieldset>
-
+<hr>
  <fieldset class="form-group">
  <div class="row">
     <div class="col-sm-12">
@@ -63,7 +64,6 @@
     </div>
  </div>
  </fieldset>
-
 
         {{ wtf.form_field(form.submit) }}
 

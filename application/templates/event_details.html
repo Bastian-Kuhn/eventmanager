@@ -13,6 +13,20 @@
     </div>
 </div>
 
+<div class="row">
+    <div class="table-responsive">
+    <table class="table">
+     {% for th, td in event_details %}
+        <tr>
+         <th>{{ th }}</th>
+         <td>{{ td }}</td>
+        <tr>
+     {% endfor %}
+    </table>
+    </div>
+</div>
+
+
 {% if current_user.is_authenticated %}
  {% if current_user.participate_event(event_id) %}
     <div class="card">

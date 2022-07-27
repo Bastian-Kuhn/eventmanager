@@ -8,7 +8,7 @@ from flask_login import current_user, login_required
 from datetime import datetime
 
 
-from application.models.event import Event, EventParticipation
+from application.models.event import Event, EventParticipation, categories
 from application.auth.forms import LoginForm
 from application.auth.views import do_login
 
@@ -49,8 +49,9 @@ def page_list():
         context['events'] = current_user.event_registrations
     else:
         now = datetime.now()
-        context['events'] = Event.objects(start_date__gte=now)
+        context['events'] = Event.objects(start_date__gte=now).order_by('start_date')
         context['header'] = "Alle Events"
+    context['event_categories'] = dict(categories)
 
 
     return render_template('event_list.html', **context)
@@ -116,9 +117,32 @@ def page_details():
     login_form = LoginForm(request.form)
     register_form = EventRegisterForm(request.form)
 
+    event_details = {}
+
+
+    numbers = event.get_numbers()
+
+    detail_fields = [
+      ("Kategorie", dict(categories)[event.event_category]),
+      ("Schwierigkeit", event.difficulty),
+      ("Plätze insgesammt", numbers['total_places']),
+      ("Plätze bestätigt", numbers['confirmed']),
+      ("Plätze unbestätigt", numbers['wait_for_confirm']),
+      ("Auf Warteliste", numbers['waitlist']),
+      ("Start",  event.start_date.strftime("%d.%m.%Y")),
+      ("Zeit am Treffpunkt" , event.start_date.strftime("%H:%M")),
+      ('Länge in km', event.length_km),
+      ('Höhenmeter', event.altitude_difference),
+      ('Dauer in Stunden', event.length_h),
+    ]
+    for title, data in detail_fields:
+        if data:
+            event_details[title] = data
+
     context = {
         'event' : event,
         'event_id': event_id,
+        'event_details' : event_details.items(),
         'LoginForm': login_form,
         'EventRegisterForm': register_form,
     }
