@@ -18,13 +18,14 @@ class EventForm(FlaskForm):
     start_date = DateField("Datum")
     start_time = TimeField("Zeit am Treffpunkt")
     end_date = DateField("Ende Datum")
+    end_time = TimeField("Endezeit der Tour")
     tour_link = StringField("Outdooractive Link")
     difficulty = RadioField("Schwierigkeit", choices=difficulties)
     length_h = StringField("Länge in Stunden")
     length_km= StringField("Strecke in km")
     altitude_difference= StringField("Höhenmeter")
 
-    submit = SubmitField("Anlegen")
+    submit = SubmitField("speichern")
 
 class EventRegisterForm(FlaskForm):
     """

@@ -2,7 +2,7 @@
 {% import 'bootstrap/wtf.html' as wtf %}
 
 {% block page_content %}
-<h1> Neue Tour anlegen</h1>
+<h1> Tourdaten angeben</h1>
 <form method="POST">
 
 {{ form.hidden_tag() }}
@@ -13,9 +13,10 @@
  {{ wtf.form_field(form.event_description) }}
  </fieldset>
  <div class="form-row">
- {{ wtf.form_field(form.start_date, group_css='col-md-4') }}
- {{ wtf.form_field(form.start_time, group_css='col-md-4') }}
- {{ wtf.form_field(form.end_date, group_css='col-md-4') }}
+ {{ wtf.form_field(form.start_date, group_css='col-md-3') }}
+ {{ wtf.form_field(form.start_time, group_css='col-md-3') }}
+ {{ wtf.form_field(form.end_date, group_css='col-md-3') }}
+ {{ wtf.form_field(form.end_time, group_css='col-md-3') }}
  </div>
 
  <fieldset class="form-group">

@@ -36,12 +36,14 @@ class Event(db.Document):
     event_name = db.StringField()
     event_description = db.StringField()
     event_category = db.StringField(choices=categories)
-    event_owner = db.ReferenceField('User')
+    event_owners = db.ListField(db.ReferenceField('User'))
 
     places = db.IntField()
     waitlist = db.BooleanField()
     start_date = db.DateTimeField()
+    #start_time = db.StringField() #Helper to populate form
     end_date = db.DateTimeField()
+    #end_time = db.StringField() #Helper to populate form
     tour_link = db.StringField()
     difficulty = db.StringField(choices=difficulties)
     length_h = db.StringField()
@@ -49,6 +51,11 @@ class Event(db.Document):
     altitude_difference= db.StringField()
 
     participations = db.ListField(db.EmbeddedDocumentField(EventParticipation))
+
+
+    meta = {
+        'strict': False,
+    }
 
 
     def get_numbers(self):

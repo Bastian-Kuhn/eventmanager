@@ -17,6 +17,25 @@ from .forms import EventForm, EventRegisterForm
 
 EVENTS = Blueprint('EVENTS', __name__)
 
+def save_event_form(event):
+    """
+    Helper to store Event Object
+    """
+    if current_user not in event.event_owners:
+        event.event_owners.append(current_user)
+    for field, value in dict(request.form).items():
+        if field in ['start_date', 'end_date']:
+            continue
+        if field in ['waitlist',]:
+            value = bool(value)
+        setattr(event, field, value)
+    start_datetime_str = f"{request.form['start_date']} {request.form['start_time']}"
+    end_datetime_str = f"{request.form['end_date']} {request.form['end_time']}"
+    event.start_date = start_datetime_str
+    event.end_date = end_datetime_str
+    event.save()
+    return True
+
 
 @EVENTS.route('/')
 def page_list():
@@ -41,6 +60,41 @@ def page_admin():
     """
     Admin Page
     """
+    event_id = request.args.get('event_id')
+    event = Event.objects.get(id=event_id)
+    if not current_user.has_right('guide'):
+        abort(403)
+
+    if request.form:
+        form = EventForm(request.form)
+    else:
+        # We store DateTime Fields,
+        # but the Form useses two seperate ones:
+        event.start_time = event.start_date
+        event.end_time = event.end_date
+
+        form = EventForm(obj=event)
+        form.populate_obj(event)
+    if form.validate_on_submit():
+        save_event_form(event)
+        flash("Event wurde aktualisiert", 'info')
+        return redirect(url_for('EVENTS.page_details', event_id=event_id))
+
+    if form.errors:
+        flash("Bitte behebe die angezeigten Fehler in den Feldern", 'danger')
+
+    context = {
+        'form': form
+    }
+
+    context['event'] = event
+    return render_template('event_form.html', **context)
+
+@EVENTS.route('/event/participants', methods=['GET', 'POST'])
+def page_participants():
+    """
+    Participants Page
+    """
     if not current_user.has_right('guide'):
         abort(403)
 
@@ -49,7 +103,7 @@ def page_admin():
     event = Event.objects.get(id=event_id)
 
     context['event'] = event
-    return render_template('event_admin.html', **context)
+    return render_template('event_participants.html', **context)
 
 @EVENTS.route('/event/details', methods=['GET', 'POST'])
 def page_details():
@@ -113,20 +167,7 @@ def page_create():
     form = EventForm(request.form)
     if form.validate_on_submit():
         new_event = Event()
-        for field, value in dict(request.form).items():
-            if field in ['start_date', 'start_time', 'end_date']:
-                continue
-            if field in ['waitlist',]:
-                value = bool(value)
-            setattr(new_event, field, value)
-        start_datetime_str = f"{request.form['start_date']} {request.form['start_time']}"
-        end_datetime_str = f"{request.form['end_date']} 00:00"
-        new_event.start_date = start_datetime_str
-        new_event.end_date = end_datetime_str
-
-        new_event.event_owner = current_user
-
-        new_event.save()
+        save_event_form(new_event)
         flash("Event wurde erzeug", 'info')
         return redirect(url_for('EVENTS.page_details', event_id=str(new_event.id)))
 
@@ -137,4 +178,4 @@ def page_create():
         'form': form
     }
 
-    return render_template('event_create.html', **context)
+    return render_template('event_form.html', **context)
