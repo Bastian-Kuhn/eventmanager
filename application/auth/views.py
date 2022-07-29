@@ -80,7 +80,7 @@ def login():
     if login_form.login_submit.data and login_form.validate_on_submit():
         login = do_login(login_form, context)
         if login:
-            return redirect(url_for('events.page_list'))
+            return redirect(url_for('EVENTS.page_list'))
 
     return render_template('login.html', **context)
 

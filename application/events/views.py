@@ -38,6 +38,37 @@ def save_event_form(event):
     return True
 
 
+def change_confirmation(what):
+    event_id = request.form['event_id']
+    user_id = request.form['user_id']
+    event = Event.objects.get(id=event_id)
+    return event.change_user_status(user_id, what)
+
+@EVENTS.route('/confirm_toggle', methods=['GET', 'POST'])
+def endpoint_userconfirm():
+    """
+    Confirm given User id for given events
+    """
+    if not current_user.has_right('guide'):
+        abort(403)
+    status = request.form['status']
+    if status == "True":
+        return change_confirmation('confirmed')
+    return change_confirmation('unconfirmed')
+
+@EVENTS.route('/waitinglist_toggle', methods=['GET', 'POST'])
+def endpoint_waitinglist():
+    """
+    Confirm given User id for given events
+    """
+    if not current_user.has_right('guide'):
+        abort(403)
+    status = request.form['status']
+    if status == "True":
+        return change_confirmation('waitinglist_on')
+    return change_confirmation('waitinglist_off')
+
+
 @EVENTS.route('/')
 def page_list():
     """
@@ -97,6 +128,7 @@ def page_participants():
     """
     Participants Page
     """
+
     event_id = request.args.get('event_id')
 
     if not current_user.is_authenticated:
@@ -135,6 +167,7 @@ def page_details():
       ("Auf Warteliste", numbers['waitlist']),
       ("Start",  event.start_date.strftime("%d.%m.%Y")),
       ("Zeit am Treffpunkt" , event.start_date.strftime("%H:%M")),
+      ("Ende" , event.end_date.strftime("%d.%m.%Y %H:%M ")),
       ('Länge in km', event.length_km),
       ('Höhenmeter', event.altitude_difference),
       ('Dauer in Stunden', event.length_h),
@@ -189,12 +222,24 @@ def page_create():
     """
     Create New Event Page
     """
-
-
     if not current_user.has_right('guide'):
         abort(403)
 
-    form = EventForm(request.form)
+    event_id = request.args.get('event_id')
+
+    if event_id and not request.form:
+        # Make it possible to clone a event
+        # This populates the form which can be saved as new
+        event = Event.objects.get(id=event_id)
+        # We store DateTime Fields,
+        # but the Form useses two seperate ones:
+        event.start_time = event.start_date
+        event.end_time = event.end_date
+        form = EventForm(obj=event)
+        form.populate_obj(event)
+    else:
+        form = EventForm(request.form)
+
     if form.validate_on_submit():
         new_event = Event()
         save_event_form(new_event)

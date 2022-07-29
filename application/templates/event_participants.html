@@ -4,6 +4,33 @@
 {% block page_content %}
 <div class="row">
     <div class="col-sm-12">
+
+    <ul class="nav nav-tabs">
+      <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('EVENTS.page_details', event_id=event.id) }}">Übersicht</a>
+      </li>
+    {% if current_user.is_authenticated %}
+       {% if current_user.has_right('guide') or current_user.participate_event(event.id) %}
+      <li class="nav-item">
+        <a class="nav-link active" href="{{ url_for('EVENTS.page_participants', event_id=event.id) }}">Teilnehmerliste</a>
+      </li>
+      {% endif %}
+      {% if current_user.has_right('guide') %}
+      <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('EVENTS.page_admin', event_id=event.id) }}">Bearbeiten</a>
+      </li>
+
+      <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('EVENTS.page_create', event_id=event.id) }}">Klonen</a>
+      </li>
+      {% endif %}
+    {% endif %}
+    </ul>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-sm-12">
     <h1>{{event.event_name}}</h1>
     </div>
 </div>
@@ -29,6 +56,8 @@
       <th scope="col">Vereinsmitglied</th>
       <th scope="col">Bestätigt</th>
       <th scope="col">Warteliste</th>
+    {% else %}
+      <th scope="col">Status</th>
     {% endif %}
     </tr>
   </thead>
@@ -38,18 +67,76 @@
       <th scope="row">1</th>
       <td>{{part.user.first_name}}</td>
       <td>{{part.user.last_name}}</td>
-      <td>{{part.user.phone}}</td>
-      <td>{{part.user.email}}</td>
+      <td>{% if part.user.data_optin or current_user.has_right('guide')%}{{part.user.phone}}{%else%} versteckt {% endif %}</td>
+      <td>{% if part.user.data_optin or current_user.has_right('guide')%}{{part.user.email}}{%else%} versteckt {% endif %}</td>
     {% if current_user.has_right('guid') %}
       <td>{{part.user.birthdate.date()}}</td>
       <td>{{part.user.media_optin}}</td>
       <td>{{part.user.club_member_confirmed}}</td>
-      <td>{{part.confirmed}}</td>
-      <td>{{part.waitinglist}}</td>
+      <td><a href="#" class="toggle_confirm" 
+                    data-user-id="{{part.user.id}}" 
+                    data-event-id="{{event.id}}"
+                    data-current="{{part.confirmed}}"
+                    >{{part.confirmed}}</a></td>
+      <td><a href="#" class="toggle_waitlist" 
+                    data-user-id="{{part.user.id}}" 
+                    data-event-id="{{event.id}}"
+                    data-current="{{part.waitinglist}}"
+                    >{{part.waitinglist}}</a></td>
+    {% else %}
+    <td>
+    {% if part.waitinglist %}
+     Warteliste
+     {% elif part.confirmed %}
+     Bestätigt
+     {% else %}
+     Unbekannt
+     {% endif %}
+    </td>
     {% endif %}
     </tr>
   {% endfor %}
   </tbody>
 </table>
 </div>
+{% endblock %}
+
+{% block scripts %}
+{{super()}}
+
+{% if current_user.has_right('guid') %}
+<script type="text/javascript">
+$(document).ready(function(){
+    $('.toggle_confirm').click(function() {
+        var $this=$(this);
+        var $url="{{url_for('EVENTS.endpoint_userconfirm')}}";
+        var $current=$this.data('current');
+        var $event_id=$this.data('event-id');
+        var $user_id=$this.data('user-id');
+        var $new_status = "True";
+        if($current=='True'){
+            $new_status = "False"
+        }
+        $.post( $url, { event_id: $event_id, status: $new_status, user_id: $user_id }, function(data) {
+            console.log(data);
+        });
+    });
+
+    $('.toggle_waitlist').click(function() {
+        var $this=$(this);
+        var $url="{{url_for('EVENTS.endpoint_waitinglist')}}";
+        var $current=$this.data('current');
+        var $event_id=$this.data('event-id');
+        var $user_id=$this.data('user-id');
+        var $new_status = "True";
+        if($current=='True'){
+            $new_status = "False"
+        }
+        $.post( $url, { event_id: $event_id, status: $new_status, user_id: $user_id }, function(data) {
+            console.log(data);
+        });
+    });
+});
+</script>
+{% endif %}
 {% endblock %}

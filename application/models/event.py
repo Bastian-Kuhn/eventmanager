@@ -56,10 +56,45 @@ class Event(db.Document):
     }
 
 
+    def change_user_status(self, userid, status):
+        """
+        Change the given user to giben status
+        """
+        if status not in ['confirmed', 'unconfirmed',
+                          'waitinglist_on', 'waitinglist_off']:
+            raise Exception(f"Unkonwn Status: {status}")
+
+        waitinglist, confirmed = False, False
+        for participation in self.participations:
+            if str(participation.user.id) == userid:
+                if status == "confirmed":
+                    waitinglist = False
+                    confirmed = True
+                elif status == "unconfirmed":
+                    waitinglist = False
+                    confirmed = False
+                elif status == "waitinglist_on":
+                    waitinglist = True
+                    confirmed = False
+                elif status == "waitinglist_off":
+                    waitinglist = False
+                    confirmed = True
+                participation.confirmed = confirmed
+                participation.waitinglist = waitinglist
+                self.save()
+                return {
+                    'confirmed': confirmed,
+                    'waitinglist': waitinglist,
+                }
+        return {
+            'error': True
+        }
+
+
     def get_numbers(self):
         confirmed = 0
         wait_for_confirm = 0
-        waitlist = 0
+        waitinglist = 0
         for participation in self.participations:
             if participation.confirmed:
                 confirmed += 1
@@ -71,7 +106,7 @@ class Event(db.Document):
             'total_places' : self.places,
             'confirmed': confirmed,
             'wait_for_confirm': wait_for_confirm,
-            'waitlist': waitlist,
+            'waitlist': waitinglist,
         }
 
 
