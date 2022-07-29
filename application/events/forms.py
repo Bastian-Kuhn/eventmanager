@@ -2,9 +2,21 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, RadioField, SubmitField, BooleanField, \
                     TextAreaField, TimeField, DateField, SelectField
 from wtforms.widgets import TextArea
-from wtforms.validators import InputRequired, Email, EqualTo, ValidationError
+from wtforms.validators import InputRequired, Email, EqualTo, ValidationError, Optional
 from flask import current_app
 from application.models.event import difficulties, categories
+
+
+class EventSearchForm(FlaskForm):
+    """
+    Formular to filter on event list page
+    """
+    filter_name = StringField("Name", validators=[])
+    filter_category = SelectField("Kategorie", choices=categories)
+    filter_date = DateField("Datum", validators=[Optional()])
+    filter_own = BooleanField("Meine")
+    filter_future = BooleanField("Zukünftige", default="y")
+    filter_send = SubmitField("Filter")
 
 
 class EventForm(FlaskForm):

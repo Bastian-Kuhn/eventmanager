@@ -3,7 +3,7 @@ Login Routes and Handling for Frontend
 """
 # pylint: disable=no-member
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import request, render_template, \
      flash, redirect, Blueprint, url_for, abort
 from flask_login import current_user, login_required
@@ -12,7 +12,7 @@ from flask_login import current_user, login_required
 from application.models.event import Event, EventParticipation, categories
 from application.auth.forms import LoginForm
 from application.auth.views import do_login
-from application.events.forms import EventForm, EventRegisterForm
+from application.events.forms import EventForm, EventRegisterForm, EventSearchForm
 
 
 
@@ -69,21 +69,81 @@ def endpoint_waitinglist():
     return change_confirmation('waitinglist_off')
 
 
-@EVENTS.route('/')
+@EVENTS.route('/', methods=['POST', 'GET'])
 def page_list():
     """
     Public Page with Events
     """
-    event_filter = request.args.get('filter')
     context = {}
-    if event_filter == 'my_events':
-        context['header'] = "Meine Events"
-        context['events'] = current_user.event_registrations
+    search_form = EventSearchForm(request.form)
+    now = datetime.now()
+    filters = {}
+    filter_names = []
+    filter_expr = {}
+    search = False
+
+    if search_form.validate_on_submit():
+        filters = request.form
+        search = True
+
+    if not search:
+        filters['filter_future'] = 'y'
+        filters['filter_category'] = 'None'
+        search_form.filter_future.data = 'y'
+        if request.args.get('filter') == 'my_events':
+            filters['filter_own'] = 'y'
+            search_form.filter_own.data = 'y'
+
+    print(filters)
+    # We need to check this filte
+    filter_date = filters.get('filter_date')
+    filter_future = filters.get('filter_future')
+
+
+
+    if filter_name := filters.get('filter_name'):
+        filter_expr['event_name__icontains'] = filter_name
+        filter_names.append(f"Name enthält: {filter_name}")
+
+    filter_category = filters.get('filter_category')
+    if filter_category != "None":
+        filter_expr['event_category'] = filter_category
+        filter_names.append(f"Kategorie ist: {dict(categories)[filter_category]}")
+
+
+    if filter_date:
+        # If Date Filteres,
+        # Disable future Filter 
+        filter_future = False
+        search_form.filter_future.data = False
+        date_start = datetime.strptime(filter_date, "%Y-%m-%d")
+        date_end = datetime.strptime(filter_date, "%Y-%m-%d") + timedelta(hours=24)
+        filter_expr['start_date__gte'] = date_start
+        filter_expr['start_date__lte'] = date_end
+        filter_names.append(f"Zeitpunkt: {filter_date}")
+
+    if filter_future == 'y':
+        filter_expr['start_date__gte'] = now
+        filter_names.append(f"Zeitpunkt: Zukünftige")
+
+    events = Event.objects(**filter_expr).order_by('start_date')
+    result = []
+    if filter_own := filters.get('filter_own'):
+        filter_names.append("Angemeldet")
+        for event in events:
+            if event in current_user.event_registrations or \
+                current_user in event.event_owners:
+                result.append(event)
     else:
-        now = datetime.now()
-        context['events'] = Event.objects(start_date__gte=now).order_by('start_date')
-        context['header'] = "Alle Events"
+        result = events
+    context['events'] = result
+
+    if filter_names:
+        context['header'] = f"Filter: {', '.join(filter_names)}"
+    else:
+        context['header'] = "Events"
     context['event_categories'] = dict(categories)
+    context['search_form'] = search_form
 
 
     return render_template('event_list.html', **context)

@@ -13,6 +13,7 @@ difficulties = [
 
 
 categories = [
+ (None, "Kategorie"),
  ('mtb', "Mountain Bike"),
  ('skitour', "Skitour"),
  ('hike', "Wandern"),
