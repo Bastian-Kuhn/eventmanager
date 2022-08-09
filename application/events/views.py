@@ -9,7 +9,7 @@ from flask import request, render_template, \
 from flask_login import current_user, login_required
 
 
-from application.models.event import Event, EventParticipation, categories
+from application.events.models import Event, EventParticipation, categories
 from application.auth.forms import LoginForm
 from application.auth.views import do_login
 from application.events.forms import EventForm, EventRegisterForm, EventSearchForm
@@ -25,13 +25,17 @@ def save_event_form(event):
     if current_user not in event.event_owners:
         event.event_owners.append(current_user)
     for field, value in dict(request.form).items():
-        if field in ['start_date', 'end_date']:
+        if field in ['start_date', 'end_date', 'booking_from', 'booking_until']:
             continue
         if field in ['waitlist',]:
             value = bool(value)
         setattr(event, field, value)
     start_datetime_str = f"{request.form['start_date']} {request.form['start_time']}"
     end_datetime_str = f"{request.form['end_date']} {request.form['end_time']}"
+    book_start_datetime_str = f"{request.form['booking_from']} {request.form['booking_from_time']}"
+    book_end_datetime_str = f"{request.form['booking_until']} {request.form['booking_until_time']}"
+    event.booking_from = book_start_datetime_str
+    event.booking_until = book_end_datetime_str
     event.start_date = start_datetime_str
     event.end_date = end_datetime_str
     event.save()
@@ -94,7 +98,6 @@ def page_list():
             filters['filter_own'] = 'y'
             search_form.filter_own.data = 'y'
 
-    print(filters)
     # We need to check this filte
     filter_date = filters.get('filter_date')
     filter_future = filters.get('filter_future')
@@ -113,7 +116,7 @@ def page_list():
 
     if filter_date:
         # If Date Filteres,
-        # Disable future Filter 
+        # Disable future Filter
         filter_future = False
         search_form.filter_future.data = False
         date_start = datetime.strptime(filter_date, "%Y-%m-%d")
@@ -124,11 +127,11 @@ def page_list():
 
     if filter_future == 'y':
         filter_expr['start_date__gte'] = now
-        filter_names.append(f"Zeitpunkt: Zukünftige")
+        filter_names.append("Zeitpunkt: Zukünftige")
 
     events = Event.objects(**filter_expr).order_by('start_date')
     result = []
-    if filter_own := filters.get('filter_own'):
+    if filters.get('filter_own'):
         filter_names.append("Angemeldet")
         for event in events:
             if event in current_user.event_registrations or \
@@ -225,6 +228,8 @@ def page_details():
       ("Plätze bestätigt", numbers['confirmed']),
       ("Plätze unbestätigt", numbers['wait_for_confirm']),
       ("Auf Warteliste", numbers['waitlist']),
+      ("Buchbar ab" , event.booking_from.strftime("%d.%m.%Y %H:%M ")),
+      ("Buchbar bis" , event.booking_until.strftime("%d.%m.%Y %H:%M ")),
       ("Start",  event.start_date.strftime("%d.%m.%Y")),
       ("Zeit am Treffpunkt" , event.start_date.strftime("%H:%M")),
       ("Ende" , event.end_date.strftime("%d.%m.%Y %H:%M ")),
@@ -257,6 +262,14 @@ def page_details():
             else:
                 flash("Das Event ist bereits voll", 'danger')
                 register_possible = False
+        now = datetime.now()
+        if event.start_date < now:
+            flash("Das Event hat bereits stattgefunden", 'danger')
+            register_possible = False
+
+        if event.booking_until < now or event.booking_from > now:
+            flash("Die Anmeldung auf das Event ist noch nicht freigeschaltet", 'danger')
+            register_possible = False
 
         if register_possible and not current_user.participate_event(event_id):
             current_user.add_event(event)

@@ -3,6 +3,7 @@
 # pylint: disable=wrong-import-position
 import os
 from datetime import datetime
+import base64
 from pprint import pformat
 from redis import Redis
 from flask import Flask, session, request, send_from_directory
@@ -84,6 +85,21 @@ except ImportError:
 
 
 
+
+
+from application.models.config import Config
+from application.views.config import ConfigModelView
+
+@app.before_request
+def set_style():
+    try:
+        style = Config.objects(enabled=True)[0]
+        app.config['style_nav_background_color'] = style.nav_background_color
+        app.config['style_brand_logo'] = "data:image/png;base64,"+base64.b64encode(style.logo_image.read()).decode('utf-8')
+        app.config['event_categories'] = style.event_categories
+    except:
+        app.config['style_nav_background_color'] = 'black'
+
 from application.models.log import LogEntry
 from application.views.log import LogView
 
@@ -137,8 +153,8 @@ from application.views.default import CustomModelView
 from application.models.user import User
 from application.views.user import UserView
 
-from application.models.event import Event
-from application.views.event import EventView
+from application.events.models import Event
+from application.events.admin import EventView
 
 
 admin = Admin(app, name="Admin", template_mode='bootstrap4',
@@ -147,6 +163,7 @@ admin = Admin(app, name="Admin", template_mode='bootstrap4',
 #System
 admin.add_view(EventView(Event))
 admin.add_view(UserView(User, category='System'))
+admin.add_view(ConfigModelView(Config, category='System'))
 admin.add_view(LogView(LogEntry, name="Log", category="System"))
 
 admin.add_link(MenuLink(name='Logout', category='', url="/logout"))

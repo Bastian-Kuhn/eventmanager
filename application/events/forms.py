@@ -4,7 +4,7 @@ from wtforms import StringField, PasswordField, RadioField, SubmitField, Boolean
 from wtforms.widgets import TextArea
 from wtforms.validators import InputRequired, Email, EqualTo, ValidationError, Optional
 from flask import current_app
-from application.models.event import difficulties, categories
+from application.events.models import difficulties, categories
 
 
 class EventSearchForm(FlaskForm):
@@ -28,6 +28,10 @@ class EventForm(FlaskForm):
     event_description = TextAreaField("Beschreibung")
     places = StringField("Plätze")
     waitlist = BooleanField("Mit Warteliste")
+    booking_from = DateField("Buchbar ab")
+    booking_from_time = TimeField("Zeit")
+    booking_until = DateField("Buchbar bis")
+    booking_until_time = TimeField("Zeit")
     start_date = DateField("Datum")
     start_time = TimeField("Zeit am Treffpunkt")
     end_date = DateField("Ende Datum")

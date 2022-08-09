@@ -1,7 +1,7 @@
 """
 Events
 """
-from application import db
+from application import db, config
 
 difficulties = [
   ("sehr leicht", "Sehr Leicht"),
@@ -41,6 +41,8 @@ class Event(db.Document):
 
     places = db.IntField()
     waitlist = db.BooleanField()
+    booking_from = db.DateTimeField()
+    booking_until = db.DateTimeField()
     start_date = db.DateTimeField()
     end_date = db.DateTimeField()
     tour_link = db.StringField()

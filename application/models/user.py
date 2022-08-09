@@ -7,7 +7,7 @@ from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from authlib.jose import jwt, JoseError
 from application import db
-from application.models.event import Event
+from application.events.models import Event
 
 roles = [
   ('no_member', "Kein Vereinsmitglied"),
