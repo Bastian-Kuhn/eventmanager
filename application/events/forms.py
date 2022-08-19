@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, RadioField, SubmitField, BooleanField, \
-                    TextAreaField, TimeField, DateField, SelectField
+                    TextAreaField, TimeField, DateField, SelectField, FieldList, FormField
 from wtforms.widgets import TextArea
 from wtforms.validators import InputRequired, Email, EqualTo, ValidationError, Optional
 from flask import current_app
@@ -41,12 +41,13 @@ class EventForm(FlaskForm):
     length_h = StringField("Länge in Stunden")
     length_km= StringField("Strecke in km")
     altitude_difference= StringField("Höhenmeter")
+    custom_fields = StringField("Extra Fragen an Teilnehmer, Komma getrennt")
 
     submit = SubmitField("speichern")
+
 
 class EventRegisterForm(FlaskForm):
     """
     Event Register Formular
     """
     comment = TextAreaField("Kommentar", validators=[InputRequired()])
-    submit = SubmitField("Anmelden")

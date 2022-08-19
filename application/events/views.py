@@ -7,9 +7,10 @@ from datetime import datetime, timedelta
 from flask import request, render_template, \
      flash, redirect, Blueprint, url_for, abort
 from flask_login import current_user, login_required
+from wtforms import StringField, SubmitField
 
 
-from application.events.models import Event, EventParticipation, categories
+from application.events.models import Event, EventParticipation, categories, CustomField
 from application.auth.forms import LoginForm
 from application.auth.views import do_login
 from application.events.forms import EventForm, EventRegisterForm, EventSearchForm
@@ -38,11 +39,17 @@ def save_event_form(event):
     event.booking_until = book_end_datetime_str
     event.start_date = start_datetime_str
     event.end_date = end_datetime_str
+    event.custom_fields = []
+    for custom_field in [x.strip() for x in request.form['custom_fields'].split(',')]:
+        event.custom_fields.append(custom_field)
     event.save()
     return True
 
 
 def change_confirmation(what):
+    """
+    Helper
+    """
     event_id = request.form['event_id']
     user_id = request.form['user_id']
     event = Event.objects.get(id=event_id)
@@ -168,6 +175,10 @@ def page_admin():
         # but the Form useses two seperate ones:
         event.start_time = event.start_date
         event.end_time = event.end_date
+        event.booking_until_time = event.booking_until
+        event.booking_from_time = event.booking_from
+        event.custom_fields = ", ".join(event.custom_fields)
+
 
         form = EventForm(obj=event)
         form.populate_obj(event)
@@ -216,6 +227,12 @@ def page_details():
 
     event = Event.objects.get(id=event_id)
     login_form = LoginForm(request.form)
+
+    custom_fields = event.custom_fields
+
+    for field_name in custom_fields:
+        setattr(EventRegisterForm, field_name, StringField(field_name))
+    setattr(EventRegisterForm, "submit", SubmitField("Anmelden"))
     register_form = EventRegisterForm(request.form)
 
 
@@ -274,6 +291,12 @@ def page_details():
         if register_possible and not current_user.participate_event(event_id):
             current_user.add_event(event)
             new_participation = EventParticipation()
+            for field_name in custom_fields:
+                custom_field = CustomField()
+                custom_field.name = field_name
+                custom_field.value = data[field_name]
+                new_participation.custom_fields.append(custom_field)
+
             new_participation.comment = data['comment']
             new_participation.user = current_user
             new_participation.waitinglist = waitinglist

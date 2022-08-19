@@ -20,6 +20,11 @@ categories = [
  ('alpine_tour', "Hochtour"),
  ('ski_alpine_tour', "Ski Hochtour"),
 ]
+class CustomField(db.EmbeddedDocument):
+    """ Extra Questions """
+    name = db.StringField()
+    value = db.StringField()
+
 
 class EventParticipation(db.EmbeddedDocument):
     """
@@ -28,9 +33,17 @@ class EventParticipation(db.EmbeddedDocument):
 
     user = db.ReferenceField('User')
 
+    custom_fields = db.ListField(db.EmbeddedDocumentField(CustomField))
+
     comment = db.StringField()
     confirmed = db.BooleanField(default=False)
     waitinglist = db.BooleanField(default=False)
+
+    def get_field(self, fieldname):
+        """
+        Return given field from participation
+        """
+        return {x.name: x.value for x in self.custom_fields }.get(fieldname, 'ubk')
 
 
 class Event(db.Document):
@@ -50,6 +63,8 @@ class Event(db.Document):
     length_h = db.StringField()
     length_km= db.StringField()
     altitude_difference= db.StringField()
+
+    custom_fields = db.ListField(db.StringField())
 
     participations = db.ListField(db.EmbeddedDocumentField(EventParticipation))
 

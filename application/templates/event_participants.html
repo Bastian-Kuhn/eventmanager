@@ -50,12 +50,16 @@
       <th scope="col">Nachname</th>
       <th scope="col">Telefon</th>
       <th scope="col">E-Mail</th>
-    {% if current_user.has_right('guid') %}
+    {% if current_user.has_right('guide') %}
       <th scope="col">Gebursdatum</th>
       <th scope="col">Foto Optin</th>
       <th scope="col">Vereinsmitglied</th>
       <th scope="col">Bestätigt</th>
       <th scope="col">Warteliste</th>
+      <th scope="col">Kommentar</th>
+      {% for custom_field in event.custom_fields %}
+        <th scope="col">{{ custom_field }}</td>
+      {% endfor %}
     {% else %}
       <th scope="col">Status</th>
     {% endif %}
@@ -83,6 +87,10 @@
                     data-event-id="{{event.id}}"
                     data-current="{{part.waitinglist}}"
                     >{{part.waitinglist}}</a></td>
+    <td>{{part.comment}}</td>
+     {% for field in event.custom_fields %}
+        <td>{{ part.get_field(field) }}</td>
+      {% endfor %}
     {% else %}
     <td>
     {% if part.waitinglist %}
