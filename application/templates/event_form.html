@@ -104,13 +104,68 @@
  </div>
  </fieldset>
  <hr>
- <fieldset class="form-group">
- <div class="row">
-    <div class="col-sm-12">
-        {{ wtf.form_field(form.custom_fields) }}
-    </div>
- </div>
- </fieldset>
+ <h2>Extra Fragen an Teilnehmer</h2>
+<fieldset class="form-group">
+<div id="custom_fields">
+    {% for field in form.custom_fields %}
+    {{ field.form.hidden_tag() }}
+      <div class="fieldref" id="{{ field.id }}">
+       <div class="row">
+        <div class="col-sm-12">
+         <div class="form-group">
+             {{ field.form.field_name.label(class_="control-label") }}
+             {{ field.form.field_name(class_="form-control") }}
+         </div>
+        </div>
+       </div>
+      </div>
+    {% endfor %}
+</div>
+</fieldset>
+<div id="add_field_row" class="row">
+ <button type="button" id="add_field" class="btn pull-right glyphicon glyphicon-plus">Weitere Frage</button>
+</div>
+<hr>
+ <h2>Tickets</h2>
+<fieldset class="form-group">
+<div id="tickets">
+    {% for field in form.tickets %}
+    {{ field.form.hidden_tag() }}
+      <div class="ticketref" id="{{ field.id }}">
+       <div class="row">
+
+        <div class="col-sm-3">
+         <div class="form-group">
+             {{ field.form.name.label(class_="control-label") }}
+             {{ field.form.name(class_="form-control") }}
+         </div>
+        </div>
+        <div class="col-sm-3">
+         <div class="form-group">
+             {{ field.form.description.label(class_="control-label") }}
+             {{ field.form.description(class_="form-control") }}
+         </div>
+        </div>
+        <div class="col-sm-3">
+         <div class="form-group">
+             {{ field.form.price.label(class_="control-label") }}
+             {{ field.form.price(class_="form-control") }}
+         </div>
+        </div>
+        <div class="col-sm-3">
+         <div class="form-group">
+             {{ field.form.maximum_tickets.label(class_="control-label") }}
+             {{ field.form.maximum_tickets(class_="form-control") }}
+         </div>
+        </div>
+       </div>
+      </div>
+    {% endfor %}
+</div>
+</fieldset>
+<div id="add_ticket_row" class="row">
+ <button type="button" id="add_ticket" class="btn pull-right glyphicon glyphicon-plus">Weiteres Ticket</button>
+</div>
 <hr>
  <fieldset class="form-group">
  <div class="row">

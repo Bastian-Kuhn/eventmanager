@@ -10,10 +10,20 @@ from flask_login import current_user, login_required
 from wtforms import StringField, SubmitField
 
 
-from application.events.models import Event, EventParticipation, categories, CustomField
+from application.events.models import Event, EventParticipation, categories, CustomField, CustomFieldDefintion, Ticket
 from application.auth.forms import LoginForm
 from application.auth.views import do_login
 from application.events.forms import EventForm, EventRegisterForm, EventSearchForm
+
+
+class DictObj:
+    def __init__(self, in_dict:dict):
+        assert isinstance(in_dict, dict)
+        for key, val in in_dict.items():
+            if isinstance(val, (list, tuple)):
+               setattr(self, key, [DictObj(x) if isinstance(x, dict) else x for x in val])
+            else:
+               setattr(self, key, DictObj(val) if isinstance(val, dict) else val)
 
 
 
@@ -40,8 +50,16 @@ def save_event_form(event):
     event.start_date = start_datetime_str
     event.end_date = end_datetime_str
     event.custom_fields = []
-    for custom_field in [x.strip() for x in request.form['custom_fields'].split(',')]:
-        event.custom_fields.append(custom_field)
+    event.tickets = []
+    for key, value in request.form.items():
+        if key.startswith('custom_fields-') and not key.endswith("csrf_token"):
+            if value:
+                new_field = CustomFieldDefintion()
+                new_field.field_name = value
+                event.custom_fields.append(new_field)
+        if key.startswith('tickets-') and not key.endswith("csrf_token"):
+            # @TODO Save Ticket data
+            pass
     event.save()
     return True
 
@@ -177,8 +195,9 @@ def page_admin():
         event.end_time = event.end_date
         event.booking_until_time = event.booking_until
         event.booking_from_time = event.booking_from
-        event.custom_fields = ", ".join(event.custom_fields)
 
+        template_field = DictObj({'field_name': None})
+        event.custom_fields.insert(0, template_field)
 
         form = EventForm(obj=event)
         form.populate_obj(event)
@@ -188,6 +207,7 @@ def page_admin():
         return redirect(url_for('EVENTS.page_details', event_id=event_id))
 
     if form.errors:
+        print(form.errors)
         flash("Bitte behebe die angezeigten Fehler in den Feldern", 'danger')
 
     context = {
@@ -230,40 +250,56 @@ def page_details():
 
     custom_fields = event.custom_fields
 
-    for field_name in custom_fields:
+    for field in custom_fields:
+        field_name = field.field_name
         setattr(EventRegisterForm, field_name, StringField(field_name))
     setattr(EventRegisterForm, "submit", SubmitField("Anmelden"))
+
     register_form = EventRegisterForm(request.form)
 
 
     numbers = event.get_numbers()
 
+    def format_ticket(lines):
+        """ Format Helper for EmbeddedDocument
+        """
+        table = []
+        for line in lines:
+            table.append([
+              ('Name', line.name),
+              ('Beschreibung', line.description),
+              ('Preis Euro', line.price),
+              ('Anzahl', line.maximum_tickets),
+            ])
+        return table
+
     detail_fields = [
-      ("Kategorie", dict(categories)[event.event_category]),
-      ("Schwierigkeit", event.difficulty),
-      ("Plätze insgesammt", numbers['total_places']),
-      ("Plätze bestätigt", numbers['confirmed']),
-      ("Plätze unbestätigt", numbers['wait_for_confirm']),
-      ("Auf Warteliste", numbers['waitlist']),
-      ("Buchbar ab" , event.booking_from.strftime("%d.%m.%Y %H:%M ")),
-      ("Buchbar bis" , event.booking_until.strftime("%d.%m.%Y %H:%M ")),
-      ("Start",  event.start_date.strftime("%d.%m.%Y")),
-      ("Zeit am Treffpunkt" , event.start_date.strftime("%H:%M")),
-      ("Ende" , event.end_date.strftime("%d.%m.%Y %H:%M ")),
-      ('Länge in km', event.length_km),
-      ('Höhenmeter', event.altitude_difference),
-      ('Dauer in Stunden', event.length_h),
+      ("Kategorie", dict(categories)[event.event_category], 'string'),
+      ("Schwierigkeit", event.difficulty, 'string'),
+      ("Plätze insgesammt", numbers['total_places'], 'string'),
+      ("Plätze bestätigt", numbers['confirmed'], 'string'),
+      ("Plätze unbestätigt", numbers['wait_for_confirm'], 'string'),
+      ("Auf Warteliste", numbers['waitlist'], 'string'),
+      ("Buchbar ab" , event.booking_from.strftime("%d.%m.%Y %H:%M "), 'string'),
+      ("Buchbar bis" , event.booking_until.strftime("%d.%m.%Y %H:%M "), 'string'),
+      ("Start",  event.start_date.strftime("%d.%m.%Y"), 'string'),
+      ("Zeit am Treffpunkt" , event.start_date.strftime("%H:%M"), 'string'),
+      ("Ende" , event.end_date.strftime("%d.%m.%Y %H:%M "), 'string'),
+      ('Länge in km', event.length_km, 'string'),
+      ('Höhenmeter', event.altitude_difference, 'string'),
+      ('Dauer in Stunden', event.length_h, 'string'),
+      ('Tickets', format_ticket(event.tickets), 'table'),
     ]
 
     event_details = {}
-    for title, data in detail_fields:
+    for title, data, mode in detail_fields:
         if data:
-            event_details[title] = data
+            event_details[title] = (data, mode)
 
     context = {
         'event' : event,
         'event_id': event_id,
-        'event_details' : event_details.items(),
+        'event_details' : [(x, y[0], y[1]) for x, y in event_details.items()],
         'LoginForm': login_form,
         'EventRegisterForm': register_form,
     }
@@ -331,6 +367,15 @@ def page_create():
         # but the Form useses two seperate ones:
         event.start_time = event.start_date
         event.end_time = event.end_date
+        event.booking_until_time = event.booking_until
+        event.booking_from_time = event.booking_from
+        # Add Template Field
+        template_field = DictObj({'field_name': None})
+        event.custom_fields.insert(0, template_field)
+
+        ticket_template = DictObj({'name': None, 'maximum_tickets': 0, 'price': 0.0})
+        event.tickets.insert(0, ticket_template)
+
         form = EventForm(obj=event)
         form.populate_obj(event)
     else:
@@ -343,6 +388,7 @@ def page_create():
         return redirect(url_for('EVENTS.page_details', event_id=str(new_event.id)))
 
     if form.errors:
+        print(form.errors)
         flash("Bitte behebe die angezeigten Fehler in den Feldern", 'danger')
 
     context = {

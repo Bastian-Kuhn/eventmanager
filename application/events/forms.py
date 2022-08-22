@@ -1,6 +1,7 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, RadioField, SubmitField, BooleanField, \
-                    TextAreaField, TimeField, DateField, SelectField, FieldList, FormField
+                    TextAreaField, TimeField, DateField, SelectField, FieldList, FormField, \
+                    IntegerField, FloatField
 from wtforms.widgets import TextArea
 from wtforms.validators import InputRequired, Email, EqualTo, ValidationError, Optional
 from flask import current_app
@@ -18,6 +19,27 @@ class EventSearchForm(FlaskForm):
     filter_future = BooleanField("Zukünftige", default="y")
     filter_send = SubmitField("Filter")
 
+
+class EventCustomField(FlaskForm):
+    """
+    Custom Field
+    """
+    def __init__(self, csrf_enabled=False, *args, **kwargs):
+        super().__init__(csrf_enabled=csrf_enabled, *args, **kwargs)
+
+    field_name = StringField("Extra Frage")
+
+class TicketForm(FlaskForm):
+    """
+    Custom Field
+    """
+    def __init__(self, csrf_enabled=False, *args, **kwargs):
+        super().__init__(csrf_enabled=csrf_enabled, *args, **kwargs)
+
+    name = StringField("Name")
+    description = StringField("Beschreibung")
+    price = FloatField("Preis")
+    maximum_tickets = IntegerField("Anzahl")
 
 class EventForm(FlaskForm):
     """
@@ -41,7 +63,8 @@ class EventForm(FlaskForm):
     length_h = StringField("Länge in Stunden")
     length_km= StringField("Strecke in km")
     altitude_difference= StringField("Höhenmeter")
-    custom_fields = StringField("Extra Fragen an Teilnehmer, Komma getrennt")
+    custom_fields = FieldList(FormField(EventCustomField), min_entries=2)
+    tickets = FieldList(FormField(TicketForm), min_entries=2)
 
     submit = SubmitField("speichern")
 

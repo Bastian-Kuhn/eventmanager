@@ -44,10 +44,25 @@
 <div class="row">
     <div class="table-responsive">
     <table class="table">
-     {% for th, td in event_details %}
+     {% for th, td, mode in event_details %}
         <tr>
          <th>{{ th }}</th>
+         {% if mode == 'string' %}
          <td>{{ td }}</td>
+         {% elif mode == 'table' %}
+         <td>
+         <table class='table'>
+         {% for subtable in td %}
+         <tr>
+          {% for sub_th, sub_td in subtable %}
+          <th>{{sub_th}}</th>
+          <td>{{sub_td}}</td>
+          {% endfor %}
+         </tr>
+         {% endfor %}
+         </table>
+         </td>
+         {% endif %}
         <tr>
      {% endfor %}
     </table>

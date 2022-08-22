@@ -20,6 +20,20 @@ categories = [
  ('alpine_tour', "Hochtour"),
  ('ski_alpine_tour', "Ski Hochtour"),
 ]
+
+class Ticket(db.EmbeddedDocument):
+    """
+    Tickets to buy with event
+    """
+    name = db.StringField()
+    description = db.StringField()
+    price = db.FloatField()
+    maximum_tickets = db.IntField()
+
+class CustomFieldDefintion(db.EmbeddedDocument):
+    """ Extra Questions """
+    field_name = db.StringField()
+
 class CustomField(db.EmbeddedDocument):
     """ Extra Questions """
     name = db.StringField()
@@ -64,9 +78,11 @@ class Event(db.Document):
     length_km= db.StringField()
     altitude_difference= db.StringField()
 
-    custom_fields = db.ListField(db.StringField())
+    custom_fields = db.ListField(db.EmbeddedDocumentField(CustomFieldDefintion))
 
     participations = db.ListField(db.EmbeddedDocumentField(EventParticipation))
+    tickets = db.ListField(db.EmbeddedDocumentField(Ticket))
+
 
 
     meta = {
