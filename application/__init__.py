@@ -23,7 +23,7 @@ app = Flask(__name__)
 if os.environ.get('config') == "prod":
     print(" * Loading PROD Config")
     app.config.from_object('application.config.ProductionConfig')
-elif os.environ.get('config') == "prod_compose":
+elif os.environ.get('config') in ["prod_compose", "compose"]:
     print(" * Loading PROD Compose Config")
     app.config.from_object('application.config.ComposeProdConfig')
 else:

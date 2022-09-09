@@ -19,7 +19,7 @@ $( document ).ready(function() {
     $('#add_ticket').click(function(){
         var new_id = $('.ticketref').length;
         var last_id = new_id - 1;
-        var new_element = ticket_template.replace(/tickets-0/g, 'ticketss-'+new_id);
+        var new_element = ticket_template.replace(/tickets-0/g, 'tickets-'+new_id);
 
        $('#tickets').append('<div class="ticketref" id="tickets-'+new_id+'">'+new_element+'</div>');
 

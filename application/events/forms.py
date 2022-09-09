@@ -5,7 +5,7 @@ from wtforms import StringField, PasswordField, RadioField, SubmitField, Boolean
 from wtforms.widgets import TextArea
 from wtforms.validators import InputRequired, Email, EqualTo, ValidationError, Optional
 from flask import current_app
-from application.events.models import difficulties, categories
+from application.events.models import difficulties, categories, Ticket, CustomField
 
 
 class EventSearchForm(FlaskForm):
@@ -25,7 +25,10 @@ class EventCustomField(FlaskForm):
     Custom Field
     """
     def __init__(self, csrf_enabled=False, *args, **kwargs):
-        super().__init__(csrf_enabled=csrf_enabled, *args, **kwargs)
+        """
+        Disable CSRF
+        """
+        super().__init__(csrf_enabled=False, *args, **kwargs)
 
     field_name = StringField("Extra Frage")
 
@@ -34,12 +37,15 @@ class TicketForm(FlaskForm):
     Custom Field
     """
     def __init__(self, csrf_enabled=False, *args, **kwargs):
-        super().__init__(csrf_enabled=csrf_enabled, *args, **kwargs)
+        """
+        Disable CSRF
+        """
+        super().__init__(csrf_enabled=False, *args, **kwargs)
 
-    name = StringField("Name")
-    description = StringField("Beschreibung")
-    price = FloatField("Preis")
-    maximum_tickets = IntegerField("Anzahl")
+    name = StringField("Name", validators=[Optional()])
+    description = StringField("Beschreibung", validators=[Optional()])
+    price = FloatField("Preis", validators=[Optional()])
+    maximum_tickets = IntegerField("Anzahl", validators=[Optional()])
 
 class EventForm(FlaskForm):
     """
@@ -63,8 +69,8 @@ class EventForm(FlaskForm):
     length_h = StringField("Länge in Stunden")
     length_km= StringField("Strecke in km")
     altitude_difference= StringField("Höhenmeter")
-    custom_fields = FieldList(FormField(EventCustomField), min_entries=2)
-    tickets = FieldList(FormField(TicketForm), min_entries=2)
+    custom_fields = FieldList(FormField(EventCustomField), min_entries=1)
+    tickets = FieldList(FormField(TicketForm), min_entries=1)
 
     submit = SubmitField("speichern")
 

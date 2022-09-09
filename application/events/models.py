@@ -31,11 +31,11 @@ class Ticket(db.EmbeddedDocument):
     maximum_tickets = db.IntField()
 
 class CustomFieldDefintion(db.EmbeddedDocument):
-    """ Extra Questions """
+    """ Extra Questions for Events """
     field_name = db.StringField()
 
 class CustomField(db.EmbeddedDocument):
-    """ Extra Questions """
+    """ Extra Questions for Participants"""
     name = db.StringField()
     value = db.StringField()
 

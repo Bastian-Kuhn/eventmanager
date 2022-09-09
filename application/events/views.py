@@ -10,7 +10,8 @@ from flask_login import current_user, login_required
 from wtforms import StringField, SubmitField
 
 
-from application.events.models import Event, EventParticipation, categories, CustomField, CustomFieldDefintion, Ticket
+from application.events.models import Event, EventParticipation,\
+                            categories, CustomField, CustomFieldDefintion, Ticket
 from application.auth.forms import LoginForm
 from application.auth.views import do_login
 from application.events.forms import EventForm, EventRegisterForm, EventSearchForm
@@ -21,13 +22,29 @@ class DictObj:
         assert isinstance(in_dict, dict)
         for key, val in in_dict.items():
             if isinstance(val, (list, tuple)):
-               setattr(self, key, [DictObj(x) if isinstance(x, dict) else x for x in val])
+                setattr(self, key, [DictObj(x) if isinstance(x, dict) else x for x in val])
             else:
-               setattr(self, key, DictObj(val) if isinstance(val, dict) else val)
+                setattr(self, key, DictObj(val) if isinstance(val, dict) else val)
 
 
 
 EVENTS = Blueprint('EVENTS', __name__)
+
+def populate_event_form(form, event):
+    """
+    Since the Event Form needs some preperations,
+    We do this in a central place
+
+    Beware: Donst save event object after this function
+    """
+    # Add Template Field
+    template_field = DictObj({'field_name': None})
+    event.custom_fields.insert(0, template_field)
+
+    ticket_template = DictObj({'name': None, 'maximum_tickets': 0, 'price': 0.0})
+    event.tickets.insert(0, ticket_template)
+
+    form.populate_obj(event)
 
 def save_event_form(event):
     """
@@ -51,6 +68,7 @@ def save_event_form(event):
     event.end_date = end_datetime_str
     event.custom_fields = []
     event.tickets = []
+    ticket_collector = {}
     for key, value in request.form.items():
         if key.startswith('custom_fields-') and not key.endswith("csrf_token"):
             if value:
@@ -58,8 +76,21 @@ def save_event_form(event):
                 new_field.field_name = value
                 event.custom_fields.append(new_field)
         if key.startswith('tickets-') and not key.endswith("csrf_token"):
-            # @TODO Save Ticket data
-            pass
+            splited = key[8:].split('-')
+            group = splited[0]
+            name = "-".join(splited[1:])
+            if value:
+                ticket_collector.setdefault(group, {})
+                ticket_collector[group][name] = value
+    # Save Tickets
+    for t_data in ticket_collector.values():
+        ticket = Ticket()
+        ticket.name = t_data['name']
+        ticket.price = float(t_data['price'])
+        ticket.description = t_data['description']
+        ticket.maximum_tickets = t_data['maximum_tickets']
+        event.tickets.append(ticket)
+
     event.save()
     return True
 
@@ -176,6 +207,8 @@ def page_list():
 
     return render_template('event_list.html', **context)
 
+
+
 @EVENTS.route('/event/admin', methods=['GET', 'POST'])
 def page_admin():
     """
@@ -200,7 +233,7 @@ def page_admin():
         event.custom_fields.insert(0, template_field)
 
         form = EventForm(obj=event)
-        form.populate_obj(event)
+        populate_event_form(form, event)
     if form.validate_on_submit():
         save_event_form(event)
         flash("Event wurde aktualisiert", 'info')
@@ -369,15 +402,9 @@ def page_create():
         event.end_time = event.end_date
         event.booking_until_time = event.booking_until
         event.booking_from_time = event.booking_from
-        # Add Template Field
-        template_field = DictObj({'field_name': None})
-        event.custom_fields.insert(0, template_field)
-
-        ticket_template = DictObj({'name': None, 'maximum_tickets': 0, 'price': 0.0})
-        event.tickets.insert(0, ticket_template)
 
         form = EventForm(obj=event)
-        form.populate_obj(event)
+        populate_event_form(form, event)
     else:
         form = EventForm(request.form)
 
@@ -388,8 +415,7 @@ def page_create():
         return redirect(url_for('EVENTS.page_details', event_id=str(new_event.id)))
 
     if form.errors:
-        print(form.errors)
-        flash("Bitte behebe die angezeigten Fehler in den Feldern", 'danger')
+        flash(f"Bitte behebe die angezeigten Fehler in den Feldern({form.errors})", 'danger')
 
     context = {
         'form': form

@@ -62,7 +62,7 @@ class DockerBaseConfig(BaseConfig):
     """"
     Specific configuration for Docker Env
     """
-    SECRET_KEY = secrets.token_urlsafe(48)
+    #SECRET_KEY = secrets.token_urlsafe(48)
     APPLY_HEADERS = False
     TEMPLATE_AUTO_RELOAD = False
     MONGODB_HOST = '172.17.0.1'
