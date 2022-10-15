@@ -77,6 +77,14 @@
         Du nimmst bereits bei diesem Event teil
       </div>
     </div>
+ {% elif not registraion_enabled %}
+    <div class="card">
+      <div class="card-header">
+        Die Registrierung für dieses event ist möglich ab 
+        <b>{{ event.booking_from }} {{ event.booking_from_time }} </b> 
+        bis <b>{{ event.booking_until }} {{ event.booking_until_time }}</b>
+      </div>
+    </div>
  {% else %}
     <div class="card">
       <div class="card-header">

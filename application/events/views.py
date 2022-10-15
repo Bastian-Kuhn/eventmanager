@@ -33,6 +33,15 @@ class DictObj:
                 setattr(self, key, DictObj(val) if isinstance(val, dict) else val)
 #.
 #   . Populate Event Form
+ticket_template = DictObj({
+                    'name': None,
+                    'description': None,
+                    'maximum_tickets': 0,
+                    'price': 0.0
+                    })
+
+custom_question_template = DictObj({'field_name': None})
+
 def populate_event_form(form, event):
     """
     Since the Event Form needs some preperations,
@@ -41,15 +50,7 @@ def populate_event_form(form, event):
     Beware: Donst save event object after this function
     """
     # Add Template Field
-    template_field = DictObj({'field_name': None})
-    event.custom_fields.insert(0, template_field)
-
-    ticket_template = DictObj({
-                        'name': None,
-                        'description': None,
-                        'maximum_tickets': 0,
-                        'price': 0.0
-                        })
+    event.custom_fields.insert(0, custom_question_template)
     event.tickets.insert(0, ticket_template)
 
     form.populate_obj(event)
@@ -80,6 +81,9 @@ def save_event_form(event):
     event.tickets = []
     ticket_collector = {}
     for key, value in request.form.items():
+        if key.startswith('tickets-0') or key.startswith('custom_fields-0'):
+            # skip the hidden templates
+            continue
         if key.startswith('custom_fields-') and not key.endswith("csrf_token"):
             if value:
                 new_field = CustomFieldDefintion()
@@ -89,12 +93,13 @@ def save_event_form(event):
             splited = key[8:].split('-')
             group = splited[0]
             name = "-".join(splited[1:])
-            if value:
+            if value and name:
                 ticket_collector.setdefault(group, {})
                 ticket_collector[group][name] = value
     ## Handle Tickets
     for t_data in ticket_collector.values():
         ticket = Ticket()
+        print(t_data, flush=True)
         ticket.id = str(uuid.uuid1())
         ticket.name = t_data['name']
         ticket.price = float(t_data['price'])
@@ -219,6 +224,23 @@ def page_list():
     return render_template('event_list.html', **context)
 #.
 #   . Event Admin Page
+
+def event_populate(event):
+    """
+    Hepler to have always all needed fields to the event form
+    """
+    # We store DateTime Fields,
+    # but the Form useses two seperate ones:
+    event.start_time = event.start_date
+    event.end_time = event.end_date
+    event.booking_until_time = event.booking_until
+    event.booking_from_time = event.booking_from
+
+    event.custom_fields.insert(0, custom_question_template)
+    event.tickets.insert(0, ticket_template)
+
+    return event
+
 @EVENTS.route('/event/admin', methods=['GET', 'POST'])
 def page_admin():
     """
@@ -232,15 +254,7 @@ def page_admin():
     if request.form:
         form = EventForm(request.form)
     else:
-        # We store DateTime Fields,
-        # but the Form useses two seperate ones:
-        event.start_time = event.start_date
-        event.end_time = event.end_date
-        event.booking_until_time = event.booking_until
-        event.booking_from_time = event.booking_from
-
-        template_field = DictObj({'field_name': None})
-        event.custom_fields.insert(0, template_field)
+        event = event_populate(event)
 
         form = EventForm(obj=event)
         form = populate_event_form(form, event)
@@ -304,7 +318,8 @@ def page_details():
     tickets = event.tickets
     # Add Tickets to Registration Form
     for ticket in tickets:
-        setattr(EventRegisterForm, f"book_places-{ticket.id}", IntegerField(f"Anzahl {ticket.name}"))
+        setattr(EventRegisterForm, f"book_places-{ticket.id}",
+                    IntegerField(f"Anzahl {ticket.name}", default=0))
 
     setattr(EventRegisterForm, "submit", SubmitField("Anmelden"))
 
@@ -349,8 +364,10 @@ def page_details():
         if data:
             event_details[title] = (data, mode)
 
+    now = datetime.now()
     context = {
         'event' : event,
+        'registraion_enabled': event.booking_until >= now >= event.booking_from,
         'event_id': event_id,
         'event_details' : [(x, y[0], y[1]) for x, y in event_details.items()],
         'LoginForm': login_form,
@@ -368,12 +385,11 @@ def page_details():
             else:
                 flash("Das Event ist bereits voll", 'danger')
                 register_possible = False
-        now = datetime.now()
         if event.start_date < now:
             flash("Das Event hat bereits stattgefunden", 'danger')
             register_possible = False
 
-        if event.booking_until < now or event.booking_from > now:
+        if not event.booking_until >= now >= event.booking_from:
             flash("Die Anmeldung auf das Event ist noch nicht freigeschaltet", 'danger')
             register_possible = False
 
@@ -417,12 +433,7 @@ def page_create():
         # Make it possible to clone a event
         # This populates the form which can be saved as new
         event = Event.objects.get(id=event_id)
-        # We store DateTime Fields,
-        # but the Form useses two seperate ones:
-        event.start_time = event.start_date
-        event.end_time = event.end_date
-        event.booking_until_time = event.booking_until
-        event.booking_from_time = event.booking_from
+        event = event_populate(event)
 
         form = EventForm(obj=event)
         form = populate_event_form(form, event)
