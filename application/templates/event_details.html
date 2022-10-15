@@ -71,13 +71,7 @@
 
 
 {% if current_user.is_authenticated %}
- {% if current_user.participate_event(event_id) %}
-    <div class="card">
-      <div class="card-header">
-        Du nimmst bereits bei diesem Event teil
-      </div>
-    </div>
- {% elif not registraion_enabled %}
+ {% if not registraion_enabled %}
     <div class="card">
       <div class="card-header">
         Die Registrierung für dieses event ist möglich ab 
@@ -93,19 +87,31 @@
       <div class="card-body">
         <h5 class="card-title">Verbindliche Anmeldung zum Event</h5>
         <p class="card-text">Melde dich hier verbindlich zu unserem Event an</p>
+        {% if current_user.participate_event(event_id) %}
+        <div class="alert alert-warning" role="alert">
+          Du hast dich bereits für dieses Event Angemeldet. Stelle sicher das du wirklich noch zusätzliche Plätze buchen willst.
+        </div>
+        {% endif %}
         <form method="POST">
             {{ regform.hidden_tag() }}
             {{ wtf.form_errors(regform, hiddens='only') }}
 
             <fieldset class="form-group">
-             <legend>Kommentare?</legend>
+             <legend>Kommentare:</legend>
                 {{ wtf.form_field(regform.comment) }}
             </fieldset>
-
+            <hr>
             <fieldset class="form-group">
-             <legend>Fragen zur Anmeldung</legend>
+             <legend>Weitere Daten:</legend>
             {% for idx, field in event_custom_fields %}
                 {{ wtf.form_field(regform|attr('custom_'+idx)) }}
+            {% endfor %}
+            </fieldset>
+            <hr>
+            <fieldset class="form-group">
+             <legend>Plätze:</legend>
+            {% for ticket_id in event_ticket_ids %}
+                {{ wtf.form_field(regform|attr('ticket_'+ticket_id)) }}
             {% endfor %}
             </fieldset>
             <hr>

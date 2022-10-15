@@ -72,6 +72,8 @@ class EventRegisterForm(FlaskForm):
     """
     Event Register Formular
     """
+    class Meta:
+        csrf = False
     comment = TextAreaField("Kommentar", validators=[InputRequired()])
     #custom_fields = FieldList(FormField(EventRegisterCustomField), min_entries=1)
     #tickets = FieldList(FormField(TicketForm), min_entries=1)

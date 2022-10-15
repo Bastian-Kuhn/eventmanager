@@ -32,6 +32,17 @@ class Ticket(db.EmbeddedDocument):
     price = db.FloatField()
     maximum_tickets = db.IntField()
 
+class OwnedTicket(db.EmbeddedDocument):
+    """
+    Field stored in participation
+    """
+    ticket_id = db.StringField()
+    tickets_comment = db.StringField()
+    tickets_name = db.StringField()
+    confirmed = db.BooleanField()
+    waitinglist = db.BooleanField()
+    name_on_ticket = db.StringField()
+
 class CustomFieldDefintion(db.EmbeddedDocument):
     """ Extra Questions for Events """
     field_name = db.StringField()
@@ -48,18 +59,22 @@ class EventParticipation(db.EmbeddedDocument):
     """
 
     user = db.ReferenceField('User')
+    booking_date = db.DateTimeField()
 
     custom_fields = db.ListField(db.EmbeddedDocumentField(CustomField))
+    tickets = db.ListField(db.EmbeddedDocumentField(OwnedTicket))
 
     comment = db.StringField()
-    confirmed = db.BooleanField(default=False)
-    waitinglist = db.BooleanField(default=False)
 
     def get_field(self, fieldname):
         """
         Return given field from participation
         """
         return {x.name: x.value for x in self.custom_fields }.get(fieldname, 'ubk')
+
+    meta = {
+        'strict': False,
+    }
 
 
 class Event(db.Document):
@@ -70,8 +85,8 @@ class Event(db.Document):
     event_description = db.StringField()
     event_category = db.StringField(choices=categories)
     event_owners = db.ListField(db.ReferenceField('User'))
-
     places = db.IntField()
+
     waitlist = db.BooleanField()
     booking_from = db.DateTimeField()
     booking_until = db.DateTimeField()
@@ -137,19 +152,38 @@ class Event(db.Document):
         confirmed = 0
         wait_for_confirm = 0
         waitinglist = 0
-        for participation in self.participations:
-            if participation.confirmed:
-                confirmed += 1
-            elif not participation.waitinglist:
-                wait_for_confirm += 1
-            if participation.waitinglist:
-                waitinglist += 1
         return {
             'total_places' : self.places,
             'confirmed': confirmed,
             'wait_for_confirm': wait_for_confirm,
             'waitlist': waitinglist,
         }
+
+    def get_ticket_stats(self):
+        """
+        Return Booking Stats of Tickets
+        """
+        counts = {}
+        total = 0
+        max_tickets = {x.id: x.maximum_tickets for x in self.tickets}
+        for parti in self.participations:
+            for ticket in parti.tickets:
+                total += 1
+                counts.setdefault(ticket.ticket_id, 0)
+                counts[ticket.ticket_id] += 1
+        has_places = {}
+        for ticket_id, num in counts.items():
+            has_places[ticket_id] = False
+            if num < max_tickets[ticket_id]:
+                has_places[ticket_id] = True
+
+        counts['total'] = total
+        counts['max'] = max_tickets
+        counts['has_places'] = has_places
+
+
+        return counts
+
 
 
     def __str__(self):
