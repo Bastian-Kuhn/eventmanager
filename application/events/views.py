@@ -1,13 +1,14 @@
 """
 Login Routes and Handling for Frontend
 """
-# pylint: disable=no-member
+# pylint: disable=no-member, too-many-locals, too-many-branches,
 
 from datetime import datetime, timedelta
+import uuid
 from flask import request, render_template, \
      flash, redirect, Blueprint, url_for, abort
 from flask_login import current_user, login_required
-from wtforms import StringField, SubmitField
+from wtforms import StringField, SubmitField, IntegerField
 
 
 from application.events.models import Event, EventParticipation,\
@@ -16,8 +17,13 @@ from application.auth.forms import LoginForm
 from application.auth.views import do_login
 from application.events.forms import EventForm, EventRegisterForm, EventSearchForm
 
+EVENTS = Blueprint('EVENTS', __name__)
 
+#   . Helpers
 class DictObj:
+    """
+    Helper to conver dict to object
+    """
     def __init__(self, in_dict:dict):
         assert isinstance(in_dict, dict)
         for key, val in in_dict.items():
@@ -25,11 +31,8 @@ class DictObj:
                 setattr(self, key, [DictObj(x) if isinstance(x, dict) else x for x in val])
             else:
                 setattr(self, key, DictObj(val) if isinstance(val, dict) else val)
-
-
-
-EVENTS = Blueprint('EVENTS', __name__)
-
+#.
+#   . Populate Event Form
 def populate_event_form(form, event):
     """
     Since the Event Form needs some preperations,
@@ -41,11 +44,18 @@ def populate_event_form(form, event):
     template_field = DictObj({'field_name': None})
     event.custom_fields.insert(0, template_field)
 
-    ticket_template = DictObj({'name': None, 'maximum_tickets': 0, 'price': 0.0})
+    ticket_template = DictObj({
+                        'name': None,
+                        'description': None,
+                        'maximum_tickets': 0,
+                        'price': 0.0
+                        })
     event.tickets.insert(0, ticket_template)
 
     form.populate_obj(event)
-
+    return form
+#.
+#   . save_event_form
 def save_event_form(event):
     """
     Helper to store Event Object
@@ -82,9 +92,10 @@ def save_event_form(event):
             if value:
                 ticket_collector.setdefault(group, {})
                 ticket_collector[group][name] = value
-    # Save Tickets
+    ## Handle Tickets
     for t_data in ticket_collector.values():
         ticket = Ticket()
+        ticket.id = str(uuid.uuid1())
         ticket.name = t_data['name']
         ticket.price = float(t_data['price'])
         ticket.description = t_data['description']
@@ -93,8 +104,8 @@ def save_event_form(event):
 
     event.save()
     return True
-
-
+#.
+#   . Ajax Helper for Participation Table
 def change_confirmation(what):
     """
     Helper
@@ -127,8 +138,8 @@ def endpoint_waitinglist():
     if status == "True":
         return change_confirmation('waitinglist_on')
     return change_confirmation('waitinglist_off')
-
-
+#.
+#   . Event List Page
 @EVENTS.route('/', methods=['POST', 'GET'])
 def page_list():
     """
@@ -206,9 +217,8 @@ def page_list():
 
 
     return render_template('event_list.html', **context)
-
-
-
+#.
+#   . Event Admin Page
 @EVENTS.route('/event/admin', methods=['GET', 'POST'])
 def page_admin():
     """
@@ -233,7 +243,7 @@ def page_admin():
         event.custom_fields.insert(0, template_field)
 
         form = EventForm(obj=event)
-        populate_event_form(form, event)
+        form = populate_event_form(form, event)
     if form.validate_on_submit():
         save_event_form(event)
         flash("Event wurde aktualisiert", 'info')
@@ -249,7 +259,8 @@ def page_admin():
 
     context['event'] = event
     return render_template('event_form.html', **context)
-
+#.
+#   . Event Participation list  Page
 @EVENTS.route('/event/participants', methods=['GET', 'POST'])
 def page_participants():
     """
@@ -270,7 +281,8 @@ def page_participants():
 
     context['event'] = event
     return render_template('event_participants.html', **context)
-
+#.
+#   . Event Details Page
 @EVENTS.route('/event/details', methods=['GET', 'POST'])
 def page_details():
     """
@@ -281,11 +293,19 @@ def page_details():
     event = Event.objects.get(id=event_id)
     login_form = LoginForm(request.form)
 
+
     custom_fields = event.custom_fields
+    # Add Custom Fields to Registration Form
 
     for field in custom_fields:
         field_name = field.field_name
         setattr(EventRegisterForm, field_name, StringField(field_name))
+
+    tickets = event.tickets
+    # Add Tickets to Registration Form
+    for ticket in tickets:
+        setattr(EventRegisterForm, f"book_places-{ticket.id}", IntegerField(f"Anzahl {ticket.name}"))
+
     setattr(EventRegisterForm, "submit", SubmitField("Anmelden"))
 
     register_form = EventRegisterForm(request.form)
@@ -380,7 +400,8 @@ def page_details():
         flash("Bitte behebe die angezeigten Fehler in den Feldern", 'danger')
 
     return render_template('event_details.html', **context)
-
+#.
+#   . Event Create Page
 @EVENTS.route('/create', methods=['GET', 'POST'])
 @login_required
 def page_create():
@@ -404,7 +425,7 @@ def page_create():
         event.booking_from_time = event.booking_from
 
         form = EventForm(obj=event)
-        populate_event_form(form, event)
+        form = populate_event_form(form, event)
     else:
         form = EventForm(request.form)
 
@@ -422,3 +443,4 @@ def page_create():
     }
 
     return render_template('event_form.html', **context)
+#.

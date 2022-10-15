@@ -22,25 +22,19 @@ class EventSearchForm(FlaskForm):
 
 class EventCustomField(FlaskForm):
     """
-    Custom Field
+    Simple extra question field
     """
-    def __init__(self, csrf_enabled=False, *args, **kwargs):
-        """
-        Disable CSRF
-        """
-        super().__init__(csrf_enabled=False, *args, **kwargs)
+    class Meta:
+        csrf = False
 
     field_name = StringField("Extra Frage")
 
 class TicketForm(FlaskForm):
     """
-    Custom Field
+    Ticket Formular Field
     """
-    def __init__(self, csrf_enabled=False, *args, **kwargs):
-        """
-        Disable CSRF
-        """
-        super().__init__(csrf_enabled=False, *args, **kwargs)
+    class Meta:
+        csrf = False
 
     name = StringField("Name", validators=[Optional()])
     description = StringField("Beschreibung", validators=[Optional()])
@@ -54,7 +48,7 @@ class EventForm(FlaskForm):
     event_name = StringField("Touren Name", validators=[InputRequired()])
     event_category = SelectField("Kategorie", choices=categories)
     event_description = TextAreaField("Beschreibung")
-    places = StringField("Plätze")
+    places = StringField("Plätze", validators=[InputRequired()])
     waitlist = BooleanField("Mit Warteliste")
     booking_from = DateField("Buchbar ab")
     booking_from_time = TimeField("Zeit")
@@ -64,8 +58,7 @@ class EventForm(FlaskForm):
     start_time = TimeField("Zeit am Treffpunkt")
     end_date = DateField("Ende Datum")
     end_time = TimeField("Endezeit der Tour")
-    tour_link = StringField("Outdooractive Link")
-    difficulty = RadioField("Schwierigkeit", choices=difficulties)
+    difficulty = RadioField("Schwierigkeit", choices=difficulties, validators=[InputRequired()])
     length_h = StringField("Länge in Stunden")
     length_km= StringField("Strecke in km")
     altitude_difference= StringField("Höhenmeter")
@@ -80,3 +73,9 @@ class EventRegisterForm(FlaskForm):
     Event Register Formular
     """
     comment = TextAreaField("Kommentar", validators=[InputRequired()])
+
+    def __init__(self, csrf_enabled=False, *args, **kwargs):
+        """
+        Disable CSRF
+        """
+        super().__init__(csrf_enabled=False, *args, **kwargs)

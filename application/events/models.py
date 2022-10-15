@@ -1,7 +1,8 @@
 """
 Events
 """
-from application import db, config
+#pylint: disable=too-few-public-methods
+from application import db
 
 difficulties = [
   ("sehr leicht", "Sehr Leicht"),
@@ -25,6 +26,7 @@ class Ticket(db.EmbeddedDocument):
     """
     Tickets to buy with event
     """
+    id = db.StringField()
     name = db.StringField()
     description = db.StringField()
     price = db.FloatField()
@@ -42,7 +44,7 @@ class CustomField(db.EmbeddedDocument):
 
 class EventParticipation(db.EmbeddedDocument):
     """
-    Event Entry
+    Event Participation Entry
     """
 
     user = db.ReferenceField('User')
@@ -61,6 +63,9 @@ class EventParticipation(db.EmbeddedDocument):
 
 
 class Event(db.Document):
+    """
+    Event Entry
+    """
     event_name = db.StringField()
     event_description = db.StringField()
     event_category = db.StringField(choices=categories)
@@ -126,6 +131,9 @@ class Event(db.Document):
 
 
     def get_numbers(self):
+        """
+        Return Stats about event booking
+        """
         confirmed = 0
         wait_for_confirm = 0
         waitinglist = 0

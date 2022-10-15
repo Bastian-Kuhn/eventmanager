@@ -128,6 +128,7 @@
 <hr>
  <h2>Tickets</h2>
 <fieldset class="form-group">
+
 <div id="tickets">
     {% for field in form.tickets %}
     {{ field.form.hidden_tag() }}
@@ -166,15 +167,8 @@
 <div id="add_ticket_row" class="row">
  <button type="button" id="add_ticket" class="btn pull-right glyphicon glyphicon-plus">Weiteres Ticket</button>
 </div>
-<hr>
- <fieldset class="form-group">
- <div class="row">
-    <div class="col-sm-12">
-        {{ wtf.form_field(form.tour_link) }}
-    </div>
- </div>
- </fieldset>
 
+<hr>
         {{ wtf.form_field(form.submit) }}
 
 </form>

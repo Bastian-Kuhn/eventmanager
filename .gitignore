@@ -6,6 +6,8 @@ application/uploads/*.csv
 vpn_bypass.sh
 src/
 
+.DS_Store
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
