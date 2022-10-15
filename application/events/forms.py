@@ -73,9 +73,6 @@ class EventRegisterForm(FlaskForm):
     Event Register Formular
     """
     comment = TextAreaField("Kommentar", validators=[InputRequired()])
-
-    def __init__(self, csrf_enabled=False, *args, **kwargs):
-        """
-        Disable CSRF
-        """
-        super().__init__(csrf_enabled=False, *args, **kwargs)
+    #custom_fields = FieldList(FormField(EventRegisterCustomField), min_entries=1)
+    #tickets = FieldList(FormField(TicketForm), min_entries=1)
+    submit = SubmitField("Anmelden")

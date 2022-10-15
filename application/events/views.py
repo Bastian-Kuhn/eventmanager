@@ -15,7 +15,7 @@ from application.events.models import Event, EventParticipation,\
                             categories, CustomField, CustomFieldDefintion, Ticket
 from application.auth.forms import LoginForm
 from application.auth.views import do_login
-from application.events.forms import EventForm, EventRegisterForm, EventSearchForm
+from application.events.forms import EventForm, EventRegisterForm, EventSearchForm 
 
 EVENTS = Blueprint('EVENTS', __name__)
 
@@ -307,23 +307,15 @@ def page_details():
     event = Event.objects.get(id=event_id)
     login_form = LoginForm(request.form)
 
-
     custom_fields = event.custom_fields
     # Add Custom Fields to Registration Form
-
-    for field in custom_fields:
-        field_name = field.field_name
-        setattr(EventRegisterForm, field_name, StringField(field_name))
-
-    tickets = event.tickets
-    # Add Tickets to Registration Form
-    for ticket in tickets:
-        setattr(EventRegisterForm, f"book_places-{ticket.id}",
-                    IntegerField(f"Anzahl {ticket.name}", default=0))
-
-    setattr(EventRegisterForm, "submit", SubmitField("Anmelden"))
+    for idx, field in enumerate(custom_fields):
+        setattr(EventRegisterForm, f"custom_{idx}", StringField(field.field_name))
 
     register_form = EventRegisterForm(request.form)
+
+
+
 
 
     numbers = event.get_numbers()
@@ -368,10 +360,11 @@ def page_details():
     context = {
         'event' : event,
         'registraion_enabled': event.booking_until >= now >= event.booking_from,
+        'event_custom_fields': [(str(x), y) for x, y in enumerate(event.custom_fields)],
         'event_id': event_id,
         'event_details' : [(x, y[0], y[1]) for x, y in event_details.items()],
         'LoginForm': login_form,
-        'EventRegisterForm': register_form,
+        'regform': register_form,
     }
 
     if current_user.is_authenticated and register_form.validate_on_submit():
@@ -396,10 +389,12 @@ def page_details():
         if register_possible and not current_user.participate_event(event_id):
             current_user.add_event(event)
             new_participation = EventParticipation()
-            for field_name in custom_fields:
+            for idx, custom_field_def in enumerate(custom_fields):
+                field_name = custom_field_def.field_name
+                field_id = f"custom_{idx}"
                 custom_field = CustomField()
                 custom_field.name = field_name
-                custom_field.value = data[field_name]
+                custom_field.value = data[field_id]
                 new_participation.custom_fields.append(custom_field)
 
             new_participation.comment = data['comment']

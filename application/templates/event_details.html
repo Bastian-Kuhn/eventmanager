@@ -93,9 +93,29 @@
       <div class="card-body">
         <h5 class="card-title">Verbindliche Anmeldung zum Event</h5>
         <p class="card-text">Melde dich hier verbindlich zu unserem Event an</p>
-        {{ wtf.quick_form(EventRegisterForm) }}
+        <form method="POST">
+            {{ regform.hidden_tag() }}
+            {{ wtf.form_errors(regform, hiddens='only') }}
+
+            <fieldset class="form-group">
+             <legend>Kommentare?</legend>
+                {{ wtf.form_field(regform.comment) }}
+            </fieldset>
+
+            <fieldset class="form-group">
+             <legend>Fragen zur Anmeldung</legend>
+            {% for idx, field in event_custom_fields %}
+                {{ wtf.form_field(regform|attr('custom_'+idx)) }}
+            {% endfor %}
+            </fieldset>
+            <hr>
+            {{ wtf.form_field(regform.submit) }}
+        </form>
+
       </div>
     </div>
+
+    </p>
  {% endif %}
 
 {% else %}
