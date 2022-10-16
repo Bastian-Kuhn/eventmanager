@@ -2,16 +2,41 @@
 {% import 'bootstrap/wtf.html' as wtf %}
 
 {% block page_content %}
-
 <div class="row">
     <div class="col-sm-12">
-    <h1>{{event.event_name}}</h1>
+
+    <ul class="nav nav-tabs">
+      <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('EVENTS.page_details', event_id=event.id) }}">Übersicht</a>
+      </li>
+    {% if current_user.is_authenticated %}
+       {% if current_user.has_right('guide') or current_user.participate_event(event.id) %}
+      <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('EVENTS.page_participants', event_id=event.id) }}">Teilnehmerliste</a>
+      </li>
+      {% endif %}
+    {% if current_user.has_right('guide') or current_user.participate_event(event.id) %}
+      <li class="nav-item">
+        <a class="nav-link active" href="{{ url_for('EVENTS.page_mybooking', event_id=event.id) }}">Meine Buchung</a>
+      </li>
+    {% endif %}
+      {% if current_user.has_right('guide') %}
+      <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('EVENTS.page_admin', event_id=event.id) }}">Bearbeiten</a>
+      </li>
+
+      <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('EVENTS.page_create', event_id=event.id) }}">Klonen</a>
+      </li>
+      {% endif %}
+    {% endif %}
+    </ul>
     </div>
 </div>
 
 <div class="row">
     <div class="col-sm-12">
-     <p><a href="{{ url_for('EVENTS.page_details', event_id=event.id) }}">Zum Event</a></p>
+    <h1>{{event.event_name}}</h1>
     </div>
 </div>
 

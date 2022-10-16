@@ -225,7 +225,7 @@ def page_list():
 
     events = Event.objects(**filter_expr).order_by('start_date')
     result = []
-    if filters.get('filter_own'):
+    if filters.get('filter_own') and current_user.is_authenticated:
         filter_names.append("Angemeldet")
         for event in events:
             if event in current_user.event_registrations or \
@@ -468,6 +468,7 @@ def page_details():
             new_participation.comment = data['comment']
             new_participation.user = current_user
             new_participation.waitinglist = waitinglist
+            event.reload()
             event.participations.append(new_participation)
             event.save()
             return redirect(url_for('EVENTS.page_mybooking', event_id=str(event.id)))

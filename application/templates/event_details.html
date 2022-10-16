@@ -14,7 +14,15 @@
       <li class="nav-item">
         <a class="nav-link" href="{{ url_for('EVENTS.page_participants', event_id=event.id) }}">Teilnehmerliste</a>
       </li>
-      {% endif %}
+    {% endif %}
+
+    {% if current_user.has_right('guide') or current_user.participate_event(event.id) %}
+      <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('EVENTS.page_mybooking', event_id=event.id) }}">Meine Buchung</a>
+      </li>
+
+    {% endif %}
+      
       {% if current_user.has_right('guide') %}
       <li class="nav-item">
         <a class="nav-link" href="{{ url_for('EVENTS.page_admin', event_id=event.id) }}">Bearbeiten</a>
