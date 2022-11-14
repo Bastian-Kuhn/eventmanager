@@ -65,19 +65,26 @@ def save_event_form(event):
     if current_user not in event.event_owners:
         event.event_owners.append(current_user)
     for field, value in dict(request.form).items():
+        # Set all default field which not here excluded
         if field in ['start_date', 'end_date', 'booking_from', 'booking_until']:
             continue
         if field in ['waitlist',]:
             value = bool(value)
         setattr(event, field, value)
-    start_datetime_str = f"{request.form['start_date']} {request.form['start_time']}"
-    end_datetime_str = f"{request.form['end_date']} {request.form['end_time']}"
-    book_start_datetime_str = f"{request.form['booking_from']} {request.form['booking_from_time']}"
-    book_end_datetime_str = f"{request.form['booking_until']} {request.form['booking_until_time']}"
-    event.booking_from = book_start_datetime_str
-    event.booking_until = book_end_datetime_str
+
+    start_datetime_str = f"{request.form['start_date']} {request.form.get('start_time', '00:00')}"
+    end_datetime_str = f"{request.form['end_date']} {request.form.get('end_time', '00:00')}"
     event.start_date = start_datetime_str
     event.end_date = end_datetime_str
+
+    if request.form.get('booking_from'):
+        book_start_datetime_str = f"{request.form['booking_from']} {request.form.get('booking_from_time', '00:00')}"
+        event.booking_from = book_start_datetime_str
+    if request.form.get('booking_until'):
+        book_end_datetime_str = f"{request.form['booking_until']} {request.form.get('booking_until_time', '00:00')}"
+        event.booking_until = book_end_datetime_str
+
+
     event.custom_fields = []
     event.tickets = []
     ticket_collector = {}
@@ -99,38 +106,19 @@ def save_event_form(event):
                 ticket_collector[group][name] = value
     ## Handle Tickets
     for t_data in ticket_collector.values():
+        if not t_data.get('name'):
+            continue
         ticket = Ticket()
-        ticket.id = str(uuid.uuid1())
         ticket.name = t_data['name']
-        ticket.price = float(t_data['price'])
-        ticket.description = t_data['description']
-        ticket.maximum_tickets = t_data['maximum_tickets']
+        ticket.price = float(t_data.get('price', 0))
+        ticket.description = t_data.get('description')
+        ticket.maximum_tickets = t_data.get('maximum_tickets', 0)
         event.tickets.append(ticket)
 
     event.save()
     return True
 #.
 #   . Ajax Helper for Participation Table
-def change_confirmation(what):
-    """
-    Helper
-    """
-    event_id = request.form['event_id']
-    user_id = request.form['user_id']
-    event = Event.objects.get(id=event_id)
-    return event.change_user_status(user_id, what)
-
-@EVENTS.route('/confirm_toggle', methods=['GET', 'POST'])
-def endpoint_userconfirm():
-    """
-    Confirm given User id for given events
-    """
-    if not current_user.has_right('guide'):
-        abort(403)
-    status = request.form['status']
-    if status == "True":
-        return change_confirmation('confirmed')
-    return change_confirmation('unconfirmed')
 
 @EVENTS.route('/waitinglist_toggle', methods=['GET', 'POST'])
 def endpoint_waitinglist():
@@ -332,6 +320,7 @@ def page_details():
     # Add Custom Fields to Registration Form
     custom_fields = event.custom_fields
     for idx, field in enumerate(custom_fields):
+        print(idx, flush=True)
         setattr(EventRegisterForm, f"custom_{idx}",
                     StringField(field.field_name, validators=[InputRequired()]))
 
@@ -342,9 +331,9 @@ def page_details():
     event_tickets = event.tickets
     for ticket in event_tickets:
         choices = [ (str(x), f'{x} Plätze') for x in range(ticket.maximum_tickets+1) ]
-        places = ticket_stats['max'][ticket.id] - ticket_stats.get(ticket.id, 0)
-        setattr(EventRegisterForm, f"ticket_{ticket.id}",
-                    SelectField(f"{ticket.name} (je Platz: {ticket.price}  €) aktuell noch {places}/{ticket_stats['max'][ticket.id]}", choices=choices))
+        places = ticket_stats['max'][ticket.name] - ticket_stats.get(ticket.name, 0)
+        setattr(EventRegisterForm, f"ticket_{ticket.name}",
+                    SelectField(f"{ticket.name} (je Platz: {ticket.price}  €) aktuell noch {places}/{ticket_stats['max'][ticket.name]}", choices=choices))
 
 
     register_form = EventRegisterForm(request.form)
@@ -371,8 +360,13 @@ def page_details():
       ("Plätze bestätigt", numbers['confirmed'], 'string'),
       ("Plätze unbestätigt", numbers['wait_for_confirm'], 'string'),
       ("Auf Warteliste", numbers['waitlist'], 'string'),
-      ("Buchbar ab" , event.booking_from.strftime("%d.%m.%Y %H:%M "), 'string'),
-      ("Buchbar bis" , event.booking_until.strftime("%d.%m.%Y %H:%M "), 'string'),
+    ]
+    if event.booking_from:
+        detail_fields += [
+          ("Buchbar ab" , event.booking_from.strftime("%d.%m.%Y %H:%M "), 'string'),
+          ("Buchbar bis" , event.booking_until.strftime("%d.%m.%Y %H:%M "), 'string'),
+        ]
+    detail_fields += [
       ("Start",  event.start_date.strftime("%d.%m.%Y"), 'string'),
       ("Zeit am Treffpunkt" , event.start_date.strftime("%H:%M"), 'string'),
       ("Ende" , event.end_date.strftime("%d.%m.%Y %H:%M "), 'string'),
@@ -387,20 +381,22 @@ def page_details():
         if data:
             event_details[title] = (data, mode)
 
+    registration_enabled = True
+    if event.booking_until and event.booking_from:
+        registration_enabled = event.booking_until >= now >= event.booking_from
+
     now = datetime.now()
     context = {
         'event' : event,
-        'registraion_enabled': event.booking_until >= now >= event.booking_from,
+        'registration_enabled': registration_enabled,
         'event_custom_fields': [(str(x), y) for x, y in enumerate(event.custom_fields)],
-        'event_ticket_ids': [x.id for x in event.tickets],
+        'event_ticket_ids': [x.name for x in event.tickets],
         'event_id': event_id,
         'event_details' : [(x, y[0], y[1]) for x, y in event_details.items()],
         'LoginForm': login_form,
         'regform': register_form,
     }
 
-    if register_form.errors:
-        print(register_form.errors, flush=True)
     if current_user.is_authenticated and register_form.validate_on_submit():
         data = request.form
 
@@ -408,15 +404,11 @@ def page_details():
 
         # Count
         num_participants = ticket_stats['total']
-        if num_participants > event.places and not event.waitlist:
-            flash("Das Event ist bereits voll", 'danger')
-            register_possible = False
-
         if event.start_date < now:
             flash("Das Event hat bereits stattgefunden", 'danger')
             register_possible = False
 
-        if not event.booking_until >= now >= event.booking_from:
+        if not registration_enabled:
             flash("Die Anmeldung auf das Event ist noch nicht freigeschaltet", 'danger')
             register_possible = False
 
@@ -426,19 +418,20 @@ def page_details():
         wanted_seats = {}
         ticket_stats = event.get_ticket_stats() # Update data
         for ticket in event_tickets:
-            wanted = int(data[f'ticket_{ticket.id}'])
+            wanted = int(data[f'ticket_{ticket.name}'])
             if wanted == 0:
                 continue
-            places = ticket_stats['max'][ticket.id] - ticket_stats.get(ticket.id, 0)
-            free_seats[ticket.id] = places - wanted
-            wanted_seats[ticket.id] = wanted
-            ticket_data[ticket.id] = {'name': ticket.name, 'desc': ticket.description}
+            places = ticket_stats['max'][ticket.name] - ticket_stats.get(ticket.name, 0)
+            free_seats[ticket.name] = places - wanted
+            wanted_seats[ticket.name] = wanted
+            ticket_data[ticket.name] = {'name': ticket.name, 'desc': ticket.description}
 
 
         if register_possible:
             current_user.add_event(event)
 
             new_participation = EventParticipation()
+            new_participation.booking_date = now
             for idx, custom_field_def in enumerate(custom_fields):
                 field_name = custom_field_def.field_name
                 field_id = f"custom_{idx}"
@@ -446,7 +439,6 @@ def page_details():
                 custom_field.name = field_name
                 custom_field.value = data[field_id]
                 new_participation.custom_fields.append(custom_field)
-                new_participation.booking_date = now
 
             for ticket_id, num in wanted_seats.items():
                 waitinglist = True
@@ -457,8 +449,8 @@ def page_details():
 
                     ticket = OwnedTicket()
                     ticket.ticket_id = ticket_id
-                    ticket.tickets_name = ticket_data[ticket_id]['name']
-                    ticket.tickets_comment = ticket_data[ticket_id]['desc']
+                    ticket.ticket_name = ticket_data[ticket_id]['name']
+                    ticket.ticket_comment = ticket_data[ticket_id]['desc']
                     ticket.confirmed = False
                     ticket.name_on_ticket = f"{current_user.first_name} {current_user.last_name}"
                     ticket.waitinglist = waitinglist
@@ -478,7 +470,7 @@ def page_details():
             do_login(login_form, context)
 
     if register_form.errors:
-        flash("Bitte behebe die angezeigten Fehler in den Feldern", 'danger')
+        flash(f"Bitte behebe die angezeigten Fehler in den Feldern {register_form.errors}", 'danger')
 
     return render_template('event_details.html', **context)
 #.
@@ -508,7 +500,7 @@ def page_create():
     if form.validate_on_submit():
         new_event = Event()
         save_event_form(new_event)
-        flash("Event wurde erzeug", 'info')
+        flash("Event wurde erzeugt", 'info')
         return redirect(url_for('EVENTS.page_details', event_id=str(new_event.id)))
 
     if form.errors:

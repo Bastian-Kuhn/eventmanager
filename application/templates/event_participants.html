@@ -91,7 +91,7 @@
       {% endif %}
           <table>
             <tr>
-             <th>Ticket:</th><td>{{ ticket.tickets_name }}</td>
+             <th>Ticket:</th><td>{{ ticket.ticket_name }}</td>
             </tr>
             <tr>
              <th>Name:</th><td>{{ ticket.name_on_ticket }}</td>
@@ -118,20 +118,6 @@
 {% if current_user.has_right('guid') %}
 <script type="text/javascript">
 $(document).ready(function(){
-    $('.toggle_confirm').click(function() {
-        var $this=$(this);
-        var $url="{{url_for('EVENTS.endpoint_userconfirm')}}";
-        var $current=$this.data('current');
-        var $event_id=$this.data('event-id');
-        var $user_id=$this.data('user-id');
-        var $new_status = "True";
-        if($current=='True'){
-            $new_status = "False"
-        }
-        $.post( $url, { event_id: $event_id, status: $new_status, user_id: $user_id }, function(data) {
-            console.log(data);
-        });
-    });
 
     $('.toggle_waitlist').click(function() {
         var $this=$(this);

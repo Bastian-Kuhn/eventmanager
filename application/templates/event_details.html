@@ -79,7 +79,7 @@
 
 
 {% if current_user.is_authenticated %}
- {% if not registraion_enabled %}
+ {% if not registration_enabled %}
     <div class="card">
       <div class="card-header">
         Die Registrierung für dieses event ist möglich ab 
@@ -108,6 +108,7 @@
              <legend>Kommentare:</legend>
                 {{ wtf.form_field(regform.comment) }}
             </fieldset>
+            {% if event_custom_fields %}
             <hr>
             <fieldset class="form-group">
              <legend>Weitere Daten:</legend>
@@ -115,6 +116,7 @@
                 {{ wtf.form_field(regform|attr('custom_'+idx)) }}
             {% endfor %}
             </fieldset>
+            {% endif %}
             <hr>
             <fieldset class="form-group">
              <legend>Plätze:</legend>

@@ -14,9 +14,9 @@ difficulties = [
 
 
 categories = [
- (None, "Kategorie"),
- ('mtb', "Mountain Bike"),
+ ('mtb', "Kategorie"),
  ('skitour', "Skitour"),
+ ('mtb', "Mountain Bike"),
  ('hike', "Wandern"),
  ('alpine_tour', "Hochtour"),
  ('ski_alpine_tour', "Ski Hochtour"),
@@ -36,9 +36,8 @@ class OwnedTicket(db.EmbeddedDocument):
     """
     Field stored in participation
     """
-    ticket_id = db.StringField()
-    tickets_comment = db.StringField()
-    tickets_name = db.StringField()
+    ticket_name = db.StringField()
+    ticket_comment = db.StringField()
     confirmed = db.BooleanField()
     waitinglist = db.BooleanField()
     name_on_ticket = db.StringField()
@@ -87,7 +86,6 @@ class Event(db.Document):
     event_owners = db.ListField(db.ReferenceField('User'))
     places = db.IntField()
 
-    waitlist = db.BooleanField()
     booking_from = db.DateTimeField()
     booking_until = db.DateTimeField()
     start_date = db.DateTimeField()
@@ -110,41 +108,6 @@ class Event(db.Document):
     }
 
 
-    def change_user_status(self, userid, status):
-        """
-        Change the given user to giben status
-        """
-        if status not in ['confirmed', 'unconfirmed',
-                          'waitinglist_on', 'waitinglist_off']:
-            raise Exception(f"Unkonwn Status: {status}")
-
-        waitinglist, confirmed = False, False
-        for participation in self.participations:
-            if str(participation.user.id) == userid:
-                if status == "confirmed":
-                    waitinglist = False
-                    confirmed = True
-                elif status == "unconfirmed":
-                    waitinglist = False
-                    confirmed = False
-                elif status == "waitinglist_on":
-                    waitinglist = True
-                    confirmed = False
-                elif status == "waitinglist_off":
-                    waitinglist = False
-                    confirmed = True
-                participation.confirmed = confirmed
-                participation.waitinglist = waitinglist
-                self.save()
-                return {
-                    'confirmed': confirmed,
-                    'waitinglist': waitinglist,
-                }
-        return {
-            'error': True
-        }
-
-
     def get_numbers(self):
         """
         Return Stats about event booking
@@ -165,17 +128,17 @@ class Event(db.Document):
         """
         counts = {}
         total = 0
-        max_tickets = {x.id: x.maximum_tickets for x in self.tickets}
+        max_tickets = {x.name: x.maximum_tickets for x in self.tickets}
         for parti in self.participations:
             for ticket in parti.tickets:
                 total += 1
-                counts.setdefault(ticket.ticket_id, 0)
-                counts[ticket.ticket_id] += 1
+                counts.setdefault(ticket.ticket_name, 0)
+                counts[ticket.ticket_name] += 1
         has_places = {}
-        for ticket_id, num in counts.items():
-            has_places[ticket_id] = False
-            if num < max_tickets[ticket_id]:
-                has_places[ticket_id] = True
+        for ticket_name, num in counts.items():
+            has_places[ticket_name] = False
+            if num < max_tickets.get(ticket_name,0):
+                has_places[ticket_name] = True
 
         counts['total'] = total
         counts['max'] = max_tickets

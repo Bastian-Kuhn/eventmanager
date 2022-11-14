@@ -65,10 +65,10 @@
       <tbody>
      {% for ticket in part.tickets %}
       <tr>
-        <td>{{ticket.tickets_name }}</td>
+        <td>{{ticket.ticket_name }}</td>
         <td>{{ticket.name_on_ticket }}</td>
-        <td>{{ticket.waitinglist }}</td>
         <td>{{ticket.confirmed }}</td>
+        <td>{{ticket.waitinglist }}</td>
       </tr>
      {% endfor %}
      </tbody>

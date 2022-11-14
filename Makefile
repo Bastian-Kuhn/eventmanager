@@ -1,22 +1,22 @@
 # CMDB Syncer DEV
 # .local.
 
-cp-up:
+up:
 	docker-compose -f docker-compose.yml -f docker-compose.local.yml build
 	docker-compose -f docker-compose.yml -f docker-compose.local.yml -p eventtool up --force-recreate -d
 
-cp-start:
+start:
 	docker-compose -f docker-compose.yml -f docker-compose.local.yml -p eventtool start
 
-cp-stop:
+stop:
 	docker-compose -f docker-compose.yml -f docker-compose.local.yml -p eventtool stop
 
-cp-down:
+down:
 	docker-compose -f docker-compose.yml -f docker-compose.local.yml -p eventtool down --rmi local --remove-orphans
 
 logs:
-	docker logs -f eventtool_application_1
+	docker logs -f eventtool-application-1
 
 
 shell:
-	docker exec -it eventtool_application_1 sh
+	docker exec -it eventtool-application-1 sh
