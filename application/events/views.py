@@ -1,10 +1,9 @@
 """
 Login Routes and Handling for Frontend
 """
-# pylint: disable=no-member, too-many-locals, too-many-branches,
+# pylint: disable=no-member, too-many-locals, too-many-branches, import-error, too-few-public-methods, too-many-statements
 
 from datetime import datetime, timedelta
-import uuid
 from flask import request, render_template, \
      flash, redirect, Blueprint, url_for, abort
 from flask_login import current_user, login_required
@@ -16,7 +15,7 @@ from application.events.models import Event, EventParticipation,\
                             categories, CustomField, CustomFieldDefintion, Ticket, OwnedTicket
 from application.auth.forms import LoginForm
 from application.auth.views import do_login
-from application.events.forms import EventForm, EventRegisterForm, EventSearchForm 
+from application.events.forms import EventForm, EventRegisterForm, EventSearchForm
 
 EVENTS = Blueprint('EVENTS', __name__)
 
@@ -120,17 +119,17 @@ def save_event_form(event):
 #.
 #   . Ajax Helper for Participation Table
 
-@EVENTS.route('/waitinglist_toggle', methods=['GET', 'POST'])
-def endpoint_waitinglist():
-    """
-    Confirm given User id for given events
-    """
-    if not current_user.has_right('guide'):
-        abort(403)
-    status = request.form['status']
-    if status == "True":
-        return change_confirmation('waitinglist_on')
-    return change_confirmation('waitinglist_off')
+#@EVENTS.route('/waitinglist_toggle', methods=['GET', 'POST'])
+#def endpoint_waitinglist():
+#    """
+#    Confirm given User id for given events
+#    """
+#    if not current_user.has_right('guide'):
+#        abort(403)
+#    status = request.form['status']
+#    if status == "True":
+#        return change_confirmation('waitinglist_on')
+#    return change_confirmation('waitinglist_off')
 #.
 #   . Event My Booking Page
 @EVENTS.route('/user/booking', methods=['GET', 'POST'])
@@ -381,11 +380,11 @@ def page_details():
         if data:
             event_details[title] = (data, mode)
 
+    now = datetime.now()
     registration_enabled = True
     if event.booking_until and event.booking_from:
         registration_enabled = event.booking_until >= now >= event.booking_from
 
-    now = datetime.now()
     context = {
         'event' : event,
         'registration_enabled': registration_enabled,
@@ -403,7 +402,6 @@ def page_details():
         register_possible = True
 
         # Count
-        num_participants = ticket_stats['total']
         if event.start_date < now:
             flash("Das Event hat bereits stattgefunden", 'danger')
             register_possible = False
