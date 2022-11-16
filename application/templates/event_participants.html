@@ -41,18 +41,18 @@
 </div>
 
 <div class="row">
-<table class="table table-hover">
+<table class="table table-bordered">
   <thead>
     <tr>
-      <th scope="col">#</th>
-      <th>Buchungen</th>
+      <th>Bucher</th>
       <th scope="col">Telefon</th>
       <th scope="col">E-Mail</th>
     {% if current_user.has_right('guide') %}
       <th scope="col">Gebursdatum</th>
-      <th scope="col">Foto Optin</th>
+      <th scope="col">Medien Optin</th>
       <th scope="col">Vereinsmitglied</th>
       <th scope="col">Extra Fragen</th>
+      <th scope="col">Kommentar</th>
     {% endif %}
 
     </tr>
@@ -60,7 +60,7 @@
   <tbody>
   {% for part in event.participations %}
     <tr>
-      <th scope="row">1</th>
+      <td>{{part.user.first_name}} {{part.user.last_name}}</td>
       <td>{% if part.user.data_optin or current_user.has_right('guide')%}{{part.user.phone}}{%else%} versteckt {% endif %}</td>
       <td>{% if part.user.data_optin or current_user.has_right('guide')%}{{part.user.email}}{%else%} versteckt {% endif %}</td>
 
@@ -78,34 +78,33 @@
         {% endfor %}
         </table>
       </td>
+      <td>{{part.comment}}</td>
     {% endif %}
-    <td>{{part.comment}}</td>
     </tr>
-    {% for ticket in part.tickets %}
     <tr>
-      <th scope="row">T<th>
       {% if current_user.has_right('guide') %}
-        <td colspan=6>
+        <td colspan=8>
       {% else %}
         <td colspan=2>
       {% endif %}
-          <table>
+          <table style="width:100%" class="table table-bordered">
             <tr>
-             <th>Ticket:</th><td>{{ ticket.ticket_name }}</td>
+             <th>Ticket:</th>
+             <th>Name:</th>
+             <th>Waitlist:</th>
+             <th>Bestätigt:</th>
             </tr>
+          {% for ticket in part.tickets %}
             <tr>
-             <th>Name:</th><td>{{ ticket.name_on_ticket }}</td>
+             <td>{{ ticket.ticket_name }}</td>
+             <td>{{ ticket.name_on_ticket }}</td>
+             <td>{{ ticket.waitinglist }}</td>
+             <td>{{ ticket.confirmed }}</td>
             </tr>
-            <tr>
-             <th>Waitlist:</th><td>{{ ticket.waitinglist }}</td>
-            </tr>
-            <tr>
-             <th>Bestätigt:</th><td>{{ ticket.confirmed }}</td>
-            </tr>
+        {% endfor %}
           </table>
       </td>
     </tr>
-    {% endfor %}
   {% endfor %}
   </tbody>
 </table>
@@ -121,7 +120,7 @@ $(document).ready(function(){
 
     $('.toggle_waitlist').click(function() {
         var $this=$(this);
-        var $url="{{url_for('EVENTS.endpoint_waitinglist')}}";
+        var $url="";
         var $current=$this.data('current');
         var $event_id=$this.data('event-id');
         var $user_id=$this.data('user-id');
