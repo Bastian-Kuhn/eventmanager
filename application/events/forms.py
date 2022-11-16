@@ -46,6 +46,7 @@ class EventForm(FlaskForm):
     Event Formular
     """
     event_name = StringField("Touren Name", validators=[InputRequired()])
+    event_teaser = StringField("Event Teaser", validators=[InputRequired()])
     event_category = SelectField("Kategorie", choices=categories, validators=[InputRequired()], default=categories[0])
     event_description = TextAreaField("Beschreibung")
     places = StringField("Plätze", validators=[InputRequired()])

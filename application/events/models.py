@@ -81,6 +81,7 @@ class Event(db.Document):
     Event Entry
     """
     event_name = db.StringField()
+    event_teaser = db.StringField()
     event_description = db.StringField()
     event_category = db.StringField(choices=categories)
     event_owners = db.ListField(db.ReferenceField('User'))
