@@ -1,25 +1,25 @@
 """
 Events
 """
-#pylint: disable=too-few-public-methods
+#pylint: disable=too-few-public-methods, no-member
 from application import db
 
 difficulties = [
-  ("sehr leicht", "Sehr Leicht"),
-  ("leicht", "Leicht"),
-  ("mittel", "Mittel"),
-  ("schwer", "Schwer"),
-  ("sehr schwer", "sehr Schwer"),
+    ("sehr leicht", "Sehr Leicht"),
+    ("leicht", "Leicht"),
+    ("mittel", "Mittel"),
+    ("schwer", "Schwer"),
+    ("sehr schwer", "sehr Schwer"),
 ]
 
 
 categories = [
- ('mtb', "Kategorie"),
- ('skitour', "Skitour"),
- ('mtb', "Mountain Bike"),
- ('hike', "Wandern"),
- ('alpine_tour', "Hochtour"),
- ('ski_alpine_tour', "Ski Hochtour"),
+    ('mtb', "Kategorie"),
+    ('skitour', "Skitour"),
+    ('mtb', "Mountain Bike"),
+    ('hike', "Wandern"),
+    ('alpine_tour', "Hochtour"),
+    ('ski_alpine_tour', "Ski Hochtour"),
 ]
 
 class Ticket(db.EmbeddedDocument):
@@ -69,7 +69,7 @@ class EventParticipation(db.EmbeddedDocument):
         """
         Return given field from participation
         """
-        return {x.name: x.value for x in self.custom_fields }.get(fieldname, 'ubk')
+        return {x.name: x.value for x in self.custom_fields}.get(fieldname, 'ubk')
 
     meta = {
         'strict': False,
@@ -94,8 +94,8 @@ class Event(db.Document):
     tour_link = db.StringField()
     difficulty = db.StringField(choices=difficulties)
     length_h = db.StringField()
-    length_km= db.StringField()
-    altitude_difference= db.StringField()
+    length_km = db.StringField()
+    altitude_difference = db.StringField()
 
     custom_fields = db.ListField(db.EmbeddedDocumentField(CustomFieldDefintion))
 
@@ -116,6 +116,14 @@ class Event(db.Document):
         confirmed = 0
         wait_for_confirm = 0
         waitinglist = 0
+        for parti in self.participations:
+            for ticket in parti.tickets:
+                if ticket.confirmed:
+                    confirmed += 1
+                else:
+                    wait_for_confirm += 1
+                if ticket.waitinglist:
+                    waitinglist += 1
         return {
             'total_places' : self.places,
             'confirmed': confirmed,
@@ -138,7 +146,7 @@ class Event(db.Document):
         has_places = {}
         for ticket_name, num in counts.items():
             has_places[ticket_name] = False
-            if num < max_tickets.get(ticket_name,0):
+            if num < max_tickets.get(ticket_name, 0):
                 has_places[ticket_name] = True
 
         counts['total'] = total
