@@ -366,6 +366,9 @@ def page_details():
     if event.booking_from:
         detail_fields += [
           ("Buchbar ab" , event.booking_from.strftime("%d.%m.%Y %H:%M "), 'string'),
+        ]
+    if event.booking_until:
+        detail_fields += [
           ("Buchbar bis" , event.booking_until.strftime("%d.%m.%Y %H:%M "), 'string'),
         ]
     detail_fields += [
