@@ -316,11 +316,14 @@ def page_details():
     event = Event.objects.get(id=event_id)
     login_form = LoginForm(request.form)
 
+    class EventRegForm(EventRegisterForm):
+        pass
+
     # Add Custom Fields to Registration Form
     custom_fields = event.custom_fields
     for idx, field in enumerate(custom_fields):
         print(idx, flush=True)
-        setattr(EventRegisterForm, f"custom_{idx}",
+        setattr(EventRegForm, f"custom_{idx}",
                     StringField(field.field_name, validators=[InputRequired()]))
 
 
@@ -331,11 +334,11 @@ def page_details():
     for ticket in event_tickets:
         choices = [ (str(x), f'{x} Plätze') for x in range(ticket.maximum_tickets+1) ]
         places = ticket_stats['max'][ticket.name] - ticket_stats.get(ticket.name, 0)
-        setattr(EventRegisterForm, f"ticket_{ticket.name}",
+        setattr(EventRegForm, f"ticket_{ticket.name}",
                     SelectField(f"{ticket.name} (je Platz: {ticket.price}  €) aktuell noch {places}/{ticket_stats['max'][ticket.name]}", choices=choices))
 
 
-    register_form = EventRegisterForm(request.form)
+    register_form = EventRegForm(request.form)
 
     numbers = event.get_numbers()
 
