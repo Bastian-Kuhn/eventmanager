@@ -464,8 +464,8 @@ def page_details():
             new_participation.comment = data['comment']
             new_participation.user = current_user
             new_participation.waitinglist = waitinglist
+            Event.objects(id=event_id).update_one(push__participations=new_participation)
             event.reload()
-            event.participations.append(new_participation)
             event.save()
             return redirect(url_for('EVENTS.page_mybooking', event_id=str(event.id)))
 
