@@ -430,6 +430,10 @@ def page_details():
             wanted_seats[ticket.name] = wanted
             ticket_data[ticket.name] = {'name': ticket.name, 'desc': ticket.description}
 
+        if not wanted_seats:
+            flash("Du hast keine Ticket Plätze gewählt.", 'danger')
+            register_possible = False
+
 
         if register_possible:
             current_user.add_event(event)
