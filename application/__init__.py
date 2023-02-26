@@ -160,6 +160,14 @@ from application.events.admin import EventView
 admin = Admin(app, name="Admin", template_mode='bootstrap4',
               index_view=IndexView())
 
+
+def translate_bool(what):
+    if what:
+        return "Ja"
+    return "Nein"
+
+app.jinja_env.globals.update(translate_bool=translate_bool)
+
 #System
 admin.add_view(EventView(Event))
 admin.add_view(UserView(User, category='System'))

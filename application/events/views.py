@@ -132,7 +132,28 @@ def save_event_form(event):
 #    return change_confirmation('waitinglist_off')
 #.
 #   . Event My Booking Page
-@EVENTS.route('/user/booking', methods=['GET', 'POST'])
+
+
+@EVENTS.route('/user/change_ticket', methods=['POST'])
+def ajax_mybooking():
+    """
+    Save Ajax Data for Ticket Changes
+    """
+    event_id = request.form['event_id']
+    new_name = request.form['new_name']
+    part_id = int(request.form['part_id'])
+    ticket_id = int(request.form['ticket_id'])
+
+    event = Event.objects.get(id=event_id)
+    parti = event.participations[part_id]
+    if parti.user == current_user:
+        parti.tickets[ticket_id].name_on_ticket = new_name
+        event.save()
+        return {'msg': 'success'}
+    return {}, 400
+
+
+@EVENTS.route('/user/booking')
 def page_mybooking():
     """
     Detail Page for Event

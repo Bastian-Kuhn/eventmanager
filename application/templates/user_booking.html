@@ -44,39 +44,94 @@
 <table class="table table-hover">
   <thead>
     <tr>
-      <th scope="col">Buchungsdatum</th>
-      <th scope="col">Tickets</th>
+      <th scope="col">Ticket Name</th>
+      <th scope="col">Teilnehmer Name</th>
+      <th scope="col">Teilnahme Bestätigt?</th>
+      <th scope="col">Auf Warteliste?</th>
+      <th scope="col">Buchungszeit</th>
     </tr>
   </thead>
   <tbody>
   {% for part in participations %}
-    <tr>
-      <td>{{part.booking_date}}</td>
-     <td>
-     <table>
-      <thead>
-        <tr>
-          <th scope="col">Ticket Name</th>
-          <th scope="col">Name auf Ticket</th>
-          <th scope="col">Bestätigt?</th>
-          <th scope="col">Warteliste?</th>
-        </tr>
-      </thead>
-      <tbody>
+     {% set rowloop = loop %}
      {% for ticket in part.tickets %}
       <tr>
-        <td>{{ticket.ticket_name }}</td>
-        <td>{{ticket.name_on_ticket }}</td>
-        <td>{{ticket.confirmed }}</td>
-        <td>{{ticket.waitinglist }}</td>
+        <td>{{ticket.ticket_name}}</td>
+        <td><a class="far fa-user" 
+               data-part-id="{{rowloop.index0 }}"
+               data-ticket-id="{{ loop.index0 }}"
+               data-name="{{ticket.name_on_ticket}}"
+               data-toggle="modal" data-target="#editName"
+               href='#' title="Name ändern"></a>
+               <span id="user_{{rowloop.index0}}_{{loop.index0}}">{{ticket.name_on_ticket}}</span></td>
+        <td>{{translate_bool(ticket.confirmed) }}</td>
+        <td>{{translate_bool(ticket.waitinglist) }}</td>
+        <td>{{part.booking_date.strftime('%d.%m.%Y %H:%M')}}</td>
       </tr>
      {% endfor %}
-     </tbody>
-     </table>
-     </td>
-    </tr>
   {% endfor %}
   </tbody>
 </table>
 </div>
+
+<div class="modal" tabindex="-1" role="dialog" id="editName">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Name anpassen</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+      <form id="change_form" method="GET">
+      <input id="new_name" name="new_name" class="form-control">
+      <input id="ticket_id" name="ticket_id" type="hidden" class="form-control">
+      <input id="part_id" name="part_id" type="hidden" class="form-control">
+      <input id="event_id" name="event_id" type="hidden" class="form-control" value="{{event.id}}">
+      </div>
+      <div class="modal-footer">
+        <button type="submit" class="btn btn-primary">Neuen Namen speichern</button>
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Abbrechen</button>
+      </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+
+
+{% endblock %}
+
+{% block scripts %}
+    {{super()}}
+    <script>
+    $(document).ready(function() {
+        var modal = $('#editName');
+        modal.on('show.bs.modal', function(e){
+            var name = $(e.relatedTarget).data('name');
+            var index = $(e.relatedTarget).data('ticket-id');
+            var part_id = $(e.relatedTarget).data('part-id');
+            $('#new_name').val(name);
+            $('#ticket_id').val(index);
+            $('#part_id').val(part_id);
+        });
+
+        $('#change_form').on('submit', function(e){
+            e.preventDefault();
+            var raw = $('#change_form');
+            var form = raw.serialize();
+            var data_array = raw.serializeArray();
+            var data = {}
+            $.each(data_array, function(){
+                data[this.name] = this.value;
+            });
+            $.post('/user/change_ticket', form, function(res){
+                $('#user_'+data.part_id+"_"+data.ticket_id).html(data.new_name);
+                modal.modal('hide');
+            });
+        });
+    });
+
+    </script>
 {% endblock %}
