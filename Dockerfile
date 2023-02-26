@@ -15,6 +15,7 @@ RUN apk add --no-cache python3 \
     python3-dev \
     uwsgi-python3 \
     jpeg-dev \
+    libffi-dev \
     tzdata
 
 ENV TZ=Europe/Berlin
