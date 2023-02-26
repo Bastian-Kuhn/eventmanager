@@ -35,79 +35,82 @@
 </div>
 
 <div class="row">
-    <div class="col-sm-12">
-    <h1>{{event.event_name}}</h1>
-    </div>
+    <h1>{{event.event_name}} ({{event.start_date.strftime("%d.%m.%Y") }})</h1>
 </div>
 
 <div class="row">
-<table class="table table-bordered">
-  <thead>
-    <tr>
-      <th>Bucher</th>
-      <th scope="col">Telefon</th>
-      <th scope="col">E-Mail</th>
-    {% if current_user.has_right('guide') %}
-      <th scope="col">Gebursdatum</th>
-      <th scope="col">Medien Optin</th>
-      <th scope="col">Vereinsmitglied</th>
-      <th scope="col">Extra Fragen</th>
-      <th scope="col">Kommentar</th>
-    {% endif %}
 
-    </tr>
-  </thead>
-  <tbody>
-  {% for part in event.participations %}
-    <tr>
-      <td>{{part.user.first_name}} {{part.user.last_name}}</td>
-      <td>{% if part.user.data_optin or current_user.has_right('guide')%}{{part.user.phone}}{%else%} versteckt {% endif %}</td>
-      <td>{% if part.user.data_optin or current_user.has_right('guide')%}{{part.user.email}}{%else%} versteckt {% endif %}</td>
-
-    {% if current_user.has_right('guid') %}
-      <td>{% if part.user.birthdate %}{{part.user.birthdate.date()}} {%endif%}</td>
-      <td>{{part.user.media_optin}}</td>
-      <td>{{part.user.club_member_confirmed}}</td>
-      <td>
-        <table>
-        {% for field in event.custom_fields %}
-            <tr>
-             <th>{{ field.field_name }}</th>
-             <td>{{ part.get_field(field.field_name) }}</td>
-            </tr>
-        {% endfor %}
-        </table>
-      </td>
-      <td>{{part.comment}}</td>
+{% for booking_type in ['confirmed', 'unconfirmed', 'waitinglist'] %}
+    {% if booking_type == 'confirmed' %}
+        <h2>Bestätigte Teilnehmer</h2>
+    {% elif booking_type == 'waitinglist' %}
+        <h2>Teilnehmer auf Warteliste</h2>
+    {% elif booking_type == 'unconfirmed' %}
+        <h2>Unbestätigte Teilnehmer</h2>
     {% endif %}
-    </tr>
-    <tr>
-      {% if current_user.has_right('guide') %}
-        <td colspan=8>
-      {% else %}
-        <td colspan=2>
-      {% endif %}
-          <table style="width:100%" class="table table-bordered">
-            <tr>
-             <th>Ticket:</th>
-             <th>Name:</th>
-             <th>Waitlist:</th>
-             <th>Bestätigt:</th>
-            </tr>
-          {% for ticket in part.tickets %}
-            <tr>
-             <td>{{ ticket.ticket_name }}</td>
-             <td>{{ ticket.name_on_ticket }}</td>
-             <td>{{ ticket.waitinglist }}</td>
-             <td>{{ ticket.confirmed }}</td>
-            </tr>
-        {% endfor %}
-          </table>
-      </td>
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
+    <table class="table table-bordered">
+      <thead>
+        <tr>
+          <th scope="col">Teilnahmer</th>
+          <th scope="col">Ticket</th>
+          <th scope="col">Account</th>
+          <th scope="col">Telefonnummer</th>
+          <th scope="col">E-Mail Adressse</th>
+        {% if current_user.has_right('guide') %}
+          <th scope="col">Medien Optin</th>
+          <th scope="col">Vereinsmitglied</th>
+          <th scope="col">Extra Fragen</th>
+          <th scope="col">Kommentar</th>
+          <th scope="col">Buchung</th>
+          <th scope="col">Optionen</th>
+        {% endif %}
+        </tr>
+      </thead>
+      <tbody>
+      {% for ticket in bookings[booking_type] %}
+        <tr>
+         <td>{{ ticket.ticket_owner }}
+         </td>
+         <td>{{ ticket.ticket_info.name }}</td>
+         <td>
+          <span class="badge badge-pill badge-info">{{ticket.ticket_info.bucher }}</span>
+         </td>
+         <td>
+            {% if ticket.ticket_info.data_optin or current_user.has_right('guide')%}{{ticket.ticket_info.telefon}}
+            {%else%} versteckt {% endif %}
+        </td>
+        <td>{% if ticket.ticket_info.data_optin or current_user.has_right('guide')%}{{ticket.ticket_info.email}}
+            {%else%} versteckt {% endif %}
+        </td>
+        {% if current_user.has_right('guid') %}
+          <td>{{ translate_bool(ticket.ticket_info.media_optin) }}</td>
+          <td>{{ translate_bool(ticket.ticket_info.club_member_confirmed) }}</td>
+          <td>
+            <table>
+            {% for field in ticket.extra_questions %}
+                <tr>
+                 <th>{{ field[0] }}</th>
+                 <td>{{ field[1] }}</td>
+                </tr>
+            {% endfor %}
+            </table>
+          </td>
+          <td>{{ ticket.ticket_info.comment}}</td>
+          <td>{{ticket.booking_date.strftime('%d.%m.%Y %H:%M')}}</td>
+          <td>
+            <a href="#" class="job" data-job="confirm" data-ticket_id={{ ticket.id }}>Bestätigen</a></span>
+            <a href="#" class="job" data-job="waitlist" data-ticket_id={{ ticket.id }}>Warteliste</a>
+            <a href="#" class="job" data-job="delete" data-ticket_id={{ ticket.id }}>Löschen</a>
+          </td>
+        {% endif %}
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+{% endfor %}
+
+
+
 </div>
 {% endblock %}
 
@@ -116,22 +119,20 @@
 
 {% if current_user.has_right('guid') %}
 <script type="text/javascript">
-$(document).ready(function(){
-
-    $('.toggle_waitlist').click(function() {
-        var $this=$(this);
-        var $url="";
-        var $current=$this.data('current');
-        var $event_id=$this.data('event-id');
-        var $user_id=$this.data('user-id');
-        var $new_status = "True";
-        if($current=='True'){
-            $new_status = "False"
+$(document).ready(function() {
+    $('.job').click(function(e) {
+        e.preventDefault();
+        var self_data = $(this);
+        var data = {
+            'ticket_id': self_data.data('ticket_id'),
+            'job': self_data.data('job'),
+            'event_id': '{{ event.id }}',
         }
-        $.post( $url, { event_id: $event_id, status: $new_status, user_id: $user_id }, function(data) {
-            console.log(data);
+        $.post('/event/change_participants', data, function(res) {
+            console.log(res);
+            location.reload();
         });
-    });
+    })
 });
 </script>
 {% endif %}

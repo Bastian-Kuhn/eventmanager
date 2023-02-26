@@ -4,6 +4,7 @@ Login Routes and Handling for Frontend
 # pylint: disable=no-member, too-many-locals, too-many-branches, import-error, too-few-public-methods, too-many-statements
 
 from datetime import datetime, timedelta
+import uuid
 from flask import request, render_template, \
      flash, redirect, Blueprint, url_for, abort
 from flask_login import current_user, login_required
@@ -117,20 +118,6 @@ def save_event_form(event):
     event.save()
     return True
 #.
-#   . Ajax Helper for Participation Table
-
-#@EVENTS.route('/waitinglist_toggle', methods=['GET', 'POST'])
-#def endpoint_waitinglist():
-#    """
-#    Confirm given User id for given events
-#    """
-#    if not current_user.has_right('guide'):
-#        abort(403)
-#    status = request.form['status']
-#    if status == "True":
-#        return change_confirmation('waitinglist_on')
-#    return change_confirmation('waitinglist_off')
-#.
 #   . Event My Booking Page
 
 
@@ -141,16 +128,13 @@ def ajax_mybooking():
     """
     event_id = request.form['event_id']
     new_name = request.form['new_name']
-    part_id = int(request.form['part_id'])
-    ticket_id = int(request.form['ticket_id'])
+    ticket_id = request.form['ticket_id']
 
     event = Event.objects.get(id=event_id)
-    parti = event.participations[part_id]
-    if parti.user == current_user:
-        parti.tickets[ticket_id].name_on_ticket = new_name
-        event.save()
-        return {'msg': 'success'}
-    return {}, 400
+    ticket = event.get_booked_ticket(ticket_id, current_user)
+    ticket.name_on_ticket = new_name
+    event.save()
+    return {'msg': 'success'}
 
 
 @EVENTS.route('/user/booking')
@@ -305,7 +289,36 @@ def page_admin():
     return render_template('event_form.html', **context)
 #.
 #   . Event Participation list  Page
-@EVENTS.route('/event/participants', methods=['GET', 'POST'])
+
+
+@EVENTS.route('/event/change_participants', methods=['POST'])
+def change_participation():
+    if not current_user.has_right('guide'):
+        abort(403)
+
+    job = request.form['job']
+    ticket_id = request.form['ticket_id']
+    event_id = request.form['event_id']
+
+    event = Event.objects.get(id=event_id)
+    ticket = event.get_booked_ticket(ticket_id)
+
+    response = {}
+
+    if job == 'confirm':
+        ticket.confirmed = True
+        ticket.waitinglist = False
+    elif job == 'waitlist':
+        ticket.waitinglist = True
+        ticket.confirmed = False
+    elif job == 'delete':
+        response = event.delete_ticket(ticket_id)
+
+    event.save()
+
+    return response
+
+@EVENTS.route('/event/participants')
 def page_participants():
     """
     Participants Page
@@ -322,8 +335,45 @@ def page_participants():
 
     event = Event.objects.get(id=event_id)
     context = {}
+    
+    bookings = {
+        'confirmed' : [],
+        'waitinglist' : [],
+        'unconfirmed' : [],
+    }
+    for parti in event.participations:
+        for ticket in parti.tickets:
+            what = 'unconfirmed'
+            if ticket.confirmed:
+                what = 'confirmed'
+            elif ticket.waitinglist:
+                what = 'waitinglist'
+
+            extra_questions = []
+            for field in event.custom_fields:
+                extra_questions.append((field.field_name, parti.get_field(field.field_name)))
+
+            bookings[what].append({
+                'id': ticket.ticket_id,
+                'ticket_owner': ticket.name_on_ticket,
+                'booking_date': parti.booking_date,
+                'ticket_info': {
+                    'name': ticket.ticket_name,
+                    'bucher': f"{parti.user.first_name} {parti.user.last_name}",
+                    'telefon': parti.user.phone,
+                    'email': parti.user.email,
+                    'media_optin': parti.user.media_optin,
+                    'data_optin': parti.user.data_optin,
+                    'club_member': parti.user.club_member,
+                    'comment': parti.comment,
+                },
+                'extra_questions': extra_questions
+
+            })
+
 
     context['event'] = event
+    context['bookings'] = bookings
     return render_template('event_participants.html', **context)
 #.
 #   . Event Details Page
@@ -469,17 +519,19 @@ def page_details():
                 custom_field.value = data[field_id]
                 new_participation.custom_fields.append(custom_field)
 
-            for ticket_id, num in wanted_seats.items():
+            for ticket_name, num in wanted_seats.items():
                 waitinglist = True
                 for _ in range(num):
-                    if free_seats[ticket_id] >= 0:
+                    if free_seats[ticket_name] >= 0:
                         waitinglist = False
-                    free_seats[ticket_id] -= 1
+                    free_seats[ticket_name] -= 1
+
+                    ticket_id = uuid.uuid4().hex
 
                     ticket = OwnedTicket()
                     ticket.ticket_id = ticket_id
-                    ticket.ticket_name = ticket_data[ticket_id]['name']
-                    ticket.ticket_comment = ticket_data[ticket_id]['desc']
+                    ticket.ticket_name = ticket_name
+                    ticket.ticket_comment = ticket_data[ticket_name]['desc']
                     ticket.confirmed = False
                     ticket.name_on_ticket = f"{current_user.first_name} {current_user.last_name}"
                     ticket.waitinglist = waitinglist

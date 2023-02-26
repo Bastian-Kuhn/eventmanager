@@ -53,17 +53,15 @@
   </thead>
   <tbody>
   {% for part in participations %}
-     {% set rowloop = loop %}
      {% for ticket in part.tickets %}
       <tr>
         <td>{{ticket.ticket_name}}</td>
         <td><a class="far fa-user" 
-               data-part-id="{{rowloop.index0 }}"
-               data-ticket-id="{{ loop.index0 }}"
+               data-ticket-id="{{ ticket.ticket_id }}"
                data-name="{{ticket.name_on_ticket}}"
                data-toggle="modal" data-target="#editName"
                href='#' title="Name ändern"></a>
-               <span id="user_{{rowloop.index0}}_{{loop.index0}}">{{ticket.name_on_ticket}}</span></td>
+               <span id="user_{{ticket.ticket_id}}">{{ticket.name_on_ticket}}</span></td>
         <td>{{translate_bool(ticket.confirmed) }}</td>
         <td>{{translate_bool(ticket.waitinglist) }}</td>
         <td>{{part.booking_date.strftime('%d.%m.%Y %H:%M')}}</td>
@@ -87,7 +85,6 @@
       <form id="change_form" method="GET">
       <input id="new_name" name="new_name" class="form-control">
       <input id="ticket_id" name="ticket_id" type="hidden" class="form-control">
-      <input id="part_id" name="part_id" type="hidden" class="form-control">
       <input id="event_id" name="event_id" type="hidden" class="form-control" value="{{event.id}}">
       </div>
       <div class="modal-footer">
@@ -110,11 +107,9 @@
         var modal = $('#editName');
         modal.on('show.bs.modal', function(e){
             var name = $(e.relatedTarget).data('name');
-            var index = $(e.relatedTarget).data('ticket-id');
-            var part_id = $(e.relatedTarget).data('part-id');
+            var ticket_id = $(e.relatedTarget).data('ticket-id');
             $('#new_name').val(name);
-            $('#ticket_id').val(index);
-            $('#part_id').val(part_id);
+            $('#ticket_id').val(ticket_id);
         });
 
         $('#change_form').on('submit', function(e){
@@ -127,7 +122,7 @@
                 data[this.name] = this.value;
             });
             $.post('/user/change_ticket', form, function(res){
-                $('#user_'+data.part_id+"_"+data.ticket_id).html(data.new_name);
+                $('#user_'+data.ticket_id).html(data.new_name);
                 modal.modal('hide');
             });
         });

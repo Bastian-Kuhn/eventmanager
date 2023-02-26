@@ -168,6 +168,10 @@ def translate_bool(what):
 
 app.jinja_env.globals.update(translate_bool=translate_bool)
 
+@app.context_processor
+def inject_now():
+    return {'now': datetime.utcnow()}
+
 #System
 admin.add_view(EventView(Event))
 admin.add_view(UserView(User, category='System'))

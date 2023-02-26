@@ -26,7 +26,7 @@ class Ticket(db.EmbeddedDocument):
     """
     Tickets to buy with event
     """
-    id = db.StringField()
+    #id = db.StringField()
     name = db.StringField()
     description = db.StringField()
     price = db.FloatField()
@@ -36,11 +36,12 @@ class OwnedTicket(db.EmbeddedDocument):
     """
     Field stored in participation
     """
+    ticket_id = db.StringField()
+    name_on_ticket = db.StringField()
     ticket_name = db.StringField()
     ticket_comment = db.StringField()
     confirmed = db.BooleanField()
     waitinglist = db.BooleanField()
-    name_on_ticket = db.StringField()
 
 class CustomFieldDefintion(db.EmbeddedDocument):
     """ Extra Questions for Events """
@@ -130,6 +131,49 @@ class Event(db.Document):
             'wait_for_confirm': wait_for_confirm,
             'waitlist': waitinglist,
         }
+
+    def get_booked_ticket(self, ticket_id, user=False):
+        """
+        Get Event Particiation by ID
+        """
+        for parti in self.participations:
+            if user:
+                if parti.user == user:
+                    for ticket in parti.tickets:
+                        if ticket.ticket_id == ticket_id:
+                            return ticket
+            else:
+                for ticket in parti.tickets:
+                    if ticket.ticket_id == ticket_id:
+                        return ticket
+
+    def delete_ticket(self, ticket_id):
+        """
+        Delete given Ticket id
+        """
+        found = False
+        last = False
+        for parti in self.participations:
+            for ticket in parti.tickets:
+                if ticket.ticket_id == ticket_id:
+                    parti.tickets.remove(ticket)
+                    found = True
+                    break
+        if found:
+            if not parti.tickets:
+                last = True
+                user = parti.user
+                user.event_registrations.remove(self)
+                user.save()
+                self.participations.remove(parti)
+        return {
+            'found': found,
+            'last': last,
+            'ticket_id': ticket_id,
+        }
+                
+                
+
 
     def get_ticket_stats(self):
         """
