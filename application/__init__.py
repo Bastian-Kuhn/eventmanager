@@ -174,6 +174,7 @@ admin.add_view(UserView(User, category='System'))
 admin.add_view(ConfigModelView(Config, category='System'))
 admin.add_view(LogView(LogEntry, name="Log", category="System"))
 
+admin.add_link(MenuLink(name='Zum Frontend', category='', url="/"))
 admin.add_link(MenuLink(name='Logout', category='', url="/logout"))
 
 app.register_blueprint(AUTH)

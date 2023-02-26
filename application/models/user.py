@@ -129,4 +129,4 @@ class User(db.Document, UserMixin):
         """
         Model representation
         """
-        return "User "+ self.email
+        return f"{self.first_name} {self.last_name}"

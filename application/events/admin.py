@@ -12,6 +12,7 @@ class EventView(CustomModelView):
     Extended Admin View for Users
     """
     column_sortable_list = ("start_date", "event_name")
+    column_exclude_list = ('event_description', 'difficulty', 'length_h', 'length_km', 'tour_link', 'altitude_difference')
     page_size = 100
     can_set_page_size = True
     column_filters = (
@@ -19,6 +20,8 @@ class EventView(CustomModelView):
         'event_description',
         'start_date',
     )
+
+
 
     def is_accessible(self):
         return current_user.is_authenticated and current_user.has_right('guide')
