@@ -90,16 +90,16 @@ class User(db.Document, UserMixin):
         """
         Token generator
         """
-        # @TODO Expire Token
+        dt = datetime.utcnow()+timedelta(seconds=expiration)
         header = {
               'alg': 'HS256'
         }
         key = current_app.config['SECRET_KEY']
         data = {
-            'userid': str(self.id)
+            'userid': str(self.id),
+            'exp' : dt.timestamp(),
+            'iat': datetime.utcnow(),
         }
-        data.update(**kwargs)
-
         return jwt.encode(header=header, payload=data, key=key)
 
 
