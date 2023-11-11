@@ -72,7 +72,7 @@ if app.config.get('ENABLE_SENTRY'):
 
 try:
     db = MongoEngine()
-    from uwsgidecorators import postfork
+    from uwsgidecorators import prefork
 
     @prefork
     def setup_db():
