@@ -441,7 +441,16 @@ def page_participants():
     event = Event.objects.get(id=event_id)
     context = {}
 
+
+    emails = []
+    participants = get_participants(event)
+    for part in participants['confirmed']:
+        email = part['ticket_info']['email']
+        if email not in emails:
+            emails.append(email)
+
     context['event'] = event
+    context['emails'] = emails
     context['bookings'] = get_participants(event)
     return render_template('event_participants.html', **context)
 #.
