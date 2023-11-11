@@ -2,10 +2,11 @@
 from threading import Thread
 from flask import current_app, render_template
 from flask_mail import Message
-from application import mail
+from application.models.config import Config
+from flask_mail import Mail
 
 
-def send_async_email(app, msg):
+def send_async_email(app, msg, mail):
     with app.app_context():
         mail.send(msg)
 
@@ -15,9 +16,20 @@ def send_email(to, subject, template, **kwargs):
         app = current_app._get_current_object()
     except:
         app = kwargs['ext_app']
-    send_email_inner(to, subject, template, app, **kwargs)
 
-def send_email_inner(to, subject, template, app, **kwargs):
+    user_config = Config.objects(enabled=True)[0]
+    app.config['MAIL_SENDER'] = user_config.mail_sender
+    app.config['MAIL_SERVER'] = user_config.mail_server
+    app.config['MAIL_USE_TLS'] = False
+    app.config['MAIL_USERNAME'] = user_config.mail_username
+    app.config['MAIL_PORT'] = 465
+    app.config['MAIL_USE_SSL'] = True
+    app.config['MAIL_SUBJECT_PREFIX'] = user_config.mail_subject_prefix
+    app.config['MAIL_PASSWORD'] = user_config.mail_password
+    mail = Mail(app)
+    send_email_inner(to, subject, template, app, mail, **kwargs)
+
+def send_email_inner(to, subject, template, app, mail,  **kwargs):
     with app.app_context():
 
         if 'SENDER' in kwargs:
@@ -47,6 +59,6 @@ def send_email_inner(to, subject, template, app, **kwargs):
                     attachment.read()
                 )
 
-        thr = Thread(target=send_async_email, args=[app, msg])
+        thr = Thread(target=send_async_email, args=[app, msg, mail])
         thr.start()
         return thr

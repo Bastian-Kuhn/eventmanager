@@ -11,7 +11,6 @@ from flask_login import LoginManager
 from flask_request_id_header.middleware import RequestID
 from flask_admin import Admin
 from flask_admin.menu import MenuLink
-from flask_mail import Mail
 from flask_bootstrap import Bootstrap
 from flask_mongoengine import MongoEngine
 from flask_limiter import Limiter
@@ -78,28 +77,10 @@ try:
     def setup_db():
         """db init in uwsgi"""
         db.init_app(app)
-        user_config = Config.objects(enabled=True)[0]
-        app.config['MAIL_SENDER'] = user_config.mail_sender
-        app.config['MAIL_SERVER'] = user_config.mail_server
-        app.config['MAIL_USE_TLS'] = False
-        app.config['MAIL_USERNAME'] = user_config.mail_username
-        app.config['MAIL_PORT'] = 465
-        app.config['MAIL_USE_SSL'] = True
-        app.config['MAIL_SUBJECT_PREFIX'] = user_config.mail_subject_prefix
-        app.config['MAIL_PASSWORD'] = user_config.mail_password
 except ImportError:
     print("   \033[91mWARNING: STANDALONE MODE - NOT FOR PROD\033[0m")
     print(" * HINT: uwsgi modul not loaded")
     db = MongoEngine(app)
-    user_config = Config.objects(enabled=True)[0]
-    app.config['MAIL_SENDER'] = user_config.mail_sender
-    app.config['MAIL_SERVER'] = user_config.mail_server
-    app.config['MAIL_USE_TLS'] = False
-    app.config['MAIL_USERNAME'] = user_config.mail_username
-    app.config['MAIL_PORT'] = 465
-    app.config['MAIL_USE_SSL'] = True
-    app.config['MAIL_SUBJECT_PREFIX'] = user_config.mail_subject_prefix
-    app.config['MAIL_PASSWORD'] = user_config.mail_password
 
 
 
@@ -115,6 +96,14 @@ def prepare_config():
         app.config['style_nav_background_color'] = user_config.nav_background_color
         #app.config['style_brand_logo'] = "data:image/png;base64,"+base64.b64encode(user_config.logo_image.read()).decode('utf-8')
         app.config['event_categories'] = user_config.event_categories
+        app.config['MAIL_SENDER'] = user_config.mail_sender
+        app.config['MAIL_SERVER'] = user_config.mail_server
+        app.config['MAIL_USE_TLS'] = False
+        app.config['MAIL_USERNAME'] = user_config.mail_username
+        app.config['MAIL_PORT'] = 465
+        app.config['MAIL_USE_SSL'] = True
+        app.config['MAIL_SUBJECT_PREFIX'] = user_config.mail_subject_prefix
+        app.config['MAIL_PASSWORD'] = user_config.mail_password
     except:
         app.config['style_nav_background_color'] = 'black'
 
@@ -158,7 +147,6 @@ login_manager.login_message = False
 app.redis = Redis.from_url(app.config['REDIS_URL'])
 
 
-mail = Mail(app)
 
 from application.auth.views import AUTH
 from application.events.views import EVENTS
