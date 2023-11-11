@@ -72,16 +72,34 @@ if app.config.get('ENABLE_SENTRY'):
 
 try:
     db = MongoEngine()
-    from uwsgidecorators import prefork
+    from uwsgidecorators import postfork
 
-    @prefork
+    @postfork
     def setup_db():
         """db init in uwsgi"""
         db.init_app(app)
+        user_config = Config.objects(enabled=True)[0]
+        app.config['MAIL_SENDER'] = user_config.mail_sender
+        app.config['MAIL_SERVER'] = user_config.mail_server
+        app.config['MAIL_USE_TLS'] = False
+        app.config['MAIL_USERNAME'] = user_config.mail_username
+        app.config['MAIL_PORT'] = 465
+        app.config['MAIL_USE_SSL'] = True
+        app.config['MAIL_SUBJECT_PREFIX'] = user_config.mail_subject_prefix
+        app.config['MAIL_PASSWORD'] = user_config.mail_password
 except ImportError:
     print("   \033[91mWARNING: STANDALONE MODE - NOT FOR PROD\033[0m")
     print(" * HINT: uwsgi modul not loaded")
     db = MongoEngine(app)
+    user_config = Config.objects(enabled=True)[0]
+    app.config['MAIL_SENDER'] = user_config.mail_sender
+    app.config['MAIL_SERVER'] = user_config.mail_server
+    app.config['MAIL_USE_TLS'] = False
+    app.config['MAIL_USERNAME'] = user_config.mail_username
+    app.config['MAIL_PORT'] = 465
+    app.config['MAIL_USE_SSL'] = True
+    app.config['MAIL_SUBJECT_PREFIX'] = user_config.mail_subject_prefix
+    app.config['MAIL_PASSWORD'] = user_config.mail_password
 
 
 
@@ -103,15 +121,6 @@ def prepare_config():
 from application.models.log import LogEntry
 from application.views.log import LogView
 
-user_config = Config.objects(enabled=True)[0]
-app.config['MAIL_SENDER'] = user_config.mail_sender
-app.config['MAIL_SERVER'] = user_config.mail_server
-app.config['MAIL_USE_TLS'] = False
-app.config['MAIL_USERNAME'] = user_config.mail_username
-app.config['MAIL_PORT'] = 465
-app.config['MAIL_USE_SSL'] = True
-app.config['MAIL_SUBJECT_PREFIX'] = user_config.mail_subject_prefix
-app.config['MAIL_PASSWORD'] = user_config.mail_password
 
 def LogFunction(message): #pylint: disable=invalid-name
     """
