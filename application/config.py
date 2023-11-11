@@ -20,17 +20,17 @@ class BaseConfig():
     # If true, only Useres with the flag Admin can login on the website
     ADMIN_LOGIN_ONLY = False
     # Minimum length for user Passwords (not applied to admin panel)
-    PASSWD_MIN_PASSWD_LENGTH = 9
+    PASSWD_MIN_PASSWD_LENGTH = 8
     # Password needs special signs
     PASSWD_SPECIAL_CHARS = True
     # Password need numbers
-    PASSWD_SPECIAL_DIGITS = True
+    PASSWD_SPECIAL_DIGITS = False
     # There must be uppercase letters
-    PASSWD_SEPCIAL_UPPER = True
+    PASSWD_SEPCIAL_UPPER = False
     # There musst lowercase letters
     PASSWD_SEPCIAL_LOWER = True
     # How many of the PASSWD_SEPCIAL prefixt  options must apply
-    PASSWD_SPECIAL_NEEDED = 3
+    PASSWD_SPECIAL_NEEDED = 1
 
     ADMIN_SESSION_HOURS = 8
     PERMANENT_SESSION_LIFETIME = ADMIN_SESSION_HOURS * 60 * 60

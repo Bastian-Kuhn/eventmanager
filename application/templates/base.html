@@ -15,6 +15,7 @@
       {% if not current_user.is_authenticated %}
       <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.login') }}">Login</a></li>
       <li class="nav-item"><a class="nav-link" href="{{ url_for('USER.page_user_create') }}">Registrieren</a></li>
+      <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.request_password') }}">Passwort vergessen</a></li>
       {% else %}
       <li class="nav-item"><a class="nav-link" href="{{ url_for('EVENTS.page_list', filter='my_events') }}">Meine Touren</a></li>
           {% if current_user.has_right('guide') %}

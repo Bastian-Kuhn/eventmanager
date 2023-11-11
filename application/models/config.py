@@ -10,7 +10,14 @@ class Config(db.Document): #pylint: disable=too-few-public-methods
     nav_background_color = db.StringField()
     #logo_image = db.ImageField(collection_name="logos")
     event_categories = db.ListField(db.StringField())
-    enabled = db.BooleanField()
 
+    mail_sender = db.StringField()
+    mail_server = db.StringField()
+    mail_use_tls = db.BooleanField()
+    mail_username = db.StringField()
+    mail_subject_prefix = db.StringField()
+    mail_password = db.StringField()
+
+    enabled = db.BooleanField()
 
     meta = {"strict" : False}
