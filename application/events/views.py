@@ -104,6 +104,10 @@ def save_event_form(event):
             if value and name:
                 ticket_collector.setdefault(group, {})
                 ticket_collector[group][name] = value
+    overwrite_max_tickets = False
+    if len(ticket_collector) == 1:
+        overwrite_max_tickets = request.form['places']
+
     ## Handle Tickets
     for t_data in ticket_collector.values():
         if not t_data.get('name'):
@@ -112,7 +116,10 @@ def save_event_form(event):
         ticket.name = t_data['name']
         ticket.price = float(t_data.get('price', 0))
         ticket.description = t_data.get('description')
-        ticket.maximum_tickets = t_data.get('maximum_tickets', 0)
+        if overwrite_max_tickets and int(t_data.get('maximum_tickets', 0)) == 0:
+            ticket.maximum_tickets = overwrite_max_tickets
+        else:
+            ticket.maximum_tickets = t_data.get('maximum_tickets', 0)
         event.tickets.append(ticket)
 
     event.save()

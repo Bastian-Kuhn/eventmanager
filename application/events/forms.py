@@ -36,7 +36,7 @@ class TicketForm(FlaskForm):
     class Meta:
         csrf = False
 
-    name = StringField("Name", validators=[Optional()])
+    name = StringField("Name", default="Teilnahme", validators=[Optional()])
     description = StringField("Beschreibung", validators=[Optional()])
     price = FloatField("Preis", validators=[Optional()])
     maximum_tickets = IntegerField("Anzahl", validators=[Optional()])
