@@ -5,8 +5,9 @@ Login Routes and Handling for Frontend
 
 from datetime import datetime, timedelta
 import uuid
+import io, csv
 from flask import request, render_template, \
-     flash, redirect, Blueprint, url_for, abort
+     flash, redirect, Blueprint, url_for, abort, make_response
 from flask_login import current_user, login_required
 from wtforms import StringField, SelectField
 from wtforms.validators import InputRequired
@@ -300,6 +301,9 @@ def page_admin():
 
 @EVENTS.route('/event/change_participants', methods=['POST'])
 def change_participation():
+    """
+    Helper
+    """
     if not current_user.has_right('guide'):
         abort(403)
 
@@ -325,24 +329,11 @@ def change_participation():
 
     return response
 
-@EVENTS.route('/event/participants')
-def page_participants():
+
+def get_participants(event):
     """
-    Participants Page
+    Get List of Participants
     """
-
-    event_id = request.args.get('event_id')
-
-    if not current_user.is_authenticated:
-        return redirect(url_for('auth.login'))
-
-    if not current_user.has_right('guide') and \
-        not current_user.participate_event(event_id):
-        abort(403)
-
-    event = Event.objects.get(id=event_id)
-    context = {}
-    
     bookings = {
         'confirmed' : [],
         'waitinglist' : [],
@@ -377,10 +368,81 @@ def page_participants():
                 'extra_questions': extra_questions
 
             })
+    return bookings
 
+
+@EVENTS.route('/event/participants/export')
+def page_participants_export():
+    """
+    Export Participants
+    """
+    if not current_user.is_authenticated:
+        return redirect(url_for('auth.login'))
+
+    if not current_user.has_right('guide'):
+        abort(403)
+
+    event_id = request.args.get('event_id')
+    event = Event.objects.get(id=event_id)
+    participants = get_participants(event)['confirmed']
+    io_output = io.StringIO()
+    writer = csv.writer(io_output)
+
+    extra_question_headers = \
+            [ x[0] for x in participants[0]['extra_questions']]
+
+    writer.writerow([
+      'Bucher',
+      'Buchungs Datum',
+      'Teilnehmer',
+      'Telefon',
+      'E-Mail',
+      'Medien Optin',
+      'Daten Optin',
+      'Vereinsmitglied',
+      'Kommentar',
+
+    ]+ extra_question_headers)
+    for line in participants:
+        writer.writerow([
+            line['ticket_info']['bucher'],
+            line['booking_date'],
+            line['ticket_owner'],
+            line['ticket_info']['telefon'],
+            line['ticket_info']['email'],
+            line['ticket_info']['media_optin'],
+            line['ticket_info']['data_optin'],
+            line['ticket_info']['club_member'],
+            line['ticket_info']['comment'],
+        ]+ [x[1] for x in line['extra_questions']])
+
+    output = make_response(io_output.getvalue())
+    filename = event.event_name.replace(' ', '_')
+    output.headers["Content-Disposition"] = f"attachment; filename={filename}.csv"
+    output.headers["Content-type"] = "text/csv"
+    return output
+
+
+@EVENTS.route('/event/participants')
+def page_participants():
+    """
+    Participants Page
+    """
+
+    event_id = request.args.get('event_id')
+
+    if not current_user.is_authenticated:
+        return redirect(url_for('auth.login'))
+
+    if not current_user.has_right('guide') and \
+        not current_user.participate_event(event_id):
+        abort(403)
+
+    event = Event.objects.get(id=event_id)
+    context = {}
 
     context['event'] = event
-    context['bookings'] = bookings
+    context['bookings'] = get_participants(event)
     return render_template('event_participants.html', **context)
 #.
 #   . Event Details Page
@@ -395,7 +457,9 @@ def page_details():
     login_form = LoginForm(request.form)
 
     class EventRegForm(EventRegisterForm):
-        pass
+        """
+        Event Reg Form
+        """
 
     # Add Custom Fields to Registration Form
     custom_fields = event.custom_fields

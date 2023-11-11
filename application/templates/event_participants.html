@@ -39,7 +39,10 @@
 </div>
 
 <div class="row">
+    <a href="{{ url_for('EVENTS.page_participants_export', event_id=event.id) }}">Export CSV</a>
+</div>
 
+<div class="row">
 {% for booking_type in ['confirmed', 'unconfirmed', 'waitinglist'] %}
     {% if booking_type == 'confirmed' %}
         <h2>Bestätigte Teilnehmer</h2>
