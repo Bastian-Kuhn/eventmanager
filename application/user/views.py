@@ -39,6 +39,8 @@ def page_user_create():
                 continue
             if field in ['club_member', 'media_optin', 'data_optin']:
                 value = bool(value)
+            if field == 'email':
+                value = value.lower()
             setattr(new_user, field, value)
         new_user.set_password(request.form['password'])
         new_user.save()

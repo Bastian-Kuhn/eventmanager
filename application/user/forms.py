@@ -13,7 +13,7 @@ def validate_user(form, field):
     """
     email = field.data
     try:
-        User.objects.get(email=email)
+        User.objects.get(email=email.lower())
     except DoesNotExist:
         return
 
