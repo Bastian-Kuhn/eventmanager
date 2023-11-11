@@ -74,10 +74,10 @@ try:
     db = MongoEngine()
     from uwsgidecorators import postfork
 
-    @postfork
+    @prefork
     def setup_db():
         """db init in uwsgi"""
-        db.init_app(app, app.config)
+        db.init_app(app)
 except ImportError:
     print("   \033[91mWARNING: STANDALONE MODE - NOT FOR PROD\033[0m")
     print(" * HINT: uwsgi modul not loaded")
