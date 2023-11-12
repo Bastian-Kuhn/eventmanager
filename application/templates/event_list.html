@@ -65,10 +65,8 @@
        </div>
        <div class="card-footer">
         {% set numbers = event.get_numbers() %}
-        <span class="badge badge-success">Bestätigt: {{ numbers['confirmed'] }}</span>
-        <span class="badge badge-secondary">Unbestätigt: {{ numbers['wait_for_confirm'] }}</span>
+        <span class="badge badge-success">Anmeldungen: {{ numbers['confirmed'] + numbers['wait_for_confirm'] }} / {{numbers['total_places'] }}</span>
         <span class="badge badge-warning">Warteliste: {{ numbers['waitlist'] }}</span>
-        <span class="badge badge-info">Plätze: {{ numbers['total_places'] }}</span>
        </div>
      </div>
     {% endfor %}

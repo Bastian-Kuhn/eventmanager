@@ -485,8 +485,11 @@ def page_details():
     for ticket in event_tickets:
         choices = [ (str(x), f'{x} Plätze') for x in range(ticket.maximum_tickets+1) ]
         places = ticket_stats['max'][ticket.name] - ticket_stats.get(ticket.name, 0)
+        preisinfo = ""
+        if ticket.price > 0:
+            preisinfo = f"(je Platz: {ticket.price}  €)"
         setattr(EventRegForm, f"ticket_{ticket.name}",
-                    SelectField(f"{ticket.name} (je Platz: {ticket.price}  €) aktuell noch {places}/{ticket_stats['max'][ticket.name]}", choices=choices))
+                    SelectField(f"'{ticket.name}' {preisinfo} aktuell noch {places}/{ticket_stats['max'][ticket.name]}", choices=choices))
 
 
     register_form = EventRegForm(request.form)
@@ -537,6 +540,15 @@ def page_details():
         if data:
             event_details[title] = (data, mode)
 
+
+    event_details_list = []
+    for guide in event.event_owners:
+        event_details_list.append(
+            ('Verantwortlicher Guide', f"{guide.first_name} {guide.last_name}, {guide.email}", "string")
+        )
+
+    event_details_list += [(x, y[0], y[1]) for x, y in event_details.items()]
+
     now = datetime.now()
     registration_enabled = True
     if event.booking_until and event.booking_from:
@@ -548,7 +560,7 @@ def page_details():
         'event_custom_fields': [(str(x), y) for x, y in enumerate(event.custom_fields)],
         'event_ticket_ids': [x.name for x in event.tickets],
         'event_id': event_id,
-        'event_details' : [(x, y[0], y[1]) for x, y in event_details.items()],
+        'event_details' : event_details_list,
         'LoginForm': login_form,
         'regform': register_form,
     }
