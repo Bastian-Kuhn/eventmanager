@@ -35,7 +35,7 @@ class User(db.Document, UserMixin):
     data_optin = db.BooleanField()
 
 
-    event_registrations = db.ListField(db.ReferenceField(Event))
+    event_registrations = db.ListField(field=db.ReferenceField(document_type=Event))
 
     pwdhash = db.StringField()
 

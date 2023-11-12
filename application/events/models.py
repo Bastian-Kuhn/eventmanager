@@ -58,11 +58,11 @@ class EventParticipation(db.EmbeddedDocument):
     Event Participation Entry
     """
 
-    user = db.ReferenceField('User')
+    user = db.ReferenceField(document_type='User')
     booking_date = db.DateTimeField()
 
-    custom_fields = db.ListField(db.EmbeddedDocumentField(CustomField))
-    tickets = db.ListField(db.EmbeddedDocumentField(OwnedTicket))
+    custom_fields = db.ListField(field=db.EmbeddedDocumentField(document_type='CustomField'))
+    tickets = db.ListField(field=db.EmbeddedDocumentField(document_type='OwnedTicket'))
 
     comment = db.StringField()
 
@@ -85,7 +85,7 @@ class Event(db.Document):
     event_teaser = db.StringField()
     event_description = db.StringField()
     event_category = db.StringField(choices=categories)
-    event_owners = db.ListField(db.ReferenceField('User'))
+    event_owners = db.ListField(field=db.ReferenceField(document_type='User'))
     places = db.IntField()
 
     booking_from = db.DateTimeField()
@@ -98,10 +98,10 @@ class Event(db.Document):
     length_km = db.StringField()
     altitude_difference = db.StringField()
 
-    custom_fields = db.ListField(db.EmbeddedDocumentField(CustomFieldDefintion))
+    custom_fields = db.ListField(field=db.EmbeddedDocumentField(document_type=CustomFieldDefintion))
 
-    participations = db.ListField(db.EmbeddedDocumentField(EventParticipation))
-    tickets = db.ListField(db.EmbeddedDocumentField(Ticket))
+    participations = db.ListField(field=db.EmbeddedDocumentField(document_type=EventParticipation))
+    tickets = db.ListField(field=db.EmbeddedDocumentField(document_type=Ticket))
 
 
 
