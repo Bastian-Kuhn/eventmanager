@@ -14,12 +14,14 @@ difficulties = [
 
 
 categories = [
-    ('mtb', "Kategorie"),
+    ( None, "Kategorie"),
     ('skitour', "Skitour"),
     ('mtb', "Mountain Bike"),
     ('hike', "Wandern"),
     ('alpine_tour', "Hochtour"),
     ('ski_alpine_tour', "Ski Hochtour"),
+    ('jugend', "Jugend"),
+    ('kinder', "Kinder"),
 ]
 
 class Ticket(db.EmbeddedDocument):
