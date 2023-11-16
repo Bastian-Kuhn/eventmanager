@@ -101,8 +101,7 @@ class User(db.Document, UserMixin):
             'exp' : dt.timestamp(),
             'iat': datetime.utcnow(),
         }
-        return jwt.encode(header=header, payload=data, key=key)
-
+        return jwt.encode(header=header, payload=data, key=key).decode('utf-8')
 
 
     def is_admin(self):
