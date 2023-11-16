@@ -8,7 +8,7 @@ class Config(db.Document): #pylint: disable=too-few-public-methods
     """Style Settings"""
 
     nav_background_color = db.StringField()
-    #logo_image = db.ImageField(collection='logos')
+    logo_image = db.ImageField(field="logo_image", collection='logos')
     event_categories = db.ListField(field=db.StringField())
 
     mail_sender = db.StringField()
