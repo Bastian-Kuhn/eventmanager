@@ -56,6 +56,7 @@ class BaseConfig():
 
     SITENAME = "Eventmanager"
     MONGODB_DB = 'eventmanger'
+    MONGODB_ALIAS = 'default'
 
 class DockerBaseConfig(BaseConfig):
     """"
