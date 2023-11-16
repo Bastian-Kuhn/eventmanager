@@ -281,6 +281,8 @@ def page_admin():
     if not current_user.has_right('guide'):
         abort(403)
 
+    categories = [(None, "Kategorie")] + [(x.lower(), x) for x in Config.objects(enabled=True)[0].event_categories]
+
     if request.form:
         form = EventForm(request.form)
         form.event_category.choices = categories
