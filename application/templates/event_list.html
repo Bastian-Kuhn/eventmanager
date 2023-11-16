@@ -44,31 +44,37 @@
     </div>
 </div>
 
-    <div class="card-columns">
+    <div class="card-deck">
     {% for event in events %}
-     <div class="card">
-       <div class="card-header">
-        <b>{{ event.start_date.strftime("%d.%m.%Y") }}</b> | {{ event_categories[event.event_category] }}
-       </div>
-       <div class="card-body">
-         <h5 class="card-title"><a href="{{ url_for('EVENTS.page_details', event_id=event.id) }}">{{ event.event_name }}</a></h5>
-         <p class="card-text">{{ event.event_teaser }}</p>
-        {% if current_user.is_authenticated and current_user.has_right('guide') %}
-            <a class="card-link" href="{{ url_for('EVENTS.page_admin', event_id=event.id) }}">Bearbeiten</a>
+         <div class="card">
+           <div class="card-header">
+            <b>{{ event.start_date.strftime("%d.%m.%Y") }}</b> | {{ event_categories[event.event_category] }}
+           </div>
+           <div class="card-body">
+             <h5 class="card-title"><a href="{{ url_for('EVENTS.page_details', event_id=event.id) }}">{{ event.event_name }}</a></h5>
+             <p class="card-text">{{ event.event_teaser }}</p>
+            {% if current_user.is_authenticated and current_user.has_right('guide') %}
+                <a class="card-link" href="{{ url_for('EVENTS.page_admin', event_id=event.id) }}">Bearbeiten</a>
+            {% endif %}
+            {% if current_user.is_authenticated and (current_user.has_right('guide') or current_user.participate_event(event.id)) %}
+                <a class="card-link" href="{{ url_for('EVENTS.page_participants', event_id=event.id) }}">Teilnehmerliste</a>
+            {% endif %}
+            {% if current_user.is_authenticated and current_user.participate_event(event.id) %}
+                <a class="card-link" href="{{ url_for('EVENTS.page_mybooking', event_id=event.id) }}">Meine Buchung</a>
+            {% endif %}
+           </div>
+           <div class="card-footer">
+            {% set numbers = event.get_numbers() %}
+            <span class="badge badge-success">Anmeldungen: {{ numbers['confirmed'] + numbers['wait_for_confirm'] }} / {{numbers['total_places'] }}</span>
+            <span class="badge badge-warning">Warteliste: {{ numbers['waitlist'] }}</span>
+           </div>
+         </div>
+        {% if loop.index % 2 == 1 %}
+            </div>
+            <br>
+            <div class="card-deck">
         {% endif %}
-        {% if current_user.is_authenticated and (current_user.has_right('guide') or current_user.participate_event(event.id)) %}
-            <a class="card-link" href="{{ url_for('EVENTS.page_participants', event_id=event.id) }}">Teilnehmerliste</a>
-        {% endif %}
-        {% if current_user.is_authenticated and current_user.participate_event(event.id) %}
-            <a class="card-link" href="{{ url_for('EVENTS.page_mybooking', event_id=event.id) }}">Meine Buchung</a>
-        {% endif %}
-       </div>
-       <div class="card-footer">
-        {% set numbers = event.get_numbers() %}
-        <span class="badge badge-success">Anmeldungen: {{ numbers['confirmed'] + numbers['wait_for_confirm'] }} / {{numbers['total_places'] }}</span>
-        <span class="badge badge-warning">Warteliste: {{ numbers['waitlist'] }}</span>
-       </div>
-     </div>
     {% endfor %}
+        </div>
     </div>
 {% endblock %}

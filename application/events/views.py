@@ -386,7 +386,7 @@ def page_participants_export():
     event = Event.objects.get(id=event_id)
     participants = get_participants(event)['confirmed']
     io_output = io.StringIO()
-    writer = csv.writer(io_output)
+    writer = csv.writer(io_output, delimiter=';' )
 
     extra_question_headers = \
             [ x[0] for x in participants[0]['extra_questions']]
