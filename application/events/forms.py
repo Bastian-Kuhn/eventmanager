@@ -11,14 +11,13 @@ from application.models.config import Config
 
 
 
-categories = [(None, "Kategorie")] + [(x.lower(), x) for x in Config.objects(enabled=True)[0].event_categories]
 
 class EventSearchForm(FlaskForm):
     """
     Formular to filter on event list page
     """
     filter_name = StringField("Name", validators=[])
-    filter_category = SelectField("Kategorie", choices=categories)
+    filter_category = SelectField("Kategorie")
     filter_date = DateField("Datum", validators=[Optional()])
     filter_own = BooleanField("Meine")
     filter_future = BooleanField("Zukünftige", default="y")
@@ -52,7 +51,7 @@ class EventForm(FlaskForm):
     """
     event_name = StringField("Touren Name", validators=[InputRequired()])
     event_teaser = StringField("Event Teaser", validators=[InputRequired()])
-    event_category = SelectField("Kategorie", choices=categories, validators=[InputRequired()])
+    event_category = SelectField("Kategorie", validators=[InputRequired()])
     event_description = TextAreaField("Beschreibung")
     places = StringField("Plätze", validators=[InputRequired()])
     booking_from = DateField("Buchbar ab", validators=[Optional()])

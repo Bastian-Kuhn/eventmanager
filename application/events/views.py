@@ -21,7 +21,6 @@ from application.events.forms import EventForm, EventRegisterForm, EventSearchFo
 from application.models.config import Config
 
 EVENTS = Blueprint('EVENTS', __name__)
-categories = [(None, "Kategorie")] + [(x.lower(), x) for x in Config.objects(enabled=True)[0].event_categories]
 
 #   . Helpers
 class DictObj:
@@ -174,8 +173,10 @@ def page_list():
     """
     Public Page with Events
     """
+    categories = [(None, "Kategorie")] + [(x.lower(), x) for x in Config.objects(enabled=True)[0].event_categories]
     context = {}
     search_form = EventSearchForm(request.form)
+    search_form.filter_category.choices = categories 
     now = datetime.now()
     filters = {}
     filter_names = []
@@ -477,6 +478,7 @@ def page_details():
         Event Reg Form
         """
 
+    categories = [(None, "Kategorie")] + [(x.lower(), x) for x in Config.objects(enabled=True)[0].event_categories]
     # Add Custom Fields to Registration Form
     custom_fields = event.custom_fields
     for idx, field in enumerate(custom_fields):
@@ -665,6 +667,7 @@ def page_create():
         abort(403)
 
     event_id = request.args.get('event_id')
+    categories = [(None, "Kategorie")] + [(x.lower(), x) for x in Config.objects(enabled=True)[0].event_categories]
 
     if event_id and not request.form:
         # Make it possible to clone a event
@@ -673,9 +676,11 @@ def page_create():
         event = event_populate(event)
 
         form = EventForm(obj=event)
+        form.event_category.choices = categories
         form = populate_event_form(form, event)
     else:
         form = EventForm(request.form)
+        form.event_category.choices = categories
 
     if form.validate_on_submit():
         new_event = Event()

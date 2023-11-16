@@ -1,0 +1,45 @@
+#!/bin/bash
+# Simple Helper
+# .local.
+CONTAINER=eventtool
+APPLICATION=eventtool-application-1
+
+case "$1" in
+"up")
+    docker-compose -f docker-compose.yml  -p $CONTAINER rm
+    docker-compose -f docker-compose.yml  -p $CONTAINER up --build --force-recreate -d
+    ;;
+"start")
+    docker-compose -f docker-compose.yml -p $CONTAINER start
+    ;;
+"stop")
+    docker-compose -f docker-compose.yml -p $CONTAINER stop
+    ;;
+"restart")
+    docker-compose -f docker-compose.yml  -p $CONTAINER stop
+    docker-compose -f docker-compose.yml  -p $CONTAINER start
+    ;;
+"down")
+    docker-compose -f docker-compose.yml  -p $CONTAINER down --rmi local --remove-orphans
+    ;;
+"logs")
+    echo "Start Container Logs"
+    docker logs -f $APPLICATION
+    ;;
+"shell")
+    echo "Start Container Shell"
+    docker exec -it $APPLICATION sh
+    ;;
+"create_user")
+    echo "Create User"
+    docker exec -it $APPLICATION ./cmdbsyncer sys create_user "$2"
+    ;;
+"bve")
+    python3 -m venv ENV
+    ;;
+*)
+    echo "Simple Helper for $CONTAINER."
+    echo "For Docker Compose: up, down, start, stop, logs and shell are the options"
+    echo "Create a venv with bve"
+    ;;
+esac
