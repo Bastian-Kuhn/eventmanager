@@ -2,7 +2,7 @@
 Events
 """
 #pylint: disable=too-few-public-methods, no-member
-from application import db
+from application import db, app
 
 difficulties = [
     ("sehr leicht", "Sehr Leicht"),
@@ -12,17 +12,6 @@ difficulties = [
     ("sehr schwer", "sehr Schwer"),
 ]
 
-
-categories = [
-    ( None, "Kategorie"),
-    ('skitour', "Skitour"),
-    ('mtb', "Mountain Bike"),
-    ('hike', "Wandern"),
-    ('alpine_tour', "Hochtour"),
-    ('ski_alpine_tour', "Ski Hochtour"),
-    ('jugend', "Jugend"),
-    ('kinder', "Kinder"),
-]
 
 class Ticket(db.EmbeddedDocument):
     """
@@ -86,7 +75,7 @@ class Event(db.Document):
     event_name = db.StringField()
     event_teaser = db.StringField()
     event_description = db.StringField()
-    event_category = db.StringField(choices=categories)
+    event_category = db.StringField()
     event_owners = db.ListField(field=db.ReferenceField(document_type='User'))
     places = db.IntField()
 

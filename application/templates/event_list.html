@@ -2,13 +2,27 @@
 {% import 'bootstrap/wtf.html' as wtf %}
 
 {% block page_content %}
+
+<div class="row">
+    <div class="col-sm-12">
+        <nav aria-label="Event Categrories">
+          <ul class="pagination">
+              {% for category, category_name in event_categories.items() %} 
+              <li class="page-item"><a class="page-link" href="?filter_category={{ category }}">{{ category_name }}</a></li>
+              {% endfor %}
+          </ul>
+        </nav>
+    </div>
+</div>
+
 <style>
  label: {
      margin-left: 5px;
      margin-right: 5px;
  }
 </style>
-<div style="background-color: #e9ecef; border-radius: .3rem; padding: 5px; margin: 5px;">
+<a data-toggle="collapse" href="#filter">Suchen/ Filtern</a>
+<div id="filter" class="collapse" style="background-color: #e9ecef; border-radius: .3rem; padding: 5px; margin: 5px;">
  <b>Filter:</b>
  <form  action="{{ url_for('EVENTS.page_list') }}" method="POST">
   <div class="form-row">

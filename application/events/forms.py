@@ -5,8 +5,13 @@ from wtforms import StringField, PasswordField, RadioField, SubmitField, Boolean
 from wtforms.widgets import TextArea
 from wtforms.validators import InputRequired, Email, EqualTo, ValidationError, Optional
 from flask import current_app
-from application.events.models import difficulties, categories, Ticket, CustomField
+from application.events.models import difficulties, Ticket, CustomField
+from application import app
+from application.models.config import Config
 
+
+
+categories = [(None, "Kategorie")] + [(x.lower(), x) for x in Config.objects(enabled=True)[0].event_categories]
 
 class EventSearchForm(FlaskForm):
     """
@@ -47,7 +52,7 @@ class EventForm(FlaskForm):
     """
     event_name = StringField("Touren Name", validators=[InputRequired()])
     event_teaser = StringField("Event Teaser", validators=[InputRequired()])
-    event_category = SelectField("Kategorie", choices=categories, validators=[InputRequired()], default=categories[2])
+    event_category = SelectField("Kategorie", choices=categories, validators=[InputRequired()])
     event_description = TextAreaField("Beschreibung")
     places = StringField("Plätze", validators=[InputRequired()])
     booking_from = DateField("Buchbar ab", validators=[Optional()])

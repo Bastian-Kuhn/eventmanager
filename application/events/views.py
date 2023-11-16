@@ -14,12 +14,14 @@ from wtforms.validators import InputRequired
 
 
 from application.events.models import Event, EventParticipation,\
-                            categories, CustomField, CustomFieldDefintion, Ticket, OwnedTicket
+                             CustomField, CustomFieldDefintion, Ticket, OwnedTicket
 from application.auth.forms import LoginForm
 from application.auth.views import do_login
 from application.events.forms import EventForm, EventRegisterForm, EventSearchForm
+from application.models.config import Config
 
 EVENTS = Blueprint('EVENTS', __name__)
+categories = [(None, "Kategorie")] + [(x.lower(), x) for x in Config.objects(enabled=True)[0].event_categories]
 
 #   . Helpers
 class DictObj:
@@ -180,8 +182,13 @@ def page_list():
     filter_expr = {}
     search = False
 
+
     if search_form.validate_on_submit():
         filters = request.form
+        search = True
+
+    if request.args.get('filter_category'):
+        filters['filter_category'] = request.args['filter_category']
         search = True
 
     if not search:
@@ -205,7 +212,7 @@ def page_list():
     filter_category = filters.get('filter_category')
     if filter_category != "None":
         filter_expr['event_category'] = filter_category
-        filter_names.append(f"Kategorie ist: {dict(categories)[filter_category]}")
+        filter_names.append(f"Kategorie ist: {dict(categories).get(filter_category, filter_category)}")
 
 
     if filter_date:
@@ -510,7 +517,7 @@ def page_details():
         return table
 
     detail_fields = [
-      ("Kategorie", dict(categories)[event.event_category], 'string'),
+      ("Kategorie", dict(categories).get(event.event_category), 'string'),
       ("Schwierigkeit", event.difficulty, 'string'),
       ("Plätze insgesammt", numbers['total_places'], 'string'),
       ("Plätze bestätigt", numbers['confirmed'], 'string'),

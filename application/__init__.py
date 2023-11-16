@@ -95,7 +95,6 @@ def prepare_config():
         user_config = Config.objects(enabled=True)[0]
         app.config['style_nav_background_color'] = user_config.nav_background_color
         #app.config['style_brand_logo'] = "data:image/png;base64,"+base64.b64encode(user_config.logo_image.read()).decode('utf-8')
-        #app.config['event_categories'] = user_config.event_categories
         app.config['MAIL_SENDER'] = user_config.mail_sender
         app.config['MAIL_SERVER'] = user_config.mail_server
         app.config['MAIL_USE_TLS'] = False
