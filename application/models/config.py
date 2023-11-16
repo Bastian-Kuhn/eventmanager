@@ -20,4 +20,7 @@ class Config(db.Document): #pylint: disable=too-few-public-methods
 
     enabled = db.BooleanField()
 
-    meta = {"strict" : False}
+    meta = {
+        "strict" : False,
+        "db_alias": "default",
+    }
