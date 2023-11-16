@@ -283,10 +283,12 @@ def page_admin():
 
     if request.form:
         form = EventForm(request.form)
+        form.event_category.choices = categories
     else:
         event = event_populate(event)
 
         form = EventForm(obj=event)
+        form.event_category.choices = categories
         form = populate_event_form(form, event)
     if form.validate_on_submit():
         save_event_form(event)
