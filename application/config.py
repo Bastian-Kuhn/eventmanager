@@ -49,14 +49,18 @@ class BaseConfig():
     MAIL_PASSWORD = ''
 
     REDIS_URL = "redis://localhost:6379"
-    MONGODB_HOST = '127.0.0.1'
     SWAGGER_ENABLED = True
 
     SENTRY_DSN = ""
 
     SITENAME = "Eventmanager"
-    MONGODB_DB = 'eventmanger'
-    MONGODB_ALIAS = 'default'
+
+    MONGODB_SETTINGS = {
+        'db': 'eventmanger',
+        'host': '127.0.0.1',
+        'port': 27017,
+        'alias': 'default',
+    }
 
 class DockerBaseConfig(BaseConfig):
     """"
@@ -65,16 +69,26 @@ class DockerBaseConfig(BaseConfig):
     #SECRET_KEY = secrets.token_urlsafe(48)
     APPLY_HEADERS = False
     TEMPLATE_AUTO_RELOAD = False
-    MONGODB_HOST = '172.17.0.1'
     REDIS_URL = "redis://172.17.0.1:6379"
+    MONGODB_SETTINGS = {
+        'db': 'eventmanger',
+        'host': '172.17.0.1',
+        'port': 27017,
+        'alias': 'default',
+    }
 
 class ComposeProdConfig(DockerBaseConfig):
     """
     Paths for Docker Compose
     """
     REDIS_URL = 'redis://redis:6379'
-    MONGODB_HOST = 'mongo'
-    MONGODB_PORT = 27017
+    MONGODB_SETTINGS = {
+        'db': 'eventmanger',
+        'host': 'mongo',
+        'port': 27017,
+        'alias': 'default',
+    }
+
 
 class ProductionConfig(BaseConfig):
     """
