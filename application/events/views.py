@@ -14,7 +14,7 @@ from wtforms.validators import InputRequired
 
 
 from application.events.models import Event, EventParticipation,\
-                             CustomField, CustomFieldDefintion, Ticket, OwnedTicket
+                             CustomField, CustomFieldDefintion, Ticket, OwnedTicket, difficulties
 from application.auth.forms import LoginForm
 from application.auth.views import do_login
 from application.events.forms import EventForm, EventRegisterForm, EventSearchForm
@@ -23,6 +23,30 @@ from application.models.config import Config
 EVENTS = Blueprint('EVENTS', __name__)
 
 #   . Helpers
+def difficult_to_icon(level, icon_type):
+    """
+    Format Intod Images
+    """
+    length = 5
+    if icon_type == 1:
+        ia = "■"
+        ib = "□"
+    else:
+        ia = "●"
+        ib = "○"
+    if not level:
+        level = 'sehr leicht'
+    index = list([x[0] for x in difficulties]).index(level)+1
+
+    output = ""
+    for i in range(length):
+        if i < index:
+            output += ia
+        else:
+            output += ib
+
+    return output
+
 class DictObj:
     """
     Helper to conver dict to object
@@ -174,6 +198,7 @@ def page_list():
     Public Page with Events
     """
     categories = [(None, "Kategorie")] + [(x.lower(), x) for x in Config.objects(enabled=True)[0].event_categories]
+    mode = 'page'
     context = {}
     search_form = EventSearchForm(request.form)
     search_form.filter_category.choices = categories 
@@ -189,8 +214,12 @@ def page_list():
         search = True
 
     if request.args.get('filter_category'):
+        filters['filter_future'] = 'y'
         filters['filter_category'] = request.args['filter_category']
         search = True
+
+    if filters.get('export'):
+        mode = 'export'
 
     if not search:
         filters['filter_future'] = 'y'
@@ -242,6 +271,7 @@ def page_list():
     else:
         result = events
     context['events'] = result
+    context['render_dificulty'] = difficult_to_icon
 
     if filter_names:
         context['header'] = f"Filter: {', '.join(filter_names)}"
@@ -251,7 +281,10 @@ def page_list():
     context['search_form'] = search_form
 
 
-    return render_template('event_list.html', **context)
+    if mode == 'page':
+        return render_template('event_list.html', **context)
+    elif mode == 'export':
+        return render_template('event_list_export.html', **context)
 #.
 #   . Event Admin Page
 
@@ -467,6 +500,7 @@ def page_participants():
     return render_template('event_participants.html', **context)
 #.
 #   . Event Details Page
+
 @EVENTS.route('/event/details', methods=['GET', 'POST'])
 def page_details():
     """
@@ -524,7 +558,8 @@ def page_details():
 
     detail_fields = [
       ("Kategorie", dict(categories).get(event.event_category), 'string'),
-      ("Schwierigkeit", event.difficulty, 'string'),
+      ("Schwierigkeit", difficult_to_icon(event.difficulty, 1), 'string'),
+      ("Kondition", difficult_to_icon(event.shape, 2), 'string'),
       ("Plätze insgesammt", numbers['total_places'], 'string'),
       ("Plätze bestätigt", numbers['confirmed'], 'string'),
       ("Plätze unbestätigt", numbers['wait_for_confirm'], 'string'),

@@ -40,6 +40,7 @@
     {{ wtf.form_field(search_form.filter_future) }}
     {% if current_user.is_authenticated %}
     {{ wtf.form_field(search_form.filter_own) }}
+    {{ wtf.form_field(search_form.export) }}
     {% endif %}
     </div>
     <div class="form-group col-md-3">
@@ -62,7 +63,8 @@
     {% for event in events %}
          <div class="card">
            <div class="card-header">
-            <b>{{ event.start_date.strftime("%d.%m.%Y") }}</b> | {{ event_categories[event.event_category] }}
+            <b>{{ event.start_date.strftime("%d.%m.%Y") }}</b> | {{ event_categories[event.event_category] }}<br>
+            T {{ render_dificulty(event.difficulty, 1) }} K {{ render_dificulty(event.shape, 2)}}
            </div>
            <div class="card-body">
              <h5 class="card-title"><a href="{{ url_for('EVENTS.page_details', event_id=event.id) }}">{{ event.event_name }}</a></h5>

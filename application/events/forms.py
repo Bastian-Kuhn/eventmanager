@@ -19,8 +19,9 @@ class EventSearchForm(FlaskForm):
     filter_name = StringField("Name", validators=[])
     filter_category = SelectField("Kategorie")
     filter_date = DateField("Datum", validators=[Optional()])
-    filter_own = BooleanField("Meine")
+    filter_own = BooleanField("Ich bin angemeldet")
     filter_future = BooleanField("Zukünftige", default="y")
+    export = BooleanField("Export", default=False)
     filter_send = SubmitField("Filter")
 
 
@@ -63,6 +64,7 @@ class EventForm(FlaskForm):
     end_date = DateField("Ende Datum")
     end_time = TimeField("Endezeit der Tour", validators=[Optional()])
     difficulty = RadioField("Schwierigkeit", choices=difficulties, validators=[InputRequired()])
+    shape = RadioField("Kondition", choices=difficulties, validators=[InputRequired()])
     length_h = StringField("Länge in Stunden")
     length_km= StringField("Strecke in km")
     altitude_difference= StringField("Höhenmeter")

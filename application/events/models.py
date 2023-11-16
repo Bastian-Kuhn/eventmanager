@@ -85,6 +85,7 @@ class Event(db.Document):
     end_date = db.DateTimeField()
     tour_link = db.StringField()
     difficulty = db.StringField(choices=difficulties)
+    shape = db.StringField(choices=difficulties)
     length_h = db.StringField()
     length_km = db.StringField()
     altitude_difference = db.StringField()
