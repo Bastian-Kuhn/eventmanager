@@ -38,13 +38,14 @@
     <h1>{{event.event_name}} ({{event.start_date.strftime("%d.%m.%Y") }})</h1>
 </div>
 
-{% if bookings['confirmed'] %}
 <div class="row">
+{% if bookings['confirmed'] %}
     <a type="button" class="btn btn-secondary" href="{{ url_for('EVENTS.page_participants_export', event_id=event.id) }}">Export CSV</a>&nbsp;
     <a type="button" class="btn btn-secondary" href="mailto:{{ ";".join(emails) }}?subject={{ event.event_name }}">Mail an Teilnehmer</a>
-</div>
-
+{% else %}
+Keine Teilnehmer für Export oder Mail bestätigt
 {% endif %}
+</div>
 
 <div class="row">
 {% for booking_type in ['confirmed', 'unconfirmed', 'waitinglist'] %}
@@ -105,8 +106,12 @@
           <td>{{ ticket.ticket_info.comment}}</td>
           <td>{{ticket.booking_date.strftime('%d.%m.%Y %H:%M')}}</td>
           <td>
+            {% if booking_type != 'confirmed' %}
             <a href="#" class="job" data-job="confirm" data-ticket_id={{ ticket.id }}>Bestätigen</a></span>
+            {% endif %}
+            {% if booking_type != 'waitinglist' %}
             <a href="#" class="job" data-job="waitlist" data-ticket_id={{ ticket.id }}>Warteliste</a>
+            {% endif %}
             <a href="#" class="job" data-job="delete" data-ticket_id={{ ticket.id }}>Löschen</a>
           </td>
         {% endif %}
