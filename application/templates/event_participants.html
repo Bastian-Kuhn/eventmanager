@@ -38,10 +38,13 @@
     <h1>{{event.event_name}} ({{event.start_date.strftime("%d.%m.%Y") }})</h1>
 </div>
 
+{% if bookings['confirmed'] %}
 <div class="row">
     <a type="button" class="btn btn-secondary" href="{{ url_for('EVENTS.page_participants_export', event_id=event.id) }}">Export CSV</a>&nbsp;
     <a type="button" class="btn btn-secondary" href="mailto:{{ ";".join(emails) }}?subject={{ event.event_name }}">Mail an Teilnehmer</a>
 </div>
+
+{% endif %}
 
 <div class="row">
 {% for booking_type in ['confirmed', 'unconfirmed', 'waitinglist'] %}
