@@ -197,7 +197,7 @@ def page_list():
     """
     Public Page with Events
     """
-    categories = [(None, "Kategorie")] + [(x.lower(), x) for x in Config.objects(enabled=True)[0].event_categories]
+    categories = [(None, "Kategorie")] + [(x.lower(), x) for x in sorted(Config.objects(enabled=True)[0].event_categories)]
     mode = 'page'
     context = {}
     search_form = EventSearchForm(request.form)
@@ -516,7 +516,7 @@ def page_details():
         Event Reg Form
         """
 
-    categories = [(None, "Kategorie")] + [(x.lower(), x) for x in Config.objects(enabled=True)[0].event_categories]
+    categories = [(None, "Kategorie")] + [(x.lower(), x) for x in sorted(Config.objects(enabled=True)[0].event_categories)]
     # Add Custom Fields to Registration Form
     custom_fields = event.custom_fields
     for idx, field in enumerate(custom_fields):
@@ -706,7 +706,7 @@ def page_create():
         abort(403)
 
     event_id = request.args.get('event_id')
-    categories = [(None, "Kategorie")] + [(x.lower(), x) for x in Config.objects(enabled=True)[0].event_categories]
+    categories = [(None, "Kategorie")] + [(x.lower(), x) for x in sorted(Config.objects(enabled=True)[0].event_categories)]
 
     if event_id and not request.form:
         # Make it possible to clone a event

@@ -3,6 +3,7 @@ Configuration
 """
 #pylint: disable=too-few-public-methods, anomalous-backslash-in-string
 import os
+#from re import DEBUG
 import secrets
 
 class BaseConfig():
@@ -12,6 +13,8 @@ class BaseConfig():
     """
     RELEASE = '1.0.0'
     ENVIRONMENT = "DEBUG"
+    DEBUG = False
+    TESTING = False
 
     ENABLE_SENTRY = False
 
@@ -52,6 +55,7 @@ class BaseConfig():
     SWAGGER_ENABLED = True
 
     SENTRY_DSN = ""
+    MAIL_DEBUG = True
 
     SITENAME = "Eventmanager"
 

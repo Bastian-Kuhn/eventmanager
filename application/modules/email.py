@@ -20,7 +20,7 @@ def send_email(to, subject, template, **kwargs):
     user_config = Config.objects(enabled=True)[0]
     app.config['MAIL_SENDER'] = user_config.mail_sender
     app.config['MAIL_SERVER'] = user_config.mail_server
-    app.config['MAIL_USE_TLS'] = False
+    app.config['MAIL_USE_TLS'] = user_config.mail_use_tls
     app.config['MAIL_USERNAME'] = user_config.mail_username
     app.config['MAIL_PORT'] = 465
     app.config['MAIL_USE_SSL'] = True
