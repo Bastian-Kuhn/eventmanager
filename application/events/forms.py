@@ -46,6 +46,7 @@ class TicketForm(FlaskForm):
     price = FloatField("Preis", validators=[Optional()])
     maximum_tickets = IntegerField("Anzahl", validators=[Optional()])
 
+
 class EventForm(FlaskForm):
     """
     Event Formular
@@ -53,6 +54,7 @@ class EventForm(FlaskForm):
     event_name = StringField("Touren Name", validators=[InputRequired()])
     event_teaser = StringField("Event Teaser", validators=[InputRequired()])
     event_category = SelectField("Kategorie", validators=[InputRequired()])
+    event_type = SelectField("Touren Typ", choices=event_types, validators=[InputRequired()])
     event_description = TextAreaField("Beschreibung")
     places = StringField("Plätze", validators=[InputRequired()])
     booking_from = DateField("Buchbar ab", validators=[Optional()])

@@ -14,6 +14,7 @@ roles = [
   ('no_member', "Kein Vereinsmitglied"),
   ('member', "Vereinsmitglied"),
   ('guide', "Trainer/ Übungsleiter"),
+  ('attendant', "Tourenbegleiter ohne Ausbildung"),
 ]
 
 class User(db.Document, UserMixin):
@@ -25,15 +26,17 @@ class User(db.Document, UserMixin):
     first_name = db.StringField()
     last_name = db.StringField()
 
+    profile_img = db.ImageField(field="profile_img", collection='logos')
+
     birthdate = db.DateTimeField()
     phone = db.StringField()
 
+    club_id = db.StringField()
     club_member = db.BooleanField(default=False)
     club_member_confirmed = db.BooleanField(default=False)
 
     media_optin = db.BooleanField()
     data_optin = db.BooleanField()
-
 
     event_registrations = db.ListField(field=db.ReferenceField(document_type=Event))
 
@@ -115,6 +118,9 @@ class User(db.Document, UserMixin):
         Grand User the right if he has the role
         or is global admin
         """
+        if role == "guide":
+            if self.role == 'attendant':
+                return True
         if role == self.role:
             return True
         if self.global_admin:

@@ -590,10 +590,14 @@ def page_details():
 
 
     event_details_list = []
+    higest_level = 'attendant'
     for guide in event.event_owners:
+        if guide.role == 'guide':
+            higest_level = 'guide'
         event_details_list.append(
             ('Verantwortlicher Guide', f"{guide.first_name} {guide.last_name}, {guide.email}", "string")
         )
+
 
     event_details_list += [(x, y[0], y[1]) for x, y in event_details.items()]
 
@@ -604,6 +608,7 @@ def page_details():
 
     context = {
         'event' : event,
+        'higest_guide_level' : higest_level,
         'registration_enabled': registration_enabled,
         'event_custom_fields': [(str(x), y) for x, y in enumerate(event.custom_fields)],
         'event_ticket_ids': [x.name for x in event.tickets],

@@ -2,6 +2,8 @@
 Events
 """
 #pylint: disable=too-few-public-methods, no-member
+from random import choices
+from wtforms import StringField
 from application import db, app
 
 difficulties = [
@@ -67,6 +69,10 @@ class EventParticipation(db.EmbeddedDocument):
         'strict': False,
     }
 
+event_types = [
+  ('guided', "Guided Tour"),
+  ('unguided', "Unguided Tour"),
+]
 
 class Event(db.Document):
     """
@@ -74,6 +80,7 @@ class Event(db.Document):
     """
     event_name = db.StringField()
     event_teaser = db.StringField()
+    event_type = db.StringField(choices=event_types)
     event_description = db.StringField()
     event_category = db.StringField()
     event_owners = db.ListField(field=db.ReferenceField(document_type='User'))

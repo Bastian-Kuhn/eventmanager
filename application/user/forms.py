@@ -30,6 +30,7 @@ class NewUserForm(FlaskForm):
     phone = StringField("Handynummer", validators=[InputRequired()])
     birthdate = DateField("Geburstdatum", validators=[InputRequired()])
     club_member = BooleanField("Vereins Mitglied")
+    club_id = StringField("Mitgliedsnummer")
     media_optin = BooleanField("Von mir drürfen Fotos und Videos erstellt werden")
     data_optin = BooleanField("Ich bin einverstanden das meine Kontaktdaten mit anderen Mitgliedern geteilt werden")
     password  = PasswordField("Neues Passwort", validators=[InputRequired(),validate_password, EqualTo('password_repeat')])
