@@ -5,7 +5,7 @@ from wtforms import StringField, PasswordField, RadioField, SubmitField, Boolean
 from wtforms.widgets import TextArea
 from wtforms.validators import InputRequired, Email, EqualTo, ValidationError, Optional
 from flask import current_app
-from application.events.models import difficulties, Ticket, CustomField
+from application.events.models import difficulties, Ticket, CustomField, event_types
 from application import app
 from application.models.config import Config
 
