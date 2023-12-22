@@ -19,7 +19,8 @@ def _render_role(_view, _context, model, _name):
     """
     Render Rolle
     """
-    return Markup(roles_dict[model.role])
+    if model.role:
+        return Markup(roles_dict[model.role])
 
 
 class MemberView(CustomModelView):
