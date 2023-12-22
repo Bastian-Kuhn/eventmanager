@@ -15,10 +15,13 @@ from wtforms.validators import InputRequired
 
 from application.events.models import Event, EventParticipation,\
                              CustomField, CustomFieldDefintion, Ticket, OwnedTicket, difficulties
+from application.models.user import roles
 from application.auth.forms import LoginForm
 from application.auth.views import do_login
 from application.events.forms import EventForm, EventRegisterForm, EventSearchForm
 from application.models.config import Config
+
+roles_dict = dict(roles)
 
 EVENTS = Blueprint('EVENTS', __name__)
 
@@ -407,7 +410,7 @@ def get_participants(event):
                     'email': parti.user.email,
                     'media_optin': parti.user.media_optin,
                     'data_optin': parti.user.data_optin,
-                    'club_member': parti.user.club_member,
+                    'role': roles_dict[parti.user.role],
                     'comment': parti.comment,
                 },
                 'extra_questions': extra_questions

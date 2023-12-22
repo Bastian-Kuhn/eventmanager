@@ -37,7 +37,7 @@ def page_user_create():
         for field, value in dict(request.form).items():
             if field in ['password', 'password_repeat']:
                 continue
-            if field in ['club_member', 'media_optin', 'data_optin']:
+            if field in ['media_optin', 'data_optin']:
                 value = bool(value)
             if field == 'email':
                 value = value.lower()
