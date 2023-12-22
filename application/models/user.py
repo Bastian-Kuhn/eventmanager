@@ -26,14 +26,14 @@ class User(db.Document, UserMixin):
     first_name = db.StringField()
     last_name = db.StringField()
 
+    role = db.StringField(choices=roles)
+
     profile_img = db.ImageField(field="profile_img", collection='logos')
 
     birthdate = db.DateTimeField()
     phone = db.StringField()
 
     club_id = db.StringField()
-    club_member = db.BooleanField(default=False)
-    club_member_confirmed = db.BooleanField(default=False)
 
     media_optin = db.BooleanField()
     data_optin = db.BooleanField()
@@ -43,7 +43,7 @@ class User(db.Document, UserMixin):
     pwdhash = db.StringField()
 
     global_admin = db.BooleanField(default=False)
-    role = db.StringField(choices=roles)
+    admin = db.BooleanField(default=False)
 
     disabled = db.BooleanField(default=False)
 
@@ -108,6 +108,12 @@ class User(db.Document, UserMixin):
 
 
     def is_admin(self):
+        """
+        Check Admin Status
+        """
+        return self.global_admin or self.admin
+
+    def is_global_admin(self):
         """
         Check Admin Status
         """

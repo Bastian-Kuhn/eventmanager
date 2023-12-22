@@ -157,6 +157,7 @@ from application.views.default import CustomModelView
 
 from application.models.user import User
 from application.views.user import UserView
+from application.views.members import MemberView
 
 from application.events.models import Event
 from application.events.admin import EventView
@@ -179,6 +180,7 @@ def inject_now():
 
 #System
 admin.add_view(EventView(Event))
+admin.add_view(MemberView(User, name="Mitglieder", endpoint="Members"))
 admin.add_view(UserView(User, category='System'))
 admin.add_view(ConfigModelView(Config, category='System'))
 admin.add_view(LogView(LogEntry, name="Log", category="System"))

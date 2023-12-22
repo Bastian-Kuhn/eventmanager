@@ -29,7 +29,6 @@ class NewUserForm(FlaskForm):
     email = StringField("E-Mail", validators=[Email(), InputRequired(), validate_user])
     phone = StringField("Handynummer", validators=[InputRequired()])
     birthdate = DateField("Geburstdatum", validators=[InputRequired()])
-    club_member = BooleanField("Vereins Mitglied")
     club_id = StringField("Mitgliedsnummer")
     media_optin = BooleanField("Von mir drürfen Fotos und Videos erstellt werden")
     data_optin = BooleanField("Ich bin einverstanden das meine Kontaktdaten mit anderen Mitgliedern geteilt werden")

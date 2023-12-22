@@ -23,8 +23,6 @@ class UserView(CustomModelView):
         'email',
         'first_name',
         'last_name',
-        'club_member',
-        'club_member_confirmed',
         'global_admin',
     )
 
@@ -57,4 +55,4 @@ class UserView(CustomModelView):
         return super().on_model_change(form, model, is_created)
 
     def is_accessible(self):
-        return current_user.is_authenticated and current_user.has_right('user')
+        return current_user.is_authenticated and current_user.is_global_admin()

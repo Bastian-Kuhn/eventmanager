@@ -17,4 +17,4 @@ class ConfigModelView(CustomModelView): #pylint: disable=too-few-public-methods
 
     def is_accessible(self): #pylint: disable=no-self-use
         """ Overwrite """
-        return current_user.is_authenticated and current_user.is_admin()
+        return current_user.is_authenticated and current_user.is_global_admin()
