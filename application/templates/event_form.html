@@ -76,15 +76,6 @@
  {{ wtf.form_field(form.booking_until_time, group_css='col-md-3') }}
  </div>
 
-<hr>
- <fieldset class="form-group">
- <div class="row">
-       <legend class="col-form-label col-sm-2 pt-0">Teilnehmer</legend>
-        <div class="col-sm-12">
-         {{ wtf.form_field(form.places) }}
-        </div>
- </div>
- </fieldset>
 
 <hr>
  <fieldset class="form-group">
@@ -118,6 +109,12 @@
          {{ wtf.form_field(form.altitude_difference) }}
         </div>
 
+ </div>
+ <div class="row">
+       <legend class="col-form-label col-sm-2 pt-0"></legend>
+        <div class="col-sm-3">
+         {{ wtf.form_field(form.places) }}
+        </div>
  </div>
  </fieldset>
  <hr>
