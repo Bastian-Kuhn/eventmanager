@@ -85,6 +85,7 @@ class Event(db.Document):
     event_category = db.StringField()
     event_owners = db.ListField(field=db.ReferenceField(document_type='User'))
     places = db.IntField()
+    min_places = db.IntField()
 
     booking_from = db.DateTimeField()
     booking_until = db.DateTimeField()

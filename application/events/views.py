@@ -561,6 +561,15 @@ def page_details():
       ("Schwierigkeit", difficult_to_icon(event.difficulty, 1), 'string'),
       ("Kondition", difficult_to_icon(event.shape, 2), 'string'),
       ("Plätze insgesammt", numbers['total_places'], 'string'),
+    ]
+
+    if event.min_places:
+        detail_fields += [
+            ('Mindestteilnehmerzahl', event.min_places, 'string'),
+        ]
+
+
+    detail_fields += [
       ("Plätze bestätigt", numbers['confirmed'], 'string'),
       ("Plätze unbestätigt", numbers['wait_for_confirm'], 'string'),
       ("Auf Warteliste", numbers['waitlist'], 'string'),

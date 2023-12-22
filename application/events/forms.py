@@ -57,6 +57,7 @@ class EventForm(FlaskForm):
     event_type = SelectField("Touren Typ", choices=event_types, validators=[InputRequired()])
     event_description = TextAreaField("Beschreibung")
     places = IntegerField("Plätze auf Tour", validators=[InputRequired()])
+    min_places = IntegerField("Mindestteilnehmerzahl", validators=[])
     booking_from = DateField("Buchbar ab", validators=[Optional()])
     booking_from_time = TimeField("Zeit", validators=[Optional()])
     booking_until = DateField("Buchbar bis", validators=[Optional()])
