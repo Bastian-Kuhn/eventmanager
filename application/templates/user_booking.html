@@ -56,7 +56,7 @@
      {% for ticket in part.tickets %}
       <tr>
         <td>{{ticket.ticket_name}}</td>
-        <td><a class="far fa-user" 
+        <td><a class="far fa-edit" 
                data-ticket-id="{{ ticket.ticket_id }}"
                data-name="{{ticket.name_on_ticket}}"
                data-toggle="modal" data-target="#editName"
