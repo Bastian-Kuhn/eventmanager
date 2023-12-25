@@ -73,6 +73,7 @@ class EventForm(FlaskForm):
     altitude_difference= IntegerField("Höhenmeter")
     custom_fields = FieldList(FormField(EventCustomField), min_entries=1)
     tickets = FieldList(FormField(TicketForm), min_entries=2)
+    add_guide = BooleanField("Mich beim speichern als verantwortlichen Guide eintragen")
 
     submit = SubmitField("speichern")
 

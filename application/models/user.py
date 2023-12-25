@@ -14,7 +14,7 @@ roles = [
   ('no_member', "Kein Vereinsmitglied"),
   ('member', "Vereinsmitglied"),
   ('guide', "Trainer/ Übungsleiter"),
-  ('attendant', "Tourenbegleiter ohne Ausbildung"),
+  ('attendant', "Tourenbegleiter"),
 ]
 
 class User(db.Document, UserMixin):

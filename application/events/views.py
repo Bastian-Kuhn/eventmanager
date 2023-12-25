@@ -91,15 +91,18 @@ def save_event_form(event):
     """
     Helper to store Event Object
     """
-    if current_user not in event.event_owners:
-        event.event_owners.append(current_user)
-    for field, value in dict(request.form).items():
+    form_data = dict(request.form)
+    for field, value in form_data.items():
         # Set all default field which not here excluded
         if field in ['start_date', 'end_date', 'booking_from', 'booking_until']:
             continue
         if field in ['waitlist',]:
             value = bool(value)
         setattr(event, field, value)
+
+    if current_user not in event.event_owners and form_data.get('add_guide'):
+        event.event_owners.append(current_user)
+
 
     start_datetime_str = f"{request.form['start_date']} {request.form.get('start_time', '00:00')}"
     end_datetime_str = f"{request.form['end_date']} {request.form.get('end_time', '00:00')}"
@@ -607,7 +610,7 @@ def page_details():
         if guide.role == 'guide':
             higest_level = 'guide'
         event_details_list.append(
-            ('Verantwortlicher Guide', f"{guide.first_name} {guide.last_name}, {guide.email}", "string")
+            (f'Verantwortlicher {roles_dict[guide.role]}', f"{guide.first_name} {guide.last_name}, {guide.email}", "string")
         )
 
 
