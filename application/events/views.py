@@ -450,7 +450,7 @@ def page_participants_export():
       'E-Mail',
       'Medien Optin',
       'Daten Optin',
-      'Vereinsmitglied',
+      'Vereinsrolle',
       'Kommentar',
 
     ]+ extra_question_headers)
@@ -463,7 +463,7 @@ def page_participants_export():
             line['ticket_info']['email'],
             line['ticket_info']['media_optin'],
             line['ticket_info']['data_optin'],
-            line['ticket_info']['club_member'],
+            line['ticket_info']['role'],
             line['ticket_info']['comment'],
         ]+ [x[1] for x in line['extra_questions']])
 

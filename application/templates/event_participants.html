@@ -87,10 +87,11 @@ Keine Teilnehmer für Export oder Mail bestätigt
             {% if ticket.ticket_info.data_optin or current_user.has_right('guide')%}{{ticket.ticket_info.telefon}}
             {%else%} versteckt {% endif %}
         </td>
-        <td>{% if ticket.ticket_info.data_optin or current_user.has_right('guide')%}{{ticket.ticket_info.email}}
+        <td>{% if ticket.ticket_info.data_optin or current_user.has_right('guide')%}
+            <a href="mailto:{{ticket.ticket_info.email}}">{{ticket.ticket_info.email}}</a>
             {%else%} versteckt {% endif %}
         </td>
-        {% if current_user.has_right('guid') %}
+        {% if current_user.has_right('guide') %}
           <td>{{ translate_bool(ticket.ticket_info.media_optin) }}</td>
           <td>{{ ticket.ticket_info.role }}</td>
           <td>
@@ -129,7 +130,7 @@ Keine Teilnehmer für Export oder Mail bestätigt
 {% block scripts %}
 {{super()}}
 
-{% if current_user.has_right('guid') %}
+{% if current_user.has_right('guide') %}
 <script type="text/javascript">
 $(document).ready(function() {
     $('.job').click(function(e) {
