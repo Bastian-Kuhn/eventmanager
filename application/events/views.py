@@ -410,8 +410,10 @@ def get_participants(event):
             bucher = f"{parti.user.first_name} {parti.user.last_name}"
             if ticket.name_on_ticket != bucher:
                 role = 'ubk'
-            else:
+            elif parti.user.role:
                 role = roles_dict[parti.user.role]
+            else:
+                role = "Nicht überprüft"
 
             bookings[what].append({
                 'id': ticket.ticket_id,
