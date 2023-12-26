@@ -44,7 +44,10 @@
 <table class="table table-hover">
   <thead>
     <tr>
+      <th></th>
       <th scope="col">Ticket Name</th>
+      <th scope="col">Ticket E-Mail</th>
+      <th scope="col">Ticket Handy</th>
       <th scope="col">Teilnehmer Name</th>
       <th scope="col">Teilnahme Bestätigt?</th>
       <th scope="col">Auf Warteliste?</th>
@@ -55,13 +58,18 @@
   {% for part in participations %}
      {% for ticket in part.tickets %}
       <tr>
-        <td>{{ticket.ticket_name}}</td>
         <td><a class="far fa-edit" 
                data-ticket-id="{{ ticket.ticket_id }}"
                data-name="{{ticket.name_on_ticket}}"
+               data-email="{{ticket.email_on_ticket}}"
+               data-phone="{{ticket.phone_on_ticket}}"
                data-toggle="modal" data-target="#editName"
-               href='#' title="Name ändern"></a>
-               <span id="user_{{ticket.ticket_id}}">{{ticket.name_on_ticket}}</span></td>
+               href='#' title="Daten ändern"></a>
+               </span></td>
+        <td>{{ticket.ticket_name}}</td>
+        <td><span id="user_name_{{ticket.ticket_id}}">{{ticket.name_on_ticket}}</span></td>
+        <td><span id="user_email_{{ticket.ticket_id}}">{{ticket.email_on_ticket}}</span></td>
+        <td><span id="user_phone_{{ticket.ticket_id}}">{{ticket.phone_on_ticket}}</span></td>
         <td>{{translate_bool(ticket.confirmed) }}</td>
         <td>{{translate_bool(ticket.waitinglist) }}</td>
         <td>{{part.booking_date.strftime('%d.%m.%Y %H:%M')}}</td>
@@ -76,19 +84,21 @@
   <div class="modal-dialog modal-dialog-centered" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Name anpassen</h5>
+        <h5 class="modal-title">Teilnehmer anpassen</h5>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
       </div>
       <div class="modal-body">
       <form id="change_form" method="GET">
-      <input id="new_name" name="new_name" class="form-control">
+      <input id="new_name" name="new_name" class="form-control" placeholder="Name des Teilnehmers">
+      <input id="new_phone" name="new_phone" class="form-control" placeholder="Handynummer">
+      <input id="new_email" name="new_email" class="form-control" placeholder="E-Mail Adresse">
       <input id="ticket_id" name="ticket_id" type="hidden" class="form-control">
       <input id="event_id" name="event_id" type="hidden" class="form-control" value="{{event.id}}">
       </div>
       <div class="modal-footer">
-        <button type="submit" class="btn btn-primary">Neuen Namen speichern</button>
+        <button type="submit" class="btn btn-primary">Neuen Daten speichern</button>
         <button type="button" class="btn btn-secondary" data-dismiss="modal">Abbrechen</button>
       </div>
       </form>
@@ -107,8 +117,12 @@
         var modal = $('#editName');
         modal.on('show.bs.modal', function(e){
             var name = $(e.relatedTarget).data('name');
+            var email = $(e.relatedTarget).data('email');
+            var phone = $(e.relatedTarget).data('phone');
             var ticket_id = $(e.relatedTarget).data('ticket-id');
             $('#new_name').val(name);
+            $('#new_email').val(email);
+            $('#new_phone').val(phone);
             $('#ticket_id').val(ticket_id);
         });
 
@@ -122,7 +136,9 @@
                 data[this.name] = this.value;
             });
             $.post('/user/change_ticket', form, function(res){
-                $('#user_'+data.ticket_id).html(data.new_name);
+                $('#user_name_'+data.ticket_id).html(data.new_name);
+                $('#user_email_'+data.ticket_id).html(data.new_email);
+                $('#user_phone_'+data.ticket_id).html(data.new_phone);
                 modal.modal('hide');
             });
         });

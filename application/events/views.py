@@ -167,11 +167,15 @@ def ajax_mybooking():
     """
     event_id = request.form['event_id']
     new_name = request.form['new_name']
+    new_email = request.form['new_email']
+    new_phone = request.form['new_phone']
     ticket_id = request.form['ticket_id']
 
     event = Event.objects.get(id=event_id)
     ticket = event.get_booked_ticket(ticket_id, current_user)
     ticket.name_on_ticket = new_name
+    ticket.phone_on_ticket = new_phone
+    ticket.email_on_ticket = new_email
     event.save()
     return {'msg': 'success'}
 
@@ -402,18 +406,25 @@ def get_participants(event):
             for field in event.custom_fields:
                 extra_questions.append((field.field_name, parti.get_field(field.field_name)))
 
+
+            bucher = f"{parti.user.first_name} {parti.user.last_name}"
+            if ticket.name_on_ticket != bucher:
+                role = 'ubk'
+            else:
+                role = roles_dict[parti.user.role]
+
             bookings[what].append({
                 'id': ticket.ticket_id,
                 'ticket_owner': ticket.name_on_ticket,
                 'booking_date': parti.booking_date,
                 'ticket_info': {
                     'name': ticket.ticket_name,
-                    'bucher': f"{parti.user.first_name} {parti.user.last_name}",
-                    'telefon': parti.user.phone,
-                    'email': parti.user.email,
+                    'bucher': bucher,
+                    'telefon': ticket.phone_on_ticket if ticket.phone_on_ticket else parti.user.phone,
+                    'email': ticket.email_on_ticket if ticket.email_on_ticket else parti.user.email,
                     'media_optin': parti.user.media_optin,
                     'data_optin': parti.user.data_optin,
-                    'role': roles_dict[parti.user.role],
+                    'role': role,
                     'comment': parti.comment,
                 },
                 'extra_questions': extra_questions
@@ -497,7 +508,7 @@ def page_participants():
     participants = get_participants(event)
     for part in participants['confirmed']:
         email = part['ticket_info']['email']
-        if email not in emails:
+        if email and email not in emails:
             emails.append(email)
 
     context['event'] = event
@@ -694,6 +705,8 @@ def page_details():
                     ticket.ticket_comment = ticket_data[ticket_name]['desc']
                     ticket.confirmed = False
                     ticket.name_on_ticket = f"{current_user.first_name} {current_user.last_name}"
+                    ticket.email_on_ticket = current_user.email
+                    ticket.phone_on_ticket = current_user.phone
                     ticket.waitinglist = waitinglist
                     new_participation.tickets.append(ticket)
 

@@ -31,6 +31,8 @@ class OwnedTicket(db.EmbeddedDocument):
     """
     ticket_id = db.StringField()
     name_on_ticket = db.StringField()
+    email_on_ticket = db.StringField()
+    phone_on_ticket = db.StringField()
     ticket_name = db.StringField()
     ticket_comment = db.StringField()
     confirmed = db.BooleanField()
