@@ -31,11 +31,13 @@
  </form>
 </div>
 <br>
+   {% set weekdays = ["Mo.", "Di.", "Mi.", "Do.", "Fr.", "Sa.", "So."] %}
    <table class="table table-bordered">
     {% for event in events %}
     <tr>
       <td>
-        {{ event.start_date.strftime("%a %d.%m") }}
+        {{ weekdays[event.start_date.weekday()] }}
+        {{ event.start_date.strftime("%d.%m") }}
       </td>
       <td>
         {{ event_categories[event.event_category] }}
@@ -61,7 +63,18 @@
         <br>
       </td>
       <td>
-         {{ event.event_name }}
+         <a href="{{ url_for('EVENTS.page_details', event_id=event.id) }}">{{ event.event_name }}</a>
+
+         <br>
+         <br>
+
+         Leiter:
+         <ul>
+         {% for guide in event.event_owners %}
+          <li>{{guide.first_name}} {{guide.last_name}}</li>
+         {% endfor %}
+         </ul>
+
       </td>
       <td>
          {{ event.event_teaser }}

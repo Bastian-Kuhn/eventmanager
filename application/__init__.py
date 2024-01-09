@@ -2,8 +2,12 @@
 # pylint: disable=invalid-name
 # pylint: disable=wrong-import-position
 import os
+import locale
+locale.setlocale(locale.LC_TIME, 'de_DE.UTF-8')
+
 from datetime import datetime
 import base64
+
 from pprint import pformat
 from redis import Redis
 from flask import Flask, session, request, send_from_directory
