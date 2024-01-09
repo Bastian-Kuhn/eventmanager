@@ -622,6 +622,8 @@ def page_details():
     for guide in event.event_owners:
         if guide.role == 'guide':
             higest_level = 'guide'
+        elif higest_level != 'guide' and guide.role == 'youthguide':
+            higest_level = 'youthguide'
         event_details_list.append(
             (f'Verantwortlicher {roles_dict[guide.role]}', f"{guide.first_name} {guide.last_name}, {guide.email}", "string")
         )

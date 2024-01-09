@@ -72,8 +72,9 @@ class EventParticipation(db.EmbeddedDocument):
     }
 
 event_types = [
-  ('guided', "Guided Tour"),
-  ('unguided', "Unguided Tour"),
+  ('guided', "Von Guide geführt"),
+  ('youthguide', "Jugendleiter geführt"),
+  ('unguided', "Gemeinschafts Tour"),
 ]
 
 class Event(db.Document):

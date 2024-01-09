@@ -14,6 +14,7 @@ roles = [
   ('no_member', "Kein Vereinsmitglied"),
   ('member', "Vereinsmitglied"),
   ('guide', "Trainer/ Übungsleiter"),
+  ('youthguide', "Jugendleiter"),
   ('attendant', "Tourenbegleiter"),
 ]
 
