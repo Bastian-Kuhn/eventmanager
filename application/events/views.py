@@ -21,6 +21,8 @@ from application.auth.views import do_login
 from application.events.forms import EventForm, EventRegisterForm, EventSearchForm
 from application.models.config import Config
 
+from application.modules.email import send_email
+
 roles_dict = dict(roles)
 
 EVENTS = Blueprint('EVENTS', __name__)
@@ -721,6 +723,11 @@ def page_details():
             Event.objects(id=event_id).update_one(push__participations=new_participation)
             event.reload()
             event.save()
+
+            for guide in event.event_owners:
+                send_email(guide.email, f"Neue Anmeldung: {event.event_name}", 'email/newparticipant',
+                       event=event, user=current_user, tickets=new_participation.tickets, fields=new_participation.custom_fields, form_data=data)
+
             return redirect(url_for('EVENTS.page_mybooking', event_id=str(event.id)))
 
     if not current_user.is_authenticated:

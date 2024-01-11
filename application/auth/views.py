@@ -126,9 +126,9 @@ def request_password():
         if user_result:
             existing_user = user_result[0]
             token = existing_user.generate_token()
-            send_email(existing_user.email, "New Password", 'email/resetpassword',
+            send_email(existing_user.email, "Neues Passwort", 'email/resetpassword',
                        user=existing_user, token=token)
-        flash("New Password will be sent", 'info')
+        flash("Ein Link zum zurückseten deines Passworts wurde an dich gesendet.", 'info')
         return redirect("/")
 
     return render_template('formular.html', form=form)
