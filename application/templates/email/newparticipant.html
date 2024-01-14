@@ -1,0 +1,36 @@
+Neue Anmeldung auf deinem Event {{ event.event_name }} <br><br>
+Angemeldet hat: {{user.first_name}} {{user.last_name}} {{ user.email }}<br><br>
+
+<h2>Kommentar</h2>
+{{ form_data.comment }}
+
+
+
+<h2>Tickets</h2>
+<table>
+    <tr>
+        <th>Ticket Art</th>
+        <th>Name auf Ticket</th>
+    </tr>
+    {% for ticket in tickets %}
+    <tr>
+        <td>{{ ticket.ticket_name }}</td>
+        <td>{{ticket.name_on_ticket }}</td>
+    </tr>
+    {% endfor %}
+</table>
+
+<h2>Extra Fragen</h2>
+
+<table>
+    <tr>
+        <th>Frage</th>
+        <th>Antwort</th>
+    </tr>
+    {% for field in fields %}
+    <tr>
+        <td>{{ field.name }}</td>
+        <td>{{ field.value }}</td>
+    </tr>
+    {% endfor %}
+</table>
