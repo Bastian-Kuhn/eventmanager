@@ -33,8 +33,12 @@ class OwnedTicket(db.EmbeddedDocument):
     name_on_ticket = db.StringField()
     email_on_ticket = db.StringField()
     phone_on_ticket = db.StringField()
+    comment_on_ticket = db.StringField()
+    birthdate_on_ticket = db.DateField()
+
     ticket_name = db.StringField()
     ticket_comment = db.StringField()
+
     confirmed = db.BooleanField()
     waitinglist = db.BooleanField()
 

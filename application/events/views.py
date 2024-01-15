@@ -4,6 +4,7 @@ Login Routes and Handling for Frontend
 # pylint: disable=no-member, too-many-locals, too-many-branches, import-error, too-few-public-methods, too-many-statements
 
 from datetime import datetime, timedelta
+from dateutil import relativedelta
 import uuid
 import io, csv
 from flask import request, render_template, \
@@ -24,6 +25,11 @@ from application.models.config import Config
 from application.modules.email import send_email
 
 roles_dict = dict(roles)
+
+
+def age(date):
+    now = datetime.now().date()
+    return relativedelta.relativedelta(now, date).years
 
 EVENTS = Blueprint('EVENTS', __name__)
 
@@ -171,6 +177,8 @@ def ajax_mybooking():
     new_name = request.form['new_name']
     new_email = request.form['new_email']
     new_phone = request.form['new_phone']
+    new_birthdate = request.form['new_birthdate']
+    new_comment = request.form['new_comment']
     ticket_id = request.form['ticket_id']
 
     event = Event.objects.get(id=event_id)
@@ -178,6 +186,8 @@ def ajax_mybooking():
     ticket.name_on_ticket = new_name
     ticket.phone_on_ticket = new_phone
     ticket.email_on_ticket = new_email
+    ticket.birthdate_on_ticket = new_birthdate
+    ticket.comment_on_ticket = new_comment
     event.save()
     return {'msg': 'success'}
 
@@ -411,7 +421,7 @@ def get_participants(event):
 
             bucher = f"{parti.user.first_name} {parti.user.last_name}"
             if ticket.name_on_ticket != bucher:
-                role = 'ubk'
+                role = 'Unbekannt'
             elif parti.user.role:
                 role = roles_dict[parti.user.role]
             else:
@@ -428,8 +438,9 @@ def get_participants(event):
                     'email': ticket.email_on_ticket if ticket.email_on_ticket else parti.user.email,
                     'media_optin': parti.user.media_optin,
                     'data_optin': parti.user.data_optin,
+                    'birthdate': ticket.birthdate_on_ticket if ticket.birthdate_on_ticket else parti.user.birthdate,
                     'role': role,
-                    'comment': parti.comment,
+                    'comment': ticket.comment_on_ticket if ticket.comment_on_ticket else "",
                 },
                 'extra_questions': extra_questions
 
@@ -466,6 +477,7 @@ def page_participants_export():
       'Medien Optin',
       'Daten Optin',
       'Vereinsrolle',
+      'Alter',
       'Kommentar',
 
     ]+ extra_question_headers)
@@ -479,6 +491,7 @@ def page_participants_export():
             line['ticket_info']['media_optin'],
             line['ticket_info']['data_optin'],
             line['ticket_info']['role'],
+            age(line['ticket_info']['birthdate']),
             line['ticket_info']['comment'],
         ]+ [x[1] for x in line['extra_questions']])
 
@@ -713,6 +726,8 @@ def page_details():
                     ticket.name_on_ticket = f"{current_user.first_name} {current_user.last_name}"
                     ticket.email_on_ticket = current_user.email
                     ticket.phone_on_ticket = current_user.phone
+                    ticket.birthdate_on_ticket = current_user.birthdate
+                    ticket.comment_on_ticket = data['comment']
                     ticket.waitinglist = waitinglist
                     new_participation.tickets.append(ticket)
 

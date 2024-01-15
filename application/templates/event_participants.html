@@ -67,6 +67,7 @@ Keine Teilnehmer für Export oder Mail bestätigt
         {% if current_user.has_right('guide') %}
           <th scope="col">Medien Optin</th>
           <th scope="col">Vereinsrolle</th>
+          <th scope="col">Alter</th>
           <th scope="col">Extra Fragen</th>
           <th scope="col">Kommentar</th>
           <th scope="col">Buchung</th>
@@ -94,6 +95,7 @@ Keine Teilnehmer für Export oder Mail bestätigt
         {% if current_user.has_right('guide') %}
           <td>{{ translate_bool(ticket.ticket_info.media_optin) }}</td>
           <td>{{ ticket.ticket_info.role }}</td>
+          <td>{{ age(ticket.ticket_info.birthdate) }}</td>
           <td>
             <table>
             {% for field in ticket.extra_questions %}

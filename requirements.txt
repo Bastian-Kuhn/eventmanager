@@ -44,3 +44,4 @@ WTForms==3.1.1
 zipp==3.17.0
 uWSGI==2.0.22
 Flask-Admin @ git+https://github.com/flask-admin/flask-admin.git@14e24c970f0ee3a29add830612eee9a0b0ba5dcc
+python-dateutil==2.8.2

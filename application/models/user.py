@@ -31,7 +31,7 @@ class User(db.Document, UserMixin):
 
     profile_img = db.ImageField(field="profile_img", collection='logos')
 
-    birthdate = db.DateTimeField()
+    birthdate = db.DateField()
     phone = db.StringField()
 
     club_id = db.StringField()

@@ -6,6 +6,7 @@ import locale
 locale.setlocale(locale.LC_TIME, 'de_DE.UTF-8')
 
 from datetime import datetime
+from dateutil import relativedelta
 import base64
 
 from pprint import pformat
@@ -176,7 +177,14 @@ def translate_bool(what):
         return "Ja"
     return "Nein"
 
+def age(date):
+    now = datetime.now().date()
+    return relativedelta.relativedelta(now, date).years
+
+    
+
 app.jinja_env.globals.update(translate_bool=translate_bool)
+app.jinja_env.globals.update(age=age)
 
 @app.context_processor
 def inject_now():

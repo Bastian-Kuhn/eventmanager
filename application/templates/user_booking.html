@@ -40,15 +40,23 @@
     </div>
 </div>
 
+
+<div class="alert alert-primary" role="alert">
+    Bitte passe die Namen, E-Mail und Handynummern bei den Tickets an,
+    damit für den Guide eine kompletter Teilnehmerliste zur Verfügung steht.
+</div>
+
 <div class="row">
 <table class="table table-hover">
   <thead>
     <tr>
       <th></th>
-      <th scope="col">Ticket Name</th>
-      <th scope="col">Ticket E-Mail</th>
-      <th scope="col">Ticket Handy</th>
+      <th scope="col">Ticket</th>
       <th scope="col">Teilnehmer Name</th>
+      <th scope="col">E-Mail</th>
+      <th scope="col">Handy</th>
+      <th scope="col">Alter</th>
+      <th scope="col">Kommentar</th>
       <th scope="col">Teilnahme Bestätigt?</th>
       <th scope="col">Auf Warteliste?</th>
       <th scope="col">Buchungszeit</th>
@@ -63,6 +71,8 @@
                data-name="{{ticket.name_on_ticket}}"
                data-email="{{ticket.email_on_ticket}}"
                data-phone="{{ticket.phone_on_ticket}}"
+               data-birthdate="{{ticket.birthdate_on_ticket}}"
+               data-comment="{{ticket.comment_on_ticket }}"
                data-toggle="modal" data-target="#editName"
                href='#' title="Daten ändern"></a>
                </span></td>
@@ -70,6 +80,8 @@
         <td><span id="user_name_{{ticket.ticket_id}}">{{ticket.name_on_ticket}}</span></td>
         <td><span id="user_email_{{ticket.ticket_id}}">{{ticket.email_on_ticket}}</span></td>
         <td><span id="user_phone_{{ticket.ticket_id}}">{{ticket.phone_on_ticket}}</span></td>
+        <td><span id="user_age{{ticket.ticket_id}}">{{age(ticket.birthdate_on_ticket)}}</span></td>
+        <td><span id="user_comment{{ticket.ticket_id}}">{{ticket.comment_on_ticket}}</span></td>
         <td>{{translate_bool(ticket.confirmed) }}</td>
         <td>{{translate_bool(ticket.waitinglist) }}</td>
         <td>{{part.booking_date.strftime('%d.%m.%Y %H:%M')}}</td>
@@ -94,6 +106,8 @@
       <input id="new_name" name="new_name" class="form-control" placeholder="Name des Teilnehmers">
       <input id="new_phone" name="new_phone" class="form-control" placeholder="Handynummer">
       <input id="new_email" name="new_email" class="form-control" placeholder="E-Mail Adresse">
+      <input id="new_birthdate" name="new_birthdate" class="form-control" type="date" placeholder="Geburtsdatum">
+      <textarea id="new_comment" name="new_comment" class="form-control" type="text" placeholder="Kommentar"></textarea>
       <input id="ticket_id" name="ticket_id" type="hidden" class="form-control">
       <input id="event_id" name="event_id" type="hidden" class="form-control" value="{{event.id}}">
       </div>
@@ -119,10 +133,14 @@
             var name = $(e.relatedTarget).data('name');
             var email = $(e.relatedTarget).data('email');
             var phone = $(e.relatedTarget).data('phone');
+            var birthdate = $(e.relatedTarget).data('birthdate');
+            var comment = $(e.relatedTarget).data('comment');
             var ticket_id = $(e.relatedTarget).data('ticket-id');
             $('#new_name').val(name);
             $('#new_email').val(email);
             $('#new_phone').val(phone);
+            $('#new_birthdate').val(birthdate);
+            $('#new_comment').val(comment);
             $('#ticket_id').val(ticket_id);
         });
 
@@ -139,6 +157,8 @@
                 $('#user_name_'+data.ticket_id).html(data.new_name);
                 $('#user_email_'+data.ticket_id).html(data.new_email);
                 $('#user_phone_'+data.ticket_id).html(data.new_phone);
+                $('#user_age'+data.ticket_id).html(data.new_birthdate);
+                $('#user_comment'+data.ticket_id).html(data.new_comment);
                 modal.modal('hide');
             });
         });
