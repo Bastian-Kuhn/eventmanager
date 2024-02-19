@@ -32,14 +32,27 @@
 </div>
 <br>
    {% set weekdays = ["Mo.", "Di.", "Mi.", "Do.", "Fr.", "Sa.", "So."] %}
+   {% set color = {
+       'Wandern' : 'rgb(217,181,67)',
+       'Mountain Bike' : 'rgb(0,168,150)',
+       'Ski Tour' : 'rgb(0,83,192)',
+       'Ski Hochtour' : 'rgb(0,83,192)',
+       'Hochtour' : 'rgb(0,83,192)',
+       'Jugend' : 'rgb(198,23,24)',
+       'Gemischte Touren' : 'rgb(217,181,167)',
+       'Fahrradtour' : 'rgb(217,181,67)',
+       'Klettern' : 'rgb(142,142,142)',
+       'Felsklettern' : 'rgb(142,142,142)',
+
+       } %}
    <table class="table table-bordered">
     {% for event in events %}
     <tr>
       <td>
         {{ weekdays[event.start_date.weekday()] }}
-        {{ event.start_date.strftime("%d.%m") }}
+        {{ event.start_date.strftime("%d.%m.%Y") }}
       </td>
-      <td>
+      <td style="background-color: {{ color.get(event.event_category) }};">
         {{ event_categories[event.event_category] }}
         <br>
         <br>
