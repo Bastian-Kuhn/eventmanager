@@ -3,17 +3,6 @@
 
 {% block page_content %}
 
-<div class="row">
-    <div class="col-sm-12">
-        <nav aria-label="Event Categrories">
-          <ul class="pagination">
-              {% for category, category_name in event_categories.items() %} 
-              <li class="page-item"><a class="page-link" href="?filter_category={{ category }}">{{ category_name }}</a></li>
-              {% endfor %}
-          </ul>
-        </nav>
-    </div>
-</div>
 
 <style>
  label: {
@@ -21,7 +10,7 @@
      margin-right: 5px;
  }
 </style>
-<a data-toggle="collapse" href="#filter">Suchen/ Filtern</a>
+<a type="buttom" class="btn btn-primary btn-sm" data-toggle="collapse" href="#filter">Suchen/ Filtern</a>
 <div id="filter" class="collapse" style="background-color: #e9ecef; border-radius: .3rem; padding: 5px; margin: 5px;">
  <b>Filter:</b>
  <form  action="{{ url_for('EVENTS.page_list') }}" method="POST">
@@ -52,6 +41,16 @@
  </form>
 </div>
 
+<div class="row">
+          <ul class="nav nav-pills nav-fill">
+              {% for category, category_name in event_categories.items() %} 
+              <li class="nav-item">
+                <a class="nav-link" href="?filter_category={{ category }}">{{ category_name }}</a>
+              </li>
+              {% endfor %}
+          </ul>
+</div>
+
 
 <div class="row">
     <div class="col-sm-12">
@@ -62,8 +61,9 @@
     <div class="card-deck">
     {% for event in events %}
          <div class="card">
-           <div class="card-header">
-            <b>{{ event.start_date.strftime("%d.%m.%Y") }}</b> | {{ event_categories[event.event_category] }}<br>
+           <div class="card-header" style="background-color: {{event_categories_detailed.get(event.event_category, {'color': 'red'})['color']}}; color:white;">
+            <b>{{ event.start_date.strftime("%d.%m.%Y") }}</b> |
+            {{ event_categories_detailed.get(event.event_category, {'name': 'not set'})['name'] }}<br>
             T {{ render_dificulty(event.difficulty, 1) }} K {{ render_dificulty(event.shape, 2)}}
            </div>
            <div class="card-body">

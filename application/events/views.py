@@ -34,6 +34,20 @@ def age(date):
 EVENTS = Blueprint('EVENTS', __name__)
 
 #   . Helpers
+
+
+def get_categories():
+    """
+    Return Dict with Categories
+    """
+    categrories_detailed = {}
+    for cat in Config.objects.get(enabled=True).event_categories_full:
+        categrories_detailed[cat.name.lower()] = {
+                                                    'color': cat.color,
+                                                    'name': cat.name,
+                                                 }
+    return categrories_detailed
+
 def difficult_to_icon(level, icon_type):
     """
     Format Intod Images
@@ -219,7 +233,10 @@ def page_list():
     """
     Public Page with Events
     """
-    categories = [(None, "Kategorie")] + [(x.lower(), x) for x in sorted(Config.objects(enabled=True)[0].event_categories)]
+    categrories_detailed = get_categories()
+
+    categories = [(None, "Alle")] + [(x, y['name']) \
+            for x,y in categrories_detailed.items()]
     mode = 'page'
     context = {}
     search_form = EventSearchForm(request.form)
@@ -300,6 +317,7 @@ def page_list():
     else:
         context['header'] = "Events"
     context['event_categories'] = dict(categories)
+    context['event_categories_detailed'] = categrories_detailed
     context['search_form'] = search_form
 
 
@@ -336,7 +354,7 @@ def page_admin():
     if not current_user.has_right('guide'):
         abort(403)
 
-    categories = [(None, "Kategorie")] + [(x.lower(), x) for x in Config.objects(enabled=True)[0].event_categories]
+    categories = [(None, "Kategorie")] + [(x.name.lower(), x.name) for x in Config.objects(enabled=True)[0].event_categories_full]
 
     if request.form:
         form = EventForm(request.form)
@@ -550,7 +568,7 @@ def page_details():
         Event Reg Form
         """
 
-    categories = [(None, "Kategorie")] + [(x.lower(), x) for x in sorted(Config.objects(enabled=True)[0].event_categories)]
+    categories = [(None, "Alle")] + [(x.name.lower(), x.name) for x in Config.objects(enabled=True)[0].event_categories_full]
     # Add Custom Fields to Registration Form
     custom_fields = event.custom_fields
     for idx, field in enumerate(custom_fields):
@@ -765,7 +783,7 @@ def page_create():
         abort(403)
 
     event_id = request.args.get('event_id')
-    categories = [(None, "Kategorie")] + [(x.lower(), x) for x in sorted(Config.objects(enabled=True)[0].event_categories)]
+    categories = [(None, "Keine")] + [(x.name.lower(), x.name) for x in sorted(Config.objects(enabled=True)[0].event_categories_full)]
 
     if event_id and not request.form:
         # Make it possible to clone a event
