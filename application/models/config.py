@@ -16,6 +16,7 @@ class Config(db.Document): #pylint: disable=too-few-public-methods
     """Style Settings"""
 
     nav_background_color = db.StringField()
+    homepage_link = db.StringField()
     logo_image = db.ImageField(field="logo_image", collection='logos')
     event_categories = db.ListField(field=db.StringField())
     event_categories_full = db.ListField(field=db.EmbeddedDocumentField(document_type="Category"))
