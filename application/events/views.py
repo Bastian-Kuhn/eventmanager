@@ -783,7 +783,7 @@ def page_create():
         abort(403)
 
     event_id = request.args.get('event_id')
-    categories = [(None, "Keine")] + [(x.name.lower(), x.name) for x in sorted(Config.objects(enabled=True)[0].event_categories_full)]
+    categories = [(None, "Keine")] + [(x.name.lower(), x.name) for x in Config.objects(enabled=True)[0].event_categories_full]
 
     if event_id and not request.form:
         # Make it possible to clone a event
