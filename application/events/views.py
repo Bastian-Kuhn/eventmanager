@@ -281,7 +281,7 @@ def page_list():
     filter_category = filters.get('filter_category')
     if filter_category != "None":
         filter_expr['event_category'] = filter_category
-        filter_names.append(f"Kategorie ist: {dict(categories).get(filter_category, filter_category)}")
+        filter_names.append(f"Kategorie: {dict(categories).get(filter_category, filter_category)}")
 
 
     if filter_date:
@@ -297,7 +297,7 @@ def page_list():
 
     if filter_future == 'y':
         filter_expr['start_date__gte'] = now
-        filter_names.append("Zeitpunkt: Zukünftige")
+        #filter_names.append("Zeitpunkt: Zukünftige")
 
     events = Event.objects(**filter_expr).order_by('start_date')
     result = []
@@ -313,7 +313,7 @@ def page_list():
     context['render_dificulty'] = difficult_to_icon
 
     if filter_names:
-        context['header'] = f"Filter: {', '.join(filter_names)}"
+        context['header'] = f"{', '.join(filter_names)}"
     else:
         context['header'] = "Events"
     context['event_categories'] = dict(categories)
