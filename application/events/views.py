@@ -610,16 +610,21 @@ def page_details():
 
     detail_fields = [
       ("Kategorie", dict(categories).get(event.event_category), 'string'),
-      ("Schwierigkeit", difficult_to_icon(event.difficulty, 1), 'string'),
-      ("Kondition", difficult_to_icon(event.shape, 2), 'string'),
-      ("Plätze insgesammt", numbers['total_places'], 'string'),
+      ("Start",  f'{event.start_date.strftime("%d.%m.%Y")} {event.start_date.strftime("%H:%M")}', 'string'),
+      ("Ende" , event.end_date.strftime("%d.%m.%Y %H:%M "), 'string'),
+      ('Tickets', format_ticket(event.tickets), 'table'),
     ]
+
+    if numbers['total_places']:
+        detail_fields += [
+            ("Plätze insgesammt", numbers['total_places'], 'string'),
+        ]
+
 
     if event.min_places:
         detail_fields += [
             ('Mindestteilnehmerzahl', event.min_places, 'string'),
         ]
-
 
     detail_fields += [
       ("Plätze bestätigt", numbers['confirmed'], 'string'),
@@ -634,15 +639,15 @@ def page_details():
         detail_fields += [
           ("Buchbar bis" , event.booking_until.strftime("%d.%m.%Y %H:%M "), 'string'),
         ]
-    detail_fields += [
-      ("Start",  event.start_date.strftime("%d.%m.%Y"), 'string'),
-      ("Zeit am Treffpunkt" , event.start_date.strftime("%H:%M"), 'string'),
-      ("Ende" , event.end_date.strftime("%d.%m.%Y %H:%M "), 'string'),
-      ('Länge in km', event.length_km, 'string'),
-      ('Höhenmeter', event.altitude_difference, 'string'),
-      ('Dauer in Stunden', event.length_h, 'string'),
-      ('Tickets', format_ticket(event.tickets), 'table'),
-    ]
+
+    if event.event_type != 'notour':
+        detail_fields += [
+          ("Schwierigkeit", difficult_to_icon(event.difficulty, 1), 'string'),
+          ("Kondition", difficult_to_icon(event.shape, 2), 'string'),
+          ('Länge in km', event.length_km, 'string'),
+          ('Höhenmeter', event.altitude_difference, 'string'),
+          ('Dauer in Stunden', event.length_h, 'string'),
+        ]
 
     event_details = {}
     for title, data, mode in detail_fields:

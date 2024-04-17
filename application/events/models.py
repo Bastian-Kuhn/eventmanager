@@ -7,6 +7,7 @@ from wtforms import StringField
 from application import db, app
 
 difficulties = [
+    (None, "Keine"),
     ("sehr leicht", "Sehr Leicht"),
     ("leicht", "Leicht"),
     ("mittel", "Mittel"),
@@ -79,6 +80,7 @@ event_types = [
   ('guided', "Von Guide geführt"),
   ('youthguide', "Jugendleiter geführt"),
   ('unguided', "Gemeinschafts Tour"),
+  ('notour', "Event/ Termin"),
 ]
 
 class Event(db.Document):

@@ -64,7 +64,9 @@
            <div class="card-header" style="background-color: {{event_categories_detailed.get(event.event_category, {'color': 'red'})['color']}}; color:white;">
             <b>{{ event.start_date.strftime("%d.%m.%Y") }}</b> |
             {{ event_categories_detailed.get(event.event_category, {'name': 'not set'})['name'] }}<br>
+            {% if event.difficulty %}
             T {{ render_dificulty(event.difficulty, 1) }} K {{ render_dificulty(event.shape, 2)}}
+            {% endif %}
            </div>
            <div class="card-body">
              <h5 class="card-title"><a href="{{ url_for('EVENTS.page_details', event_id=event.id) }}">{{ event.event_name }}</a></h5>
@@ -82,7 +84,10 @@
            <div class="card-footer">
             {% set numbers = event.get_numbers() %}
             <span class="badge badge-success">Anmeldungen: {{ numbers['confirmed'] + numbers['wait_for_confirm'] }} / {{numbers['total_places'] }}</span>
+            {% if numbers['waitlist'] %}
             <span class="badge badge-warning">Warteliste: {{ numbers['waitlist'] }}</span>
+            {% endif %}
+
            </div>
          </div>
         {% if loop.index % 2 == 1 %}
