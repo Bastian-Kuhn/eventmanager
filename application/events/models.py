@@ -7,7 +7,7 @@ from wtforms import StringField
 from application import db, app
 
 difficulties = [
-    (None, "Keine"),
+    ("keine", "Keine"),
     ("sehr leicht", "Sehr Leicht"),
     ("leicht", "Leicht"),
     ("mittel", "Mittel"),
