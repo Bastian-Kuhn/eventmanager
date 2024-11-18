@@ -193,6 +193,7 @@
 
  <script src="/static/js/ckeditor/ckeditor.js"></script>
 <script>
-    CKEDITOR.replace('event_description');
+    CKEDITOR.config.simpleImageBase64allowed = true;
+    CKEDITOR.replace('event_description', {});
 </script>
 {% endblock %}
