@@ -582,13 +582,13 @@ def page_details():
     # Handle Ticket function
     event_tickets = event.tickets
     for ticket in event_tickets:
-        choices = [ (str(x), f'{x} Plätze') for x in range(ticket.maximum_tickets+1) ]
+        choices = [ (str(x), f'{x} Anmeldungen') for x in range(ticket.maximum_tickets+1) ]
         places = ticket_stats['max'][ticket.name] - ticket_stats.get(ticket.name, 0)
         preisinfo = ""
         if ticket.price > 0:
-            preisinfo = f"(je Platz: {ticket.price}  €)"
+            preisinfo = f"(je Anmeldung: {ticket.price}  €)"
         setattr(EventRegForm, f"ticket_{ticket.name}",
-                    SelectField(f"'{ticket.name}' {preisinfo} aktuell noch {places}/{ticket_stats['max'][ticket.name]}", choices=choices))
+                    SelectField(f"'{ticket.name}: {ticket.description}' {preisinfo} aktuell noch {places}/{ticket_stats['max'][ticket.name]}", choices=choices))
 
 
     register_form = EventRegForm(request.form)
@@ -617,7 +617,7 @@ def page_details():
 
     if numbers['total_places']:
         detail_fields += [
-            ("Plätze insgesammt", numbers['total_places'], 'string'),
+            ("Anmeldungen insgesammt", numbers['total_places'], 'string'),
         ]
 
 
@@ -627,8 +627,8 @@ def page_details():
         ]
 
     detail_fields += [
-      ("Plätze bestätigt", numbers['confirmed'], 'string'),
-      ("Plätze unbestätigt", numbers['wait_for_confirm'], 'string'),
+      ("Anmeldungen bestätigt", numbers['confirmed'], 'string'),
+      ("Anmeldungen unbestätigt", numbers['wait_for_confirm'], 'string'),
       ("Auf Warteliste", numbers['waitlist'], 'string'),
     ]
     if event.booking_from:
@@ -715,7 +715,7 @@ def page_details():
             ticket_data[ticket.name] = {'name': ticket.name, 'desc': ticket.description}
 
         if not wanted_seats:
-            flash("Du hast keine Ticket Plätze gewählt.", 'danger')
+            flash("Du hast keine Tickets gewählt.", 'danger')
             register_possible = False
 
 
