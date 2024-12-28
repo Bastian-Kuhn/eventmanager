@@ -45,6 +45,7 @@ class TicketForm(FlaskForm):
     description = StringField("Beschreibung", validators=[Optional()])
     price = FloatField("Preis", validators=[Optional()])
     maximum_tickets = IntegerField("Anzahl", validators=[Optional()])
+    is_extra_ticket = BooleanField("Opt. Ticket", validators=[Optional()])
 
 
 class EventForm(FlaskForm):

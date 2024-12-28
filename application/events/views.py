@@ -166,10 +166,12 @@ def save_event_form(event):
     for t_data in ticket_collector.values():
         if not t_data.get('name'):
             continue
+        is_extra = True if t_data.get('is_extra_ticket') == 'y' else False
         ticket = Ticket()
         ticket.name = t_data['name']
         ticket.price = float(t_data.get('price', 0))
         ticket.description = t_data.get('description')
+        ticket.is_extra_ticket = is_extra
         if overwrite_max_tickets and int(t_data.get('maximum_tickets', 0)) == 0:
             ticket.maximum_tickets = overwrite_max_tickets
         else:
@@ -213,14 +215,17 @@ def page_mybooking():
     """
     event_id = request.args.get('event_id')
     event = Event.objects.get(id=event_id)
-    participations = []
+    tickets_by_name = {}
     for parti in event.participations:
         if parti.user == current_user:
-            participations.append(parti)
+            for ticket in parti.tickets:
+                ticket.booking_date = parti.booking_date
+                tickets_by_name.setdefault(ticket.ticket_name, [])
+                tickets_by_name[ticket.ticket_name].append(ticket)
 
     context = {
         'event': event,
-        'participations': participations
+        'tickets_by_name': tickets_by_name,
     }
 
 
@@ -587,8 +592,9 @@ def page_details():
         preisinfo = ""
         if ticket.price > 0:
             preisinfo = f"(je Anmeldung: {ticket.price}  €)"
+        description = f": {ticket.description}" if ticket.description else ""
         setattr(EventRegForm, f"ticket_{ticket.name}",
-                    SelectField(f"'{ticket.name}: {ticket.description}' {preisinfo} aktuell noch {places}/{ticket_stats['max'][ticket.name]}", choices=choices))
+                    SelectField(f"'{ticket.name}{description}' {preisinfo} aktuell {places} von {ticket_stats['max'][ticket.name]} verfügbar", choices=choices))
 
 
     register_form = EventRegForm(request.form)
@@ -617,7 +623,7 @@ def page_details():
 
     if numbers['total_places']:
         detail_fields += [
-            ("Anmeldungen insgesammt", numbers['total_places'], 'string'),
+            ("Freie Plätze insgesammt", numbers['total_places'], 'string'),
         ]
 
 
@@ -712,7 +718,8 @@ def page_details():
             places = ticket_stats['max'][ticket.name] - ticket_stats.get(ticket.name, 0)
             free_seats[ticket.name] = places - wanted
             wanted_seats[ticket.name] = wanted
-            ticket_data[ticket.name] = {'name': ticket.name, 'desc': ticket.description}
+            is_extra = ticket.is_extra_ticket
+            ticket_data[ticket.name] = {'name': ticket.name, 'desc': ticket.description, 'is_extra': is_extra}
 
         if not wanted_seats:
             flash("Du hast keine Tickets gewählt.", 'danger')
@@ -741,6 +748,7 @@ def page_details():
 
                     ticket_id = uuid.uuid4().hex
 
+
                     ticket = OwnedTicket()
                     ticket.ticket_id = ticket_id
                     ticket.ticket_name = ticket_name
@@ -751,6 +759,7 @@ def page_details():
                     ticket.phone_on_ticket = current_user.phone
                     ticket.birthdate_on_ticket = current_user.birthdate
                     ticket.comment_on_ticket = data['comment']
+                    ticket.is_extra_ticket = ticket_data[ticket_name]['is_extra']
                     ticket.waitinglist = waitinglist
                     new_participation.tickets.append(ticket)
 

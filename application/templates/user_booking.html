@@ -50,8 +50,7 @@
   <thead>
     <tr>
       <th></th>
-      <th scope="col">Ticket</th>
-      <th scope="col">Teilnehmer Name</th>
+      <th scope="col">Name</th>
       <th scope="col">E-Mail</th>
       <th scope="col">Handy</th>
       <th scope="col">Alter</th>
@@ -62,8 +61,12 @@
     </tr>
   </thead>
   <tbody>
-  {% for part in participations %}
-     {% for ticket in part.tickets %}
+
+  {% for ticket_name, tickets in tickets_by_name.items() %}
+  <tr>
+      <th colspan=9>{{ticket_name}}</th>
+  </tr>
+    {% for ticket in tickets %}
       <tr>
         <td><a class="far fa-edit" 
                data-ticket-id="{{ ticket.ticket_id }}"
@@ -75,7 +78,6 @@
                data-toggle="modal" data-target="#editName"
                href='#' title="Daten ändern"></a>
                </span></td>
-        <td>{{ticket.ticket_name}}</td>
         <td><span id="user_name_{{ticket.ticket_id}}">{{ticket.name_on_ticket}}</span></td>
         <td><span id="user_email_{{ticket.ticket_id}}">{{ticket.email_on_ticket}}</span></td>
         <td><span id="user_phone_{{ticket.ticket_id}}">{{ticket.phone_on_ticket}}</span></td>
@@ -83,7 +85,7 @@
         <td><span id="user_comment{{ticket.ticket_id}}">{{ticket.comment_on_ticket}}</span></td>
         <td>{{translate_bool(ticket.confirmed) }}</td>
         <td>{{translate_bool(ticket.waitinglist) }}</td>
-        <td>{{part.booking_date.strftime('%d.%m.%Y %H:%M')}}</td>
+        <td>{{ticket.booking_date.strftime('%d.%m.%Y %H:%M')}}</td>
       </tr>
      {% endfor %}
   {% endfor %}

@@ -24,7 +24,8 @@ class Ticket(db.EmbeddedDocument):
     name = db.StringField()
     description = db.StringField()
     price = db.FloatField()
-    maximum_tickets = db.IntField()
+    is_extra_ticket = db.BooleanField(default=False)
+    maximum_tickets = db.IntField(default=False)
 
 class OwnedTicket(db.EmbeddedDocument):
     """
@@ -42,6 +43,8 @@ class OwnedTicket(db.EmbeddedDocument):
 
     confirmed = db.BooleanField()
     waitinglist = db.BooleanField()
+
+    is_extra_ticket = db.BooleanField(default=False)
 
 class CustomFieldDefintion(db.EmbeddedDocument):
     """ Extra Questions for Events """
@@ -128,6 +131,8 @@ class Event(db.Document):
         waitinglist = 0
         for parti in self.participations:
             for ticket in parti.tickets:
+                if ticket.is_extra_ticket:
+                    continue
                 if ticket.confirmed:
                     confirmed += 1
                 else:

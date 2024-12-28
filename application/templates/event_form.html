@@ -158,24 +158,35 @@
              {{ field.form.name(class_="form-control") }}
          </div>
         </div>
+
         <div class="col-sm-3">
          <div class="form-group">
              {{ field.form.description.label(class_="control-label") }}
              {{ field.form.description(class_="form-control") }}
          </div>
         </div>
-        <div class="col-sm-3">
+
+        <div class="col-sm-2">
          <div class="form-group">
              {{ field.form.price.label(class_="control-label") }}
              {{ field.form.price(class_="form-control") }}
          </div>
         </div>
-        <div class="col-sm-3">
+
+        <div class="col-sm-2">
          <div class="form-group">
              {{ field.form.maximum_tickets.label(class_="control-label") }}
              {{ field.form.maximum_tickets(class_="form-control") }}
          </div>
         </div>
+
+        <div class="col-sm-2">
+         <div class="form-group form-check">
+             <center>{{ field.form.is_extra_ticket.label(class_="form-check-label") }}</center>
+             <center>{{ field.form.is_extra_ticket(class_="form-check-input") }}</center>
+         </div>
+        </div>
+
        </div>
       </div>
     {% endfor %}
