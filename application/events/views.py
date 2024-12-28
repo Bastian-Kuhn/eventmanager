@@ -453,6 +453,7 @@ def get_participants(event):
             bookings[what].append({
                 'id': ticket.ticket_id,
                 'ticket_owner': ticket.name_on_ticket,
+                'is_extra_ticket': ticket.is_extra_ticket,
                 'booking_date': parti.booking_date,
                 'ticket_info': {
                     'name': ticket.ticket_name,
