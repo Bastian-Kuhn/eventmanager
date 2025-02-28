@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+{% import 'bootstrap/wtf.html' as wtf %}
+
+{% block page_content %}
+<div class="row">
+    <div class="col-sm-12">
+
+    <ul class="nav nav-tabs">
+      <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('EVENTS.page_details', event_id=event.id) }}">Übersicht</a>
+      </li>
+    {% if current_user.is_authenticated %}
+       {% if current_user.has_right('guide') or current_user.participate_event(event.id) %}
+      <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('EVENTS.page_participants', event_id=event.id) }}">Teilnehmerliste</a>
+      </li>
+      {% endif %}
+      {% if current_user.has_right('guide') %}
+
+      <li class="nav-item">
+        <a class="nav-link active" href="{{ url_for('EVENTS.page_billing', event_id=event.id) }}">Abrechnung</a>
+      </li>
+      {% endif %}
+    {% if current_user.has_right('guide') or current_user.participate_event(event.id) %}
+      <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('EVENTS.page_mybooking', event_id=event.id) }}">Meine Buchung</a>
+      </li>
+    {% endif %}
+      {% if current_user.has_right('guide') %}
+      <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('EVENTS.page_admin', event_id=event.id) }}">Bearbeiten</a>
+      </li>
+
+      <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('EVENTS.page_create', event_id=event.id) }}">Klonen</a>
+      </li>
+      {% endif %}
+    {% endif %}
+    </ul>
+    </div>
+</div>
+
+<div class="row">
+    <h1>{{event.event_name}} ({{event.start_date.strftime("%d.%m.%Y") }})</h1>
+</div>
+
+{% for booking_status in bookings %}
+    {% for owner, tickets in bookings[booking_status].items() %}
+    <div class="row">
+        <h2>{{owner}}</h2>
+    </div>
+    <div class="row">
+        {% for booking_status in ['paid', 'unpaid'] %}
+            {% if booking_status == 'unpaid' %}
+                <h3>Nicht bezahlt</h3><br>
+            {% elif booking_status == 'paid' %}
+                <h3>Bezahlt</h3>
+            {% endif %}
+        </div>
+        <div class="row">
+            <table class="table table-bordered">
+              <thead>
+                <tr>
+                  <th scope="col">Teilnehmer</th>
+                  <th scope="col">Vereinsrolle</th>
+                  <th scope="col">Alter</th>
+                  <th scope="col">Preis Euro</th>
+                  <th scope="col">Optionen</th>
+                </tr>
+              </thead>
+              <tbody>
+              {% for ticket in tickets %}
+                <tr>
+                 <td>{{ ticket.ticket_owner }}</td>
+                  <td>{{ ticket.ticket_info.role }}</td>
+                  <td>{{ age(ticket.ticket_info.birthdate) }}</td>
+                  <td>{{ticket.price }}</td>
+                  <td>
+                    {% if booking_type != 'confirmed' %}
+                    <a href="#" class="job" data-job="paid" data-ticket_id={{ ticket.id }}>Bezahlt</a></span>
+                    {% endif %}/
+                    {% if booking_type != 'waitinglist' %}
+                    <a href="#" class="job" data-job="unpaid" data-ticket_id={{ ticket.id }}>Nicht Bezahlt</a>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+              </tbody>
+
+            </table>
+            {% endfor %}
+        </div>
+    {% endfor %}
+{% endfor %}
+
+{% endblock %}
+
+{% block scripts %}
+{{super()}}
+
+{% if current_user.has_right('guide') %}
+<script type="text/javascript">
+$(document).ready(function() {
+    $('.job').click(function(e) {
+        e.preventDefault();
+        var self_data = $(this);
+        var data = {
+            'ticket_id': self_data.data('ticket_id'),
+            'job': self_data.data('job'),
+            'event_id': '{{ event.id }}',
+        }
+        $.post('/event/change_paidstatus', data, function(res) {
+            console.log(res);
+            location.reload();
+        });
+    })
+});
+</script>
+{% endif %}
+{% endblock %}

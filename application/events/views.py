@@ -429,6 +429,9 @@ def get_participants(event):
         'waitinglist' : [],
         'unconfirmed' : [],
     }
+    tickets_by_name = {}
+    for event_ticket in event.tickets:
+        tickets_by_name[event_ticket.name] = event_ticket
     for parti in event.participations:
         for ticket in parti.tickets:
             what = 'unconfirmed'
@@ -455,6 +458,8 @@ def get_participants(event):
                 'ticket_owner': ticket.name_on_ticket,
                 'is_extra_ticket': ticket.is_extra_ticket,
                 'booking_date': parti.booking_date,
+                'is_paid': ticket.is_paid,
+                'price': tickets_by_name[ticket.ticket_name].price,
                 'ticket_info': {
                     'name': ticket.ticket_name,
                     'bucher': bucher,
@@ -554,7 +559,6 @@ def page_participants():
 
     context['event'] = event
     context['emails'] = emails
-    participants = get_participants(event)
     context['bookings'] = participants
     extra_tickets_grouped = {}
     for ticket in participants['unconfirmed']:
@@ -568,6 +572,84 @@ def page_participants():
     context['extra_tickets'] = extra_tickets_grouped
 
     return render_template('event_participants.html', **context)
+#.
+#   . Billing
+
+@EVENTS.route('/event/change_paidstatus', methods=['POST'])
+def change_paidstatus():
+    """
+    Helper to mark Tickets paid
+    """
+    if not current_user.has_right('guide'):
+        abort(403)
+
+    job = request.form['job']
+    ticket_id = request.form['ticket_id']
+    event_id = request.form['event_id']
+
+    event = Event.objects.get(id=event_id)
+    ticket = event.get_booked_ticket(ticket_id)
+
+    response = {}
+
+    if job == 'paid':
+        ticket.is_paid = True
+    elif job == 'unpaid':
+        ticket.is_paid = False
+    event.save()
+
+    return response
+@EVENTS.route('/event/billing')
+def page_billing():
+    """
+    Participants Page
+    """
+
+    event_id = request.args.get('event_id')
+
+    if not current_user.is_authenticated:
+        return redirect(url_for('auth.login'))
+
+    if not current_user.has_right('guide'):
+        abort(403)
+
+    event = Event.objects.get(id=event_id)
+    context = {}
+
+
+    participants = get_participants(event)
+
+    tickets = {
+        'paid': {},
+        'unpaid': {},
+    }
+
+    for ticket in participants['confirmed']:
+        bucher = ticket['ticket_info']['bucher']
+        tickets['paid'].setdefault(bucher, [])
+        tickets['unpaid'].setdefault(bucher, [])
+        if ticket['is_paid']:
+            tickets['paid'][bucher].append(ticket)
+        else:
+            tickets['unpaid'][bucher].append(ticket)
+
+    for ticket in participants['unconfirmed']:
+        bucher = ticket['ticket_info']['bucher']
+        tickets['paid'].setdefault(bucher, [])
+        tickets['unpaid'].setdefault(bucher, [])
+        if not ticket['is_extra_ticket']:
+            continue
+        if ticket['is_paid']:
+            tickets['paid'][bucher].append(ticket)
+        else:
+            tickets['unpaid'][bucher].append(ticket)
+
+    context['event'] = event
+    context['bookings'] = tickets
+
+
+    return render_template('event_billing.html', **context)
+
 #.
 #   . Event Details Page
 

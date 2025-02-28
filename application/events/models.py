@@ -45,6 +45,7 @@ class OwnedTicket(db.EmbeddedDocument):
     waitinglist = db.BooleanField()
 
     is_extra_ticket = db.BooleanField(default=False)
+    is_paid = db.BooleanField(default=False)
 
 class CustomFieldDefintion(db.EmbeddedDocument):
     """ Extra Questions for Events """
