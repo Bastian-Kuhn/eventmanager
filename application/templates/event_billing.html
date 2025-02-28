@@ -48,14 +48,14 @@
 <div class="accordion" id="accordionBilling">
     {% for owner, owner_data in bookings.items() %}
   <div class="card">
-    <div class="card-header" id="headingOne">
+    <div class="card-header" id="heading_{{loop.index}}">
       <h2 class="mb-0">
         <button class="btn btn-link btn-block text-left" type="button" data-toggle="collapse" data-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
           {{owner}}
         </button>
       </h2>
     </div>
-    <div id="collapseOne" class="collapse show" aria-labelledby="headingOne" data-parent="#accordionExample">
+    <div id="collapseOne" class="collapse" aria-labelledby="headingOne_{{loop.index}}" data-parent="#accordionExample">
       <div class="card-body">
         {% for booking_status in ['paid', 'unpaid'] %}
             {% if booking_status == 'unpaid' %}
@@ -67,6 +67,7 @@
               <thead>
                 <tr>
                   <th scope="col">Teilnehmer</th>
+                  <th scope="col">Was</th>
                   <th scope="col">Vereinsrolle</th>
                   <th scope="col">Alter</th>
                   <th scope="col">Preis Euro</th>
@@ -77,6 +78,7 @@
               {% for ticket in owner_data[booking_status] %}
                 <tr>
                  <td>{{ ticket.ticket_owner }}</td>
+                 <td>{{ ticket.ticket_info.name }}</td>
                   <td>{{ ticket.ticket_info.role }}</td>
                   <td>{{ age(ticket.ticket_info.birthdate) }}</td>
                   <td>{{ticket.price }}</td>
