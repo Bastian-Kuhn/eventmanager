@@ -55,6 +55,7 @@
         </button>
       </h2>
     </div>
+
     <div id="collapseOne" class="collapse" aria-labelledby="headingOne_{{loop.index}}" data-parent="#accordionExample">
       <div class="card-body">
         {% for booking_status in ['paid', 'unpaid'] %}
@@ -93,10 +94,8 @@
                 </tr>
               {% endfor %}
               </tbody>
-
             </table>
             {% endfor %}
-        </div>
        </div>
     {% endfor %}
 </div>
