@@ -123,34 +123,39 @@ Keine Teilnehmer für Export oder Mail bestätigt
       </tbody>
     </table>
 {% endfor %}
+</div>
 
 {% if current_user.has_right('guide') %}
-<h1> Extra Teilnehmer Daten</h1>
+<div class="row">
+<h1>Weitere Daten</h1>
+</div>
+
+<div class="row">
+{% for ticket_group, members in extra_tickets.items() %}
+<div class="row">
+    <h2>{{ ticket_group }}</h2>
+</div>
     <table class="table table-bordered">
       <thead>
         <tr>
           <th scope="col">Teilnehmer</th>
-          <th scope="col">Ticket</th>
           <th scope="col">Account</th>
         </tr>
       </thead>
       <tbody>
-    {% for ticket in bookings['unconfirmed'] if ticket.is_extra_ticket%}
+    {% for owner, bucher in members %}
         <tr>
-         <td>{{ ticket.ticket_owner }}</td>
-         <td>{{ ticket.ticket_info.name }}</td>
+         <td>{{ owner }}</td>
          <td>
-          <span class="badge badge-pill badge-info">{{ticket.ticket_info.bucher }}</span>
+          <span class="badge badge-pill badge-info">{{ bucher }}</span>
          </td>
         </tr>
     {% endfor %}
       </tbody>
     </table>
+{% endfor %}
 {% endif %}
 
-
-
-</div>
 {% endblock %}
 
 {% block scripts %}

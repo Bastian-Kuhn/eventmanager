@@ -554,7 +554,19 @@ def page_participants():
 
     context['event'] = event
     context['emails'] = emails
-    context['bookings'] = get_participants(event)
+    participants = get_participants(event)
+    context['bookings'] = participants
+    extra_tickets_grouped = {}
+    for ticket in participants['unconfirmed']:
+        if not ticket['is_extra_ticket']:
+            continue
+        ticket_info = ticket['ticket_info']
+        extra_tickets_grouped.setdefault(ticket_info['name'], [])
+        extra_tickets_grouped[ticket_info['name']].append((
+            ticket['ticket_owner'], ticket_info['bucher']
+        ))
+    context['extra_tickets'] = extra_tickets_grouped
+
     return render_template('event_participants.html', **context)
 #.
 #   . Event Details Page
