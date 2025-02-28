@@ -620,29 +620,25 @@ def page_billing():
     participants = get_participants(event)
 
     tickets = {
-        'paid': {},
-        'unpaid': {},
     }
 
     for ticket in participants['confirmed']:
         bucher = ticket['ticket_info']['bucher']
-        tickets['paid'].setdefault(bucher, [])
-        tickets['unpaid'].setdefault(bucher, [])
+        tickets.setdefault(bucher, {'paid': [], 'unpaid': []})
         if ticket['is_paid']:
-            tickets['paid'][bucher].append(ticket)
+            tickets[bucher]['paid'].append(ticket)
         else:
-            tickets['unpaid'][bucher].append(ticket)
+            tickets[bucher]['unpaid'].append(ticket)
 
     for ticket in participants['unconfirmed']:
         bucher = ticket['ticket_info']['bucher']
-        tickets['paid'].setdefault(bucher, [])
-        tickets['unpaid'].setdefault(bucher, [])
+        tickets.setdefault(bucher, {'paid': [], 'unpaid': []})
         if not ticket['is_extra_ticket']:
             continue
         if ticket['is_paid']:
-            tickets['paid'][bucher].append(ticket)
+            tickets[bucher]['paid'].append(ticket)
         else:
-            tickets['unpaid'][bucher].append(ticket)
+            tickets[bucher]['unpaid'].append(ticket)
 
     context['event'] = event
     context['bookings'] = tickets
