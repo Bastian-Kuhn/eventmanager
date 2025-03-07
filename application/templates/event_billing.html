@@ -53,6 +53,7 @@
         </div>
 
         <div class="card-body">
+          Total offen: {{ owner_data['total'] }}
           {% for booking_status in ['paid', 'unpaid'] %}
               {% if booking_status == 'unpaid' %}
                   <h3>Nicht bezahlt</h3><br>
@@ -79,11 +80,11 @@
                     <td>{{ age(ticket.ticket_info.birthdate) }}</td>
                     <td>{{ticket.price }}</td>
                     <td>
-                      {% if booking_type != 'confirmed' %}
-                      <a href="#" class="job" data-job="paid" data-ticket_id={{ ticket.id }}>Bezahlt</a></span>
-                      {% endif %}/
-                      {% if booking_type != 'waitinglist' %}
-                      <a href="#" class="job" data-job="unpaid" data-ticket_id={{ ticket.id }}>Nicht Bezahlt</a>
+                      {% if booking_status != 'paid' %}
+                      <a href="#" class="job" data-job="paid" data-ticket_id={{ ticket.id }}>Bezahlen</a></span>
+                      {% endif %}
+                      {% if booking_status != 'unpaid' %}
+                      <a href="#" class="job" data-job="unpaid" data-ticket_id={{ ticket.id }}>Nicht bezahlt</a>
                       {% endif %}
                     </td>
                   </tr>

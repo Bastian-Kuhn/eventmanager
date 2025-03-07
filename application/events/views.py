@@ -640,6 +640,14 @@ def page_billing():
         else:
             tickets[bucher]['unpaid'].append(ticket)
 
+    for bucher in tickets:
+        total_pay = 0
+        for ticket in tickets[bucher]['unpaid']:
+            total_pay += ticket['price']
+        tickets[bucher]['total'] = total_pay
+
+
+
     context['event'] = event
     context['bookings'] = tickets
 

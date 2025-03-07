@@ -64,6 +64,7 @@ Keine Teilnehmer für Export oder Mail bestätigt
     <table class="table table-bordered">
       <thead>
         <tr>
+          <th scope="col">#</th>
           <th scope="col">Teilnehmer</th>
           <th scope="col">Ticket</th>
           <th scope="col">Account</th>
@@ -83,6 +84,7 @@ Keine Teilnehmer für Export oder Mail bestätigt
       <tbody>
       {% for ticket in bookings[booking_type] if not ticket.is_extra_ticket%}
         <tr>
+        <td>{{ loop.index }}</td>
          <td>{{ ticket.ticket_owner }}
          </td>
          <td>{{ ticket.ticket_info.name }}</td>
@@ -143,6 +145,7 @@ Keine Teilnehmer für Export oder Mail bestätigt
     <table class="table table-bordered">
       <thead>
         <tr>
+          <th scope="col">#</td>
           <th scope="col">Teilnehmer</th>
           <th scope="col">Account</th>
         </tr>
@@ -150,6 +153,7 @@ Keine Teilnehmer für Export oder Mail bestätigt
       <tbody>
     {% for owner, bucher in members %}
         <tr>
+        <td>{{ loop.index }}</td>
          <td>{{ owner }}</td>
          <td>
           <span class="badge badge-pill badge-info">{{ bucher }}</span>
