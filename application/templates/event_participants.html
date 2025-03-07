@@ -148,15 +148,19 @@ Keine Teilnehmer für Export oder Mail bestätigt
           <th scope="col">#</td>
           <th scope="col">Teilnehmer</th>
           <th scope="col">Account</th>
+          <th scope="col">Optionen</th>
         </tr>
       </thead>
       <tbody>
-    {% for owner, bucher in members %}
+    {% for ticket_id, owner, bucher in members %}
         <tr>
         <td>{{ loop.index }}</td>
          <td>{{ owner }}</td>
          <td>
           <span class="badge badge-pill badge-info">{{ bucher }}</span>
+         </td>
+         <td>
+            <a href="#" class="job" data-job="delete" data-ticket_id={{ ticket_id }}>Löschen</a>
          </td>
         </tr>
     {% endfor %}

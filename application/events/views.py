@@ -567,7 +567,7 @@ def page_participants():
         ticket_info = ticket['ticket_info']
         extra_tickets_grouped.setdefault(ticket_info['name'], [])
         extra_tickets_grouped[ticket_info['name']].append((
-            ticket['ticket_owner'], ticket_info['bucher']
+            ticket['id'], ticket['ticket_owner'], ticket_info['bucher']
         ))
     context['extra_tickets'] = extra_tickets_grouped
 
