@@ -644,7 +644,10 @@ def page_billing():
         total_pay = 0
         for ticket in tickets[bucher]['unpaid']:
             total_pay += ticket['price']
-        tickets[bucher]['total'] = total_pay
+        if total_pay == 0:
+            del tickets[bucher]
+        else:
+            tickets[bucher]['total'] = total_pay
 
 
 
