@@ -44,8 +44,7 @@
     <h1>{{event.event_name}} ({{event.start_date.strftime("%d.%m.%Y") }})</h1>
 </div>
 
-{% for booking_status in bookings %}
-    {% for owner, owner_data in bookings.items() %}
+{% for owner, tickets_by_status in bookings.items() %}
       <div class="card">
         <div class="card-header" id="heading_{{loop.index}}">
               {{owner}}
@@ -53,7 +52,7 @@
         </div>
 
         <div class="card-body">
-          Total offen: {{ owner_data['total'] }}
+          Total offen: {{ tickets_by_status['total'] }}
           {% for booking_status in ['paid', 'unpaid'] %}
               {% if booking_status == 'unpaid' %}
                   <h3>Nicht bezahlt</h3><br>
@@ -72,7 +71,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                {% for ticket in owner_data[booking_status] %}
+                {% for ticket in tickets_by_status[booking_status] %}
                   <tr>
                    <td>{{ ticket.ticket_owner }}</td>
                    <td>{{ ticket.ticket_info.name }}</td>
@@ -94,7 +93,6 @@
               {% endfor %}
         </div>
     </ div>
-    {% endfor %}
 {% endfor %}
 
 {% endblock %}
