@@ -7,7 +7,7 @@ services:
     entrypoint: redis-server --appendonly yes
 
   mongo:
-    image: mongo:4.4
+    image: mongo:7.0
     volumes:
       - data_db:/data/db
 
