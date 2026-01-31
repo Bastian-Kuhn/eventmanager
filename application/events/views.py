@@ -430,7 +430,11 @@ def page_admin():
     if not current_user.has_right('guide'):
         abort(403)
 
-    categories = [(None, "Kategorie")] + [(x.name.lower(), x.name) for x in Config.objects(enabled=True)[0].event_categories_full]
+    try:
+        extra_categories = [(x.name.lower(), x.name) for x in Config.objects(enabled=True)[0].event_categories_full]
+    except:
+        extra_categories = []
+    categories = [(None, "Keine")] + extra_categories
 
     if request.form:
         form = EventForm(request.form)
@@ -510,6 +514,9 @@ def get_participants(event):
                 what = 'confirmed'
             elif ticket.waitinglist:
                 what = 'waitinglist'
+
+            if not ticket.is_paid and tickets_by_name[ticket.ticket_name].price == 0:
+                ticket.is_paid = True
 
             extra_questions = []
             for field in event.custom_fields:
