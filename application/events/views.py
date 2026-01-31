@@ -242,7 +242,7 @@ def ajax_ticketdata(event_id):
                     if ticket.birthdate_on_ticket:
                         score += 1
                     
-                    if score > max_score:
+                    if best_ticket is None or score > max_score:
                         max_score = score
                         best_ticket = ticket
                 
