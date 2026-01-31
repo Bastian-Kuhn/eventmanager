@@ -162,6 +162,12 @@ class Event(db.Document):
                     if ticket.ticket_id == ticket_id:
                         return ticket
 
+    def get_tickets_of_user(self, user):
+        for parti in self.participations:
+            if parti.user == user:
+                for ticket in parti.tickets:
+                    yield ticket
+
     def delete_ticket(self, ticket_id):
         """
         Delete given Ticket id

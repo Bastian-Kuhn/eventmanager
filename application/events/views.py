@@ -8,7 +8,7 @@ from dateutil import relativedelta
 import uuid
 import io, csv
 from flask import request, render_template, \
-     flash, redirect, Blueprint, url_for, abort, make_response
+     flash, redirect, Blueprint, url_for, abort, make_response, jsonify
 from flask_login import current_user, login_required
 from wtforms import StringField, SelectField
 from wtforms.validators import InputRequired
@@ -211,6 +211,32 @@ def ajax_mybooking():
     event.save()
     return {'msg': 'success'}
 
+@EVENTS.route('/user/get_data/<event_id>', methods=['GET'])
+def ajax_ticketdata(event_id):
+    """
+    Get user data for autocomplete suggestions
+    """
+    
+    query = request.args.get('q', '').lower()
+    
+    event = Event.objects.get(id=event_id)
+    tickets = event.get_tickets_of_user(current_user)
+    all_tickets = []
+    found_names = []
+    
+    for ticket in tickets:
+        if ticket.name_on_ticket not in found_names:
+            # Filter based on query if provided
+            if not query or query in ticket.name_on_ticket.lower():
+                found_names.append(ticket.name_on_ticket)
+                all_tickets.append({
+                    'name': ticket.name_on_ticket,
+                    'email': ticket.email_on_ticket,
+                    'phone': ticket.phone_on_ticket,
+                    'birthdate': ticket.birthdate_on_ticket.strftime('%Y-%m-%d') if ticket.birthdate_on_ticket else '',
+                })
+
+    return jsonify(all_tickets)
 
 @EVENTS.route('/user/booking')
 def page_mybooking():

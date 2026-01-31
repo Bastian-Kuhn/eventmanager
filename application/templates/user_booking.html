@@ -109,7 +109,11 @@
       </div>
       <div class="modal-body">
       <form id="change_form" method="GET">
-      <input id="new_name" name="new_name" class="form-control" placeholder="Name des Teilnehmers">
+      <div class="position-relative">
+        <input id="new_name" name="new_name" class="form-control" placeholder="Name des Teilnehmers" autocomplete="off">
+        <div id="suggestions" class="list-group position-absolute w-100" style="z-index: 1050; display: none; max-height: 200px; overflow-y: auto;"></div>
+      </div>
+      <br>
       <input id="new_phone" name="new_phone" class="form-control" placeholder="Handynummer">
       <input id="new_email" name="new_email" class="form-control" placeholder="E-Mail Adresse">
       <input id="new_birthdate" name="new_birthdate" class="form-control" type="date" placeholder="Geburtsdatum">
@@ -135,6 +139,73 @@
     <script>
     $(document).ready(function() {
         var modal = $('#editName');
+        var suggestionsDiv = $('#suggestions');
+        var nameInput = $('#new_name');
+
+        // Handle name input for suggestions
+        nameInput.on('input', function() {
+            var query = $(this).val().toLowerCase();
+            
+            if (query.length < 2) {
+                suggestionsDiv.hide();
+                return;
+            }
+
+            // Make API call with current query
+            var eventId = $('#event_id').val();
+            if (eventId) {
+                $.get('/user/get_data/' + eventId, { q: query })
+                    .done(function(data) {
+                        displaySuggestions(data);
+                    })
+                    .fail(function() {
+                        console.error('Failed to load user data from API');
+                        suggestionsDiv.hide();
+                    });
+            }
+        });
+
+        // Hide suggestions when clicking outside
+        $(document).on('click', function(e) {
+            if (!$(e.target).closest('#new_name, #suggestions').length) {
+                suggestionsDiv.hide();
+            }
+        });
+
+        // Display suggestions
+        function displaySuggestions(suggestions) {
+            suggestionsDiv.empty();
+            
+            if (suggestions.length === 0) {
+                suggestionsDiv.hide();
+                return;
+            }
+
+            suggestions.forEach(function(person) {
+                var suggestionItem = $('<a href="#" class="list-group-item list-group-item-action">')
+                    .text(person.name)
+                    .data('person', person);
+                
+                suggestionItem.on('click', function(e) {
+                    e.preventDefault();
+                    fillFormWithPersonData($(this).data('person'));
+                    suggestionsDiv.hide();
+                });
+
+                suggestionsDiv.append(suggestionItem);
+            });
+
+            suggestionsDiv.show();
+        }
+
+        // Fill form with selected person data
+        function fillFormWithPersonData(person) {
+            $('#new_name').val(person.name);
+            $('#new_email').val(person.email);
+            $('#new_phone').val(person.phone);
+            $('#new_birthdate').val(person.birthdate);
+        }
+
         modal.on('show.bs.modal', function(e){
             var name = $(e.relatedTarget).data('name');
             var email = $(e.relatedTarget).data('email');
@@ -148,6 +219,8 @@
             $('#new_birthdate').val(birthdate);
             $('#new_comment').val(comment);
             $('#ticket_id').val(ticket_id);
+            // Hide suggestions when modal opens
+            suggestionsDiv.hide();
         });
 
         $('#change_form').on('submit', function(e){
