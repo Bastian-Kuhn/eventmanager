@@ -226,46 +226,34 @@ def ajax_ticketdata(event_id):
     
     for ticket in tickets:
         if ticket.name_on_ticket not in found_names:
-            def find_most_complete_ticket(tickets):
+            def merge_ticket_information(tickets, name):
                 """
-                Find ticket with most filled fields (email, phone, birthdate)
+                Merge information from all tickets with the same name
                 """
-                best_ticket = None
-                max_score = -1
+                merged_data = {
+                    'name': name,
+                    'email': '',
+                    'phone': '',
+                    'birthdate': ''
+                }
                 
                 for ticket in tickets:
-                    score = 0
-                    if ticket.email_on_ticket:
-                        score += 1
-                    if ticket.phone_on_ticket:
-                        score += 1
-                    if ticket.birthdate_on_ticket:
-                        score += 1
-                    
-                    if best_ticket is None or score > max_score:
-                        max_score = score
-                        best_ticket = ticket
+                    if ticket.name_on_ticket == name:
+                        # Use non-empty values to fill merged data
+                        if not merged_data['email'] and ticket.email_on_ticket:
+                            merged_data['email'] = ticket.email_on_ticket
+                        if not merged_data['phone'] and ticket.phone_on_ticket:
+                            merged_data['phone'] = ticket.phone_on_ticket
+                        if not merged_data['birthdate'] and ticket.birthdate_on_ticket:
+                            merged_data['birthdate'] = ticket.birthdate_on_ticket.strftime('%Y-%m-%d')
                 
-                return best_ticket
+                return merged_data
 
-            # Get the most complete ticket instead of filtering
-            most_complete_ticket = find_most_complete_ticket(tickets)
-            if most_complete_ticket and (not query or query in most_complete_ticket.name_on_ticket.lower()):
-                all_tickets.append({
-                    'name': most_complete_ticket.name_on_ticket,
-                    'email': most_complete_ticket.email_on_ticket,
-                    'phone': most_complete_ticket.phone_on_ticket,
-                    'birthdate': most_complete_ticket.birthdate_on_ticket.strftime('%Y-%m-%d') if most_complete_ticket.birthdate_on_ticket else '',
-                })
-            # Filter based on query if provided
+            # Merge ticket information instead of finding the best one
             if not query or query in ticket.name_on_ticket.lower():
                 found_names.append(ticket.name_on_ticket)
-                all_tickets.append({
-                    'name': ticket.name_on_ticket,
-                    'email': ticket.email_on_ticket,
-                    'phone': ticket.phone_on_ticket,
-                    'birthdate': ticket.birthdate_on_ticket.strftime('%Y-%m-%d') if ticket.birthdate_on_ticket else '',
-                })
+                merged_ticket_data = merge_ticket_information(tickets, ticket.name_on_ticket)
+                all_tickets.append(merged_ticket_data)
 
     return jsonify(all_tickets)
 
