@@ -265,16 +265,29 @@ def page_mybooking():
     event_id = request.args.get('event_id')
     event = Event.objects.get(id=event_id)
     tickets_by_name = {}
+    total_cost = 0
+    # Create a mapping of event tickets to get price information
+    event_tickets_by_name = {}
+    for event_ticket in event.tickets:
+        event_tickets_by_name[event_ticket.name] = event_ticket
+    
     for parti in event.participations:
         if parti.user == current_user:
             for ticket in parti.tickets:
                 ticket.booking_date = parti.booking_date
+                # Add price information to the ticket
+                if ticket.ticket_name in event_tickets_by_name:
+                    ticket.price = event_tickets_by_name[ticket.ticket_name].price
+                    total_cost += ticket.price
+                else:
+                    ticket.price = 0
                 tickets_by_name.setdefault(ticket.ticket_name, [])
                 tickets_by_name[ticket.ticket_name].append(ticket)
 
     context = {
         'event': event,
         'tickets_by_name': tickets_by_name,
+        'total_cost': total_cost,
     }
 
 
@@ -623,7 +636,7 @@ def page_participants():
         if not has_non_extra_waiting:
             extra_tickets_grouped.setdefault(ticket_info['name'], [])
             extra_tickets_grouped[ticket_info['name']].append((
-                ticket['id'], ticket['ticket_owner'], ticket_info['comment'], ticket_info['birthdate'], ticket_info['bucher']
+                ticket['id'], ticket['ticket_owner'], ticket_info['comment'], ticket_info['birthdate'], ticket['is_paid'], ticket_info['bucher']
             ))
     context['extra_tickets'] = extra_tickets_grouped
 
