@@ -128,16 +128,19 @@
         </button>
       </div>
       <div class="modal-body">
-      <form id="change_form" method="GET">
+      <form id="change_form" method="GET" autocomplete="off">
+      <!-- Hidden dummy fields to confuse Firefox autofill -->
+      <input type="text" style="display: none;">
+      <input type="password" style="display: none;">
       <div class="position-relative">
-        <input id="new_name" name="new_name" class="form-control" placeholder="Name des Teilnehmers" autocomplete="off">
+        <input id="new_name" name="new_name" class="form-control" placeholder="Name des Teilnehmers" autocomplete="nope">
         <div id="suggestions" class="list-group position-absolute w-100" style="z-index: 1050; display: none; max-height: 200px; overflow-y: auto;"></div>
       </div>
       <br>
-      <input id="new_phone" name="new_phone" class="form-control" placeholder="Handynummer">
-      <input id="new_email" name="new_email" class="form-control" placeholder="E-Mail Adresse">
-      <input id="new_birthdate" name="new_birthdate" class="form-control" type="date" placeholder="Geburtsdatum">
-      <textarea id="new_comment" name="new_comment" class="form-control" type="text" placeholder="Kommentar"></textarea>
+      <input id="new_phone" name="new_phone" class="form-control" placeholder="Handynummer" autocomplete="new-password">
+      <input id="new_email" name="new_email" class="form-control" placeholder="E-Mail Adresse" autocomplete="new-password">
+      <input id="new_birthdate" name="new_birthdate" class="form-control" type="date" placeholder="Geburtsdatum" autocomplete="new-password">
+      <textarea id="new_comment" name="new_comment" class="form-control" type="text" placeholder="Kommentar" autocomplete="off"></textarea>
       <input id="ticket_id" name="ticket_id" type="hidden" class="form-control">
       <input id="event_id" name="event_id" type="hidden" class="form-control" value="{{event.id}}">
       </div>
