@@ -12,6 +12,7 @@ from flask import request, render_template, \
 from flask_login import current_user, login_required
 from wtforms import StringField, SelectField
 from wtforms.validators import InputRequired
+from markupsafe import Markup
 
 
 from application.events.models import Event, EventParticipation,\
@@ -696,14 +697,14 @@ def page_details():
     # Handle Ticket function
     event_tickets = event.tickets
     for ticket in event_tickets:
-        choices = [ (str(x), f'{x} Anmeldungen') for x in range(ticket.maximum_tickets+1) ]
+        choices = [ (str(x), f'{x} mal') for x in range(ticket.maximum_tickets+1) ]
         places = ticket_stats['max'][ticket.name] - ticket_stats.get(ticket.name, 0)
         preisinfo = ""
         if ticket.price > 0:
             preisinfo = f"(je Anmeldung: {ticket.price}  €)"
         description = f": {ticket.description}" if ticket.description else ""
         setattr(EventRegForm, f"ticket_{ticket.name}",
-                    SelectField(f"'{ticket.name}{description}' {preisinfo} aktuell {places} von {ticket_stats['max'][ticket.name]} verfügbar", choices=choices))
+            SelectField(Markup(f"<b>{ticket.name}</b> {description} {preisinfo}"), choices=choices))
 
 
     register_form = EventRegForm(request.form)
