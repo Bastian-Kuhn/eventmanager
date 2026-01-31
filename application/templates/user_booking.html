@@ -53,9 +53,11 @@
 </div>
 
 
+{% if not is_viewing_other_user %}
 <div class="alert alert-primary" role="alert">
     Bitte passe bei Mehrfachanmeldung die Ticketfelder Name, E-Mail und Handynummer für alle hinzugefügten Personen an, damit dem Guide eine komplette Teilnehmerliste zur Verfügung steht.
 </div>
+{% endif %}
 
 <div class="row">
     <div class="col-sm-12">
