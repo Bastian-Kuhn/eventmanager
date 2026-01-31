@@ -604,7 +604,7 @@ def page_participants():
         if not has_non_extra_waiting:
             extra_tickets_grouped.setdefault(ticket_info['name'], [])
             extra_tickets_grouped[ticket_info['name']].append((
-                ticket['id'], ticket['ticket_owner'], ticket_info['comment'], ticket_info['bucher']
+                ticket['id'], ticket['ticket_owner'], ticket_info['comment'], ticket_info['birthdate'], ticket_info['bucher']
             ))
     context['extra_tickets'] = extra_tickets_grouped
 

@@ -146,18 +146,20 @@ Keine Teilnehmer für Export oder Mail bestätigt
       <thead>
         <tr>
           <th scope="col">#</td>
-          <th scope="col">Teilnehmer</th>
-          <th scope="col">Kommentar</th>
+            <th scope="col" style="width: 200px;">Teilnehmer</th>
+          <th scope="col" style="width: 400px;">Kommentar</th>
+          <th scope="col">Jahrgang</th>
           <th scope="col">Account</th>
           <th scope="col">Optionen</th>
         </tr>
       </thead>
       <tbody>
-    {% for ticket_id, owner, comment, bucher in members %}
+    {% for ticket_id, owner, comment, birthdate, bucher in members %}
         <tr>
         <td>{{ loop.index }}</td>
          <td>{{ owner }}</td>
          <td>{{ comment }}</td>
+         <td>{{ birthdate.strftime("%m/%Y") if birthdate else "" }}</td>
          <td>
           <span class="badge badge-pill badge-info">{{ bucher }}</span>
          </td>
