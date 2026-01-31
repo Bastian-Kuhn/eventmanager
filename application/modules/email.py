@@ -17,7 +17,10 @@ def send_email(to, subject, template, **kwargs):
     except:
         app = kwargs['ext_app']
 
-    user_config = Config.objects(enabled=True)[0]
+    try:
+        user_config = Config.objects(enabled=True)[0]
+    except:
+        return
     app.config['MAIL_SENDER'] = user_config.mail_sender
     app.config['MAIL_SERVER'] = user_config.mail_server
     app.config['MAIL_USE_TLS'] = user_config.mail_use_tls
