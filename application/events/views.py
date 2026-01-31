@@ -263,6 +263,7 @@ def page_mybooking():
     Detail Page for Event
     """
     event_id = request.args.get('event_id')
+    user_id = request.args.get('user_id')  # Optional parameter for guides to view other users' bookings
     event = Event.objects.get(id=event_id)
     tickets_by_name = {}
     total_cost = 0
@@ -271,8 +272,14 @@ def page_mybooking():
     for event_ticket in event.tickets:
         event_tickets_by_name[event_ticket.name] = event_ticket
     
+    # Determine which user's booking to show
+    target_user = current_user
+    if user_id and current_user.has_right('guide'):
+        from application.models.user import User
+        target_user = User.objects.get(id=user_id)
+    
     for parti in event.participations:
-        if parti.user == current_user:
+        if parti.user == target_user:
             for ticket in parti.tickets:
                 ticket.booking_date = parti.booking_date
                 # Add price information to the ticket
@@ -288,6 +295,8 @@ def page_mybooking():
         'event': event,
         'tickets_by_name': tickets_by_name,
         'total_cost': total_cost,
+        'target_user': target_user,
+        'is_viewing_other_user': target_user != current_user,
     }
 
 
@@ -525,6 +534,7 @@ def get_participants(event):
                 'ticket_info': {
                     'name': ticket.ticket_name,
                     'bucher': bucher,
+                    'bucher_user_id': str(parti.user.id),
                     'telefon': ticket.phone_on_ticket if ticket.phone_on_ticket else parti.user.phone,
                     'email': ticket.email_on_ticket if ticket.email_on_ticket else parti.user.email,
                     'media_optin': parti.user.media_optin,
@@ -636,7 +646,7 @@ def page_participants():
         if not has_non_extra_waiting:
             extra_tickets_grouped.setdefault(ticket_info['name'], [])
             extra_tickets_grouped[ticket_info['name']].append((
-                ticket['id'], ticket['ticket_owner'], ticket_info['comment'], ticket_info['birthdate'], ticket['is_paid'], ticket_info['bucher']
+                ticket['id'], ticket['ticket_owner'], ticket_info['comment'], ticket_info['birthdate'], ticket['is_paid'], ticket_info['bucher'], ticket_info['bucher_user_id']
             ))
     context['extra_tickets'] = extra_tickets_grouped
 

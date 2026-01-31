@@ -22,7 +22,9 @@
       {% endif %}
     {% if current_user.has_right('guide') or current_user.participate_event(event.id) %}
       <li class="nav-item">
-        <a class="nav-link active" href="{{ url_for('EVENTS.page_mybooking', event_id=event.id) }}">Meine Buchung</a>
+        <a class="nav-link active" href="{{ url_for('EVENTS.page_mybooking', event_id=event.id) }}">
+          {% if is_viewing_other_user %}Buchung von {{ target_user.first_name }} {{ target_user.last_name }}{% else %}Meine Buchung{% endif %}
+        </a>
       </li>
     {% endif %}
       {% if current_user.has_right('guide') %}
@@ -42,6 +44,11 @@
 <div class="row">
     <div class="col-sm-12">
     <h1>{{event.event_name}}</h1>
+    {% if is_viewing_other_user %}
+    <div class="alert alert-warning" role="alert">
+        <strong>Guide-Ansicht:</strong> Du betrachtest die Buchung von {{ target_user.first_name }} {{ target_user.last_name }}.
+    </div>
+    {% endif %}
     </div>
 </div>
 

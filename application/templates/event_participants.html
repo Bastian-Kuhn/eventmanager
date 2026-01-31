@@ -89,7 +89,11 @@ Keine Teilnehmer für Export oder Mail bestätigt
          </td>
          <td>{{ ticket.ticket_info.name }}</td>
          <td>
+          {% if current_user.has_right('guide') %}
+          <a href="{{ url_for('EVENTS.page_mybooking', event_id=event.id, user_id=ticket.ticket_info.bucher_user_id) }}" class="badge badge-pill badge-info" style="text-decoration: none;">{{ticket.ticket_info.bucher }}</a>
+          {% else %}
           <span class="badge badge-pill badge-info">{{ticket.ticket_info.bucher }}</span>
+          {% endif %}
          </td>
          <td>
             {% if ticket.ticket_info.data_optin or current_user.has_right('guide')%}{{ticket.ticket_info.telefon}}
@@ -155,7 +159,7 @@ Keine Teilnehmer für Export oder Mail bestätigt
         </tr>
       </thead>
       <tbody>
-    {% for ticket_id, owner, comment, birthdate, is_paid, bucher in members %}
+    {% for ticket_id, owner, comment, birthdate, is_paid, bucher, bucher_user_id in members %}
         <tr>
         <td>{{ loop.index }}</td>
          <td>{{ owner }}</td>
@@ -169,7 +173,11 @@ Keine Teilnehmer für Export oder Mail bestätigt
            {% endif %}
          </td>
          <td>
+          {% if current_user.has_right('guide') %}
+          <a href="{{ url_for('EVENTS.page_mybooking', event_id=event.id, user_id=bucher_user_id) }}" class="badge badge-pill badge-info" style="text-decoration: none;">{{ bucher }}</a>
+          {% else %}
           <span class="badge badge-pill badge-info">{{ bucher }}</span>
+          {% endif %}
          </td>
          <td>
             <a href="#" class="job" data-job="delete" data-ticket_id={{ ticket_id }}>Löschen</a>
