@@ -595,10 +595,17 @@ def page_participants():
         if not ticket['is_extra_ticket']:
             continue
         ticket_info = ticket['ticket_info']
-        extra_tickets_grouped.setdefault(ticket_info['name'], [])
-        extra_tickets_grouped[ticket_info['name']].append((
-            ticket['id'], ticket['ticket_owner'], ticket_info['comment'], ticket_info['bucher']
-        ))
+        # Only add to extra_tickets_grouped if there are no non-extra tickets waiting or unconfirmed
+        has_non_extra_waiting = any(
+            not t['is_extra_ticket'] 
+            for t in participants['unconfirmed'] + participants['waitinglist']
+        )
+        
+        if not has_non_extra_waiting:
+            extra_tickets_grouped.setdefault(ticket_info['name'], [])
+            extra_tickets_grouped[ticket_info['name']].append((
+                ticket['id'], ticket['ticket_owner'], ticket_info['comment'], ticket_info['bucher']
+            ))
     context['extra_tickets'] = extra_tickets_grouped
 
     return render_template('event_participants.html', **context)
