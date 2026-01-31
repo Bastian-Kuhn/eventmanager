@@ -41,11 +41,14 @@ def get_categories():
     Return Dict with Categories
     """
     categrories_detailed = {}
-    for cat in Config.objects.get(enabled=True).event_categories_full:
-        categrories_detailed[cat.name.lower()] = {
-                                                    'color': cat.color,
-                                                    'name': cat.name,
-                                                 }
+    try:
+        for cat in Config.objects.get(enabled=True).event_categories_full:
+            categrories_detailed[cat.name.lower()] = {
+                                                        'color': cat.color,
+                                                        'name': cat.name,
+                                                    }
+    except:
+        pass
     return categrories_detailed
 
 def difficult_to_icon(level, icon_type):

@@ -110,7 +110,7 @@ def prepare_config():
         app.config['MAIL_SUBJECT_PREFIX'] = user_config.mail_subject_prefix
         app.config['MAIL_PASSWORD'] = user_config.mail_password
     except:
-        app.config['style_nav_background_color'] = 'black'
+        app.config['style_nav_background_color'] = 'grey'
 
 from application.models.log import LogEntry
 from application.views.log import LogView
