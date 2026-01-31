@@ -88,8 +88,28 @@
         <td><span id="user_phone_{{ticket.ticket_id}}">{{ticket.phone_on_ticket}}</span></td>
         <td><span id="user_age{{ticket.ticket_id}}">{{age(ticket.birthdate_on_ticket)}}</span></td>
         <td><span id="user_comment{{ticket.ticket_id}}">{{ticket.comment_on_ticket}}</span></td>
-        <td>{{translate_bool(ticket.confirmed) }}</td>
-        <td>{{translate_bool(ticket.waitinglist) }}</td>
+        <td>
+          {% if not ticket.is_extra_ticket %}
+            {% if ticket.confirmed %}
+              <span class="badge badge-success">{{translate_bool(ticket.confirmed)}}</span>
+            {% else %}
+              <span class="badge badge-danger">{{translate_bool(ticket.confirmed)}}</span>
+            {% endif %}
+          {% else %}
+            <span class="text-muted">-</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if not ticket.is_extra_ticket %}
+            {% if ticket.waitinglist %}
+              <span class="badge badge-danger">{{translate_bool(ticket.waitinglist)}}</span>
+            {% else %}
+              <span class="badge badge-success">{{translate_bool(ticket.waitinglist)}}</span>
+            {% endif %}
+          {% else %}
+            <span class="text-muted">-</span>
+          {% endif %}
+        </td>
         <td>{{ticket.booking_date.strftime('%d.%m.%Y %H:%M')}}</td>
       </tr>
      {% endfor %}
