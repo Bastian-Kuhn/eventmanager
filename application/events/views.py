@@ -678,7 +678,11 @@ def page_details():
         Event Reg Form
         """
 
-    categories = [(None, "Alle")] + [(x.name.lower(), x.name) for x in Config.objects(enabled=True)[0].event_categories_full]
+    try:
+        extra_categories = [(x.name.lower(), x.name) for x in Config.objects(enabled=True)[0].event_categories_full]
+    except:
+        extra_categories = []
+    categories = [(None, "Alle")] + extra_categories
     # Add Custom Fields to Registration Form
     custom_fields = event.custom_fields
     for idx, field in enumerate(custom_fields):
@@ -902,7 +906,11 @@ def page_create():
         abort(403)
 
     event_id = request.args.get('event_id')
-    categories = [(None, "Keine")] + [(x.name.lower(), x.name) for x in Config.objects(enabled=True)[0].event_categories_full]
+    try:
+        extra_categories = [(x.name.lower(), x.name) for x in Config.objects(enabled=True)[0].event_categories_full]
+    except:
+        extra_categories = []
+    categories = [(None, "Keine")] + extra_categories
 
     if event_id and not request.form:
         # Make it possible to clone a event
