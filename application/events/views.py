@@ -226,6 +226,37 @@ def ajax_ticketdata(event_id):
     
     for ticket in tickets:
         if ticket.name_on_ticket not in found_names:
+            def find_most_complete_ticket(tickets):
+                """
+                Find ticket with most filled fields (email, phone, birthdate)
+                """
+                best_ticket = None
+                max_score = -1
+                
+                for ticket in tickets:
+                    score = 0
+                    if ticket.email_on_ticket:
+                        score += 1
+                    if ticket.phone_on_ticket:
+                        score += 1
+                    if ticket.birthdate_on_ticket:
+                        score += 1
+                    
+                    if score > max_score:
+                        max_score = score
+                        best_ticket = ticket
+                
+                return best_ticket
+
+            # Get the most complete ticket instead of filtering
+            most_complete_ticket = find_most_complete_ticket(tickets)
+            if most_complete_ticket and (not query or query in most_complete_ticket.name_on_ticket.lower()):
+                all_tickets.append({
+                    'name': most_complete_ticket.name_on_ticket,
+                    'email': most_complete_ticket.email_on_ticket,
+                    'phone': most_complete_ticket.phone_on_ticket,
+                    'birthdate': most_complete_ticket.birthdate_on_ticket.strftime('%Y-%m-%d') if most_complete_ticket.birthdate_on_ticket else '',
+                })
             # Filter based on query if provided
             if not query or query in ticket.name_on_ticket.lower():
                 found_names.append(ticket.name_on_ticket)
