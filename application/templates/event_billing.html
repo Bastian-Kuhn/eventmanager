@@ -59,7 +59,11 @@
               {% elif booking_status == 'paid' %}
                   <h3>Bezahlt</h3>
               {% endif %}
+              {% if booking_status == 'paid' %}
+              <table class="table table-bordered" style="opacity: 0.6; color: #666;">
+              {% else %}
               <table class="table table-bordered">
+              {% endif %}
                 <thead>
                   <tr>
                     <th scope="col">Teilnehmer</th>
@@ -72,6 +76,7 @@
                 </thead>
                 <tbody>
                 {% for ticket in tickets_by_status[booking_status] %}
+                  {% if ticket.price != 0 %}
                   <tr>
                    <td>{{ ticket.ticket_owner }}</td>
                    <td>{{ ticket.ticket_info.name }}</td>
@@ -87,6 +92,7 @@
                       {% endif %}
                     </td>
                   </tr>
+                  {% endif %}
                 {% endfor %}
                 </tbody>
               </table>
