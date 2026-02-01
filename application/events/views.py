@@ -761,6 +761,7 @@ def page_extra_tickets_export(category):
                     'id': ticket['id'], 
                     'ticket_owner': ticket['ticket_owner'], 
                     'comment': ticket_info['comment'], 
+                    'guide': ticket_info['guide'], 
                     'guide_comment': ticket_info['guide_comment'], 
                     'birthdate': ticket_info['birthdate'], 
                     'is_paid': ticket['is_paid'], 
@@ -773,22 +774,23 @@ def page_extra_tickets_export(category):
     writer = csv.writer(io_output, delimiter=';')
 
     writer.writerow([
-        'Bucher',
-        'Buchungs Datum', 
         'Teilnehmer',
         'Teilnehmer Kommentar',
         'Guide Kommentar',
+        'Guide',
         'Jahrgang',
         'Bezahlt'
     ])
     
-    for ticket in category_tickets:
+    # Sort tickets by guide if guide is set, otherwise keep original order
+    sorted_tickets = sorted(category_tickets, key=lambda x: x['guide'] if x['guide'] else ticket['ticket_owner'])
+    
+    for ticket in sorted_tickets:
         writer.writerow([
-            ticket['bucher'],
-            ticket['booking_date'].strftime('%d.%m.%Y %H:%M') if ticket['booking_date'] else '',
             ticket['ticket_owner'],
             ticket['comment'],
             ticket['guide_comment'],
+            ticket['guide'],
             ticket['birthdate'].strftime('%m/%Y') if ticket['birthdate'] else '',
             'Ja' if ticket['is_paid'] else 'Nein'
         ])
