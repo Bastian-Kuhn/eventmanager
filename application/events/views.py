@@ -491,6 +491,10 @@ def change_participation():
         guide_comment = request.form.get('guide_comment', '')
         ticket.guide_comment = guide_comment
         response = {'success': True, 'ticket_id': ticket_id, 'guide_comment': guide_comment}
+    elif job == 'update_guide':
+        guide = request.form.get('guide', '')
+        ticket.guide = guide
+        response = {'success': True, 'ticket_id': ticket_id, 'guide': guide}
     elif job == 'delete':
         response = event.delete_ticket(ticket_id)
 
@@ -554,6 +558,7 @@ def get_participants(event):
                     'role': role,
                     'comment': ticket.comment_on_ticket if ticket.comment_on_ticket else "",
                     'guide_comment': ticket.guide_comment if ticket.guide_comment else "",
+                    'guide': ticket.guide if ticket.guide else "",
                 },
                 'extra_questions': extra_questions
 
@@ -718,7 +723,7 @@ def page_extra_tickets(category):
             if ticket_info['name'] == category:
                 category_tickets.append((
                     ticket['id'], ticket['ticket_owner'], ticket_info['comment'], 
-                    ticket_info['guide_comment'], ticket_info['birthdate'], 
+                    ticket_info['guide_comment'], ticket_info['guide'], ticket_info['birthdate'], 
                     ticket['is_paid'], ticket_info['bucher'], ticket_info['bucher_user_id']
                 ))
 
