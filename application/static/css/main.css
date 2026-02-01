@@ -4,3 +4,51 @@
 .navbar {
     margin-bottom: 10px;
 }
+
+/* Responsive Layout Improvements */
+.main-container {
+    max-width: 100%;
+    overflow-x: auto;
+    padding-left: 2rem !important;
+    padding-right: 2rem !important;
+}
+
+/* Event list should use centered container layout */
+.event-list-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 15px;
+}
+
+/* Table responsive improvements */
+.table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Ensure tables don't push content to the right */
+.table {
+    min-width: 100%;
+    margin-bottom: 1rem;
+}
+
+/* Better spacing on mobile */
+@media (max-width: 768px) {
+    .main-container {
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+    
+    .event-list-container {
+        max-width: 100%;
+        padding: 0 0.5rem;
+    }
+    
+    .table-responsive {
+        border: none;
+        margin-left: -1rem;
+        margin-right: -1rem;
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+}

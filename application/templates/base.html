@@ -46,7 +46,8 @@
 
 
 {% block content %}
-<div class="main-container container">
+<div class="main-container container-fluid">
+    <div class="content-wrapper">
     {% for catergory, message in get_flashed_messages(with_categories=true) %}
     <div class="alert alert-{{ catergory }} alert-dismissable">
         <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
@@ -55,6 +56,7 @@
     {% endfor %}
 
     {% block page_content %}{% endblock %}
+    </div>
 <hr>
 <footer class="page-footer font-small pt-4 mt-4">
 
