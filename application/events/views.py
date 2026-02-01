@@ -487,6 +487,10 @@ def change_participation():
     elif job == 'waitlist':
         ticket.waitinglist = True
         ticket.confirmed = False
+    elif job == 'update_guide_comment':
+        guide_comment = request.form.get('guide_comment', '')
+        ticket.guide_comment = guide_comment
+        response = {'success': True, 'ticket_id': ticket_id, 'guide_comment': guide_comment}
     elif job == 'delete':
         response = event.delete_ticket(ticket_id)
 
@@ -549,6 +553,7 @@ def get_participants(event):
                     'birthdate': ticket.birthdate_on_ticket if ticket.birthdate_on_ticket else parti.user.birthdate,
                     'role': role,
                     'comment': ticket.comment_on_ticket if ticket.comment_on_ticket else "",
+                    'guide_comment': ticket.guide_comment if ticket.guide_comment else "",
                 },
                 'extra_questions': extra_questions
 
@@ -653,7 +658,7 @@ def page_participants():
         if not has_non_extra_waiting:
             extra_tickets_grouped.setdefault(ticket_info['name'], [])
             extra_tickets_grouped[ticket_info['name']].append((
-                ticket['id'], ticket['ticket_owner'], ticket_info['comment'], ticket_info['birthdate'], ticket['is_paid'], ticket_info['bucher'], ticket_info['bucher_user_id']
+                ticket['id'], ticket['ticket_owner'], ticket_info['comment'], ticket_info['guide_comment'], ticket_info['birthdate'], ticket['is_paid'], ticket_info['bucher'], ticket_info['bucher_user_id']
             ))
     context['extra_tickets'] = extra_tickets_grouped
 
