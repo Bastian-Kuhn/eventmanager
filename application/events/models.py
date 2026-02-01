@@ -41,6 +41,7 @@ class OwnedTicket(db.EmbeddedDocument):
     ticket_name = db.StringField()
     ticket_comment = db.StringField()
     guide_comment = db.StringField()  # Kommentar nur für Guides sichtbar
+    guide = db.StringField()  # Guide Zuordnung
 
     confirmed = db.BooleanField()
     waitinglist = db.BooleanField()
