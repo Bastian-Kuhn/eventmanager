@@ -149,6 +149,25 @@ Keine Teilnehmer für Export oder Mail bestätigt
 <h1>Weitere Daten</h1>
 </div>
 
+{% if extra_tickets %}
+<div class="row">
+    <div class="col-sm-12">
+        <h3>Kategorien</h3>
+        <ul class="list-group">
+        {% for ticket_group in extra_tickets.keys() %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                <a href="{{ url_for('EVENTS.page_extra_tickets', event_id=event.id, category=ticket_group) }}" class="text-decoration-none">
+                    <strong>{{ ticket_group }}</strong>
+                </a>
+                <span class="badge badge-primary badge-pill">{{ extra_tickets[ticket_group]|length }}</span>
+            </li>
+        {% endfor %}
+        </ul>
+    </div>
+</div>
+<hr>
+{% endif %}
+
 <div class="row">
 {% for ticket_group, members in extra_tickets.items() %}
 <div class="row">

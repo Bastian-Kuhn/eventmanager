@@ -645,21 +645,20 @@ def page_participants():
     context['emails'] = emails
     context['bookings'] = participants
     extra_tickets_grouped = {}
-    for ticket in participants['unconfirmed']:
-        if not ticket['is_extra_ticket']:
-            continue
-        ticket_info = ticket['ticket_info']
-        # Only add to extra_tickets_grouped if there are no non-extra tickets waiting or unconfirmed
-        has_non_extra_waiting = any(
-            not t['is_extra_ticket'] 
-            for t in participants['unconfirmed'] + participants['waitinglist']
-        )
-        
-        if not has_non_extra_waiting:
+    
+    # Collect all extra tickets from all states
+    for state in ['confirmed', 'unconfirmed', 'waitinglist']:
+        for ticket in participants[state]:
+            if not ticket['is_extra_ticket']:
+                continue
+            ticket_info = ticket['ticket_info']
             extra_tickets_grouped.setdefault(ticket_info['name'], [])
             extra_tickets_grouped[ticket_info['name']].append((
-                ticket['id'], ticket['ticket_owner'], ticket_info['comment'], ticket_info['guide_comment'], ticket_info['birthdate'], ticket['is_paid'], ticket_info['bucher'], ticket_info['bucher_user_id']
+                ticket['id'], ticket['ticket_owner'], ticket_info['comment'], 
+                ticket_info['guide_comment'], ticket_info['birthdate'], 
+                ticket['is_paid'], ticket_info['bucher'], ticket_info['bucher_user_id']
             ))
+    
     context['extra_tickets'] = extra_tickets_grouped
 
     return render_template('event_participants.html', **context)
@@ -690,6 +689,111 @@ def change_paidstatus():
     event.save()
 
     return response
+
+@EVENTS.route('/event/extra_tickets/<category>')
+def page_extra_tickets(category):
+    """
+    Extra Tickets Category Page for Guides
+    """
+    event_id = request.args.get('event_id')
+
+    if not current_user.is_authenticated:
+        return redirect(url_for('auth.login'))
+
+    if not current_user.has_right('guide'):
+        abort(403)
+
+    event = Event.objects.get(id=event_id)
+    context = {}
+
+    participants = get_participants(event)
+    
+    # Filter for the specific category from all states
+    category_tickets = []
+    for state in ['confirmed', 'unconfirmed', 'waitinglist']:
+        for ticket in participants[state]:
+            if not ticket['is_extra_ticket']:
+                continue
+            ticket_info = ticket['ticket_info']
+            if ticket_info['name'] == category:
+                category_tickets.append((
+                    ticket['id'], ticket['ticket_owner'], ticket_info['comment'], 
+                    ticket_info['guide_comment'], ticket_info['birthdate'], 
+                    ticket['is_paid'], ticket_info['bucher'], ticket_info['bucher_user_id']
+                ))
+
+    context['event'] = event
+    context['category'] = category
+    context['tickets'] = category_tickets
+
+    return render_template('event_extra_tickets.html', **context)
+
+@EVENTS.route('/event/extra_tickets_export/<category>')
+def page_extra_tickets_export(category):
+    """
+    Export Extra Tickets for specific category
+    """
+    if not current_user.is_authenticated:
+        return redirect(url_for('auth.login'))
+
+    if not current_user.has_right('guide'):
+        abort(403)
+
+    event_id = request.args.get('event_id')
+    event = Event.objects.get(id=event_id)
+    
+    participants = get_participants(event)
+    
+    # Filter for the specific category from all states
+    category_tickets = []
+    for state in ['confirmed', 'unconfirmed', 'waitinglist']:
+        for ticket in participants[state]:
+            if not ticket['is_extra_ticket']:
+                continue
+            ticket_info = ticket['ticket_info']
+            if ticket_info['name'] == category:
+                category_tickets.append({
+                    'id': ticket['id'], 
+                    'ticket_owner': ticket['ticket_owner'], 
+                    'comment': ticket_info['comment'], 
+                    'guide_comment': ticket_info['guide_comment'], 
+                    'birthdate': ticket_info['birthdate'], 
+                    'is_paid': ticket['is_paid'], 
+                    'bucher': ticket_info['bucher'], 
+                    'bucher_user_id': ticket_info['bucher_user_id'],
+                    'booking_date': ticket['booking_date']
+                })
+    
+    io_output = io.StringIO()
+    writer = csv.writer(io_output, delimiter=';')
+
+    writer.writerow([
+        'Bucher',
+        'Buchungs Datum', 
+        'Teilnehmer',
+        'Teilnehmer Kommentar',
+        'Guide Kommentar',
+        'Jahrgang',
+        'Bezahlt'
+    ])
+    
+    for ticket in category_tickets:
+        writer.writerow([
+            ticket['bucher'],
+            ticket['booking_date'].strftime('%d.%m.%Y %H:%M') if ticket['booking_date'] else '',
+            ticket['ticket_owner'],
+            ticket['comment'],
+            ticket['guide_comment'],
+            ticket['birthdate'].strftime('%m/%Y') if ticket['birthdate'] else '',
+            'Ja' if ticket['is_paid'] else 'Nein'
+        ])
+
+    output = make_response(io_output.getvalue())
+    filename = f"{event.event_name}_{category}".replace(' ', '_')
+    output.headers["Content-Disposition"] = f"attachment; filename={filename}.csv"
+    output.headers["Content-type"] = "text/csv"
+    return output
+
 @EVENTS.route('/event/billing')
 def page_billing():
     """

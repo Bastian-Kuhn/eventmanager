@@ -1,0 +1,196 @@
+{% extends 'base.html' %}
+{% import 'bootstrap/wtf.html' as wtf %}
+
+{% block head %}
+{{super()}}
+<style>
+@media print {
+    .btn, .nav, .no-print {
+        display: none !important;
+    }
+    .table {
+        font-size: 12px;
+    }
+    .table th, .table td {
+        padding: 4px;
+    }
+    body {
+        -webkit-print-color-adjust: exact;
+    }
+}
+</style>
+{% endblock %}
+
+{% block page_content %}
+<div class="row">
+    <div class="col-sm-12">
+
+    <ul class="nav nav-tabs">
+      <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('EVENTS.page_details', event_id=event.id) }}">Übersicht</a>
+      </li>
+    {% if current_user.is_authenticated %}
+       {% if current_user.has_right('guide') or current_user.participate_event(event.id) %}
+      <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('EVENTS.page_participants', event_id=event.id) }}">Teilnehmerliste</a>
+      </li>
+      {% if current_user.has_right('guide') %}
+      <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('EVENTS.page_billing', event_id=event.id) }}">Abrechnung</a>
+      </li>
+      {% endif %}
+      {% endif %}
+    {% if current_user.has_right('guide') or current_user.participate_event(event.id) %}
+      <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('EVENTS.page_mybooking', event_id=event.id) }}">Meine Buchung</a>
+      </li>
+    {% endif %}
+      {% if current_user.has_right('guide') %}
+      <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('EVENTS.page_admin', event_id=event.id) }}">Bearbeiten</a>
+      </li>
+
+      <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('EVENTS.page_create', event_id=event.id) }}">Klonen</a>
+      </li>
+      {% endif %}
+    {% endif %}
+    </ul>
+    </div>
+</div>
+
+<div class="row">
+    <h1>{{event.event_name}} - {{ category }} ({{event.start_date.strftime("%d.%m.%Y") }})</h1>
+</div>
+
+<div class="row no-print">
+    <a type="button" class="btn btn-secondary" href="{{ url_for('EVENTS.page_participants', event_id=event.id) }}">← Zurück zur Teilnehmerliste</a>
+    {% if tickets %}
+    &nbsp;<a type="button" class="btn btn-success" href="{{ url_for('EVENTS.page_extra_tickets_export', event_id=event.id, category=category) }}">CSV Export</a>
+    &nbsp;<button type="button" class="btn btn-info" onclick="window.print()">🖨️ Drucken</button>
+    {% endif %}
+</div>
+<br>
+
+<div class="row">
+    <h2>{{ category }}</h2>
+    <table class="table table-bordered">
+      <thead>
+        <tr>
+          <th scope="col">#</th>
+          <th scope="col" style="width: 200px;">Teilnehmer</th>
+          <th scope="col" style="width: 300px;">Teilnehmer Kommentar</th>
+          <th scope="col" style="width: 300px;">Guide Kommentar</th>
+          <th scope="col">Jahrgang</th>
+          <th scope="col">Bezahlt</th>
+          <th scope="col">Account</th>
+          <th scope="col" class="no-print">Optionen</th>
+        </tr>
+      </thead>
+      <tbody>
+    {% for ticket_id, owner, comment, guide_comment, birthdate, is_paid, bucher, bucher_user_id in tickets %}
+        <tr>
+        <td>{{ loop.index }}</td>
+         <td>{{ owner }}</td>
+         <td>{{ comment }}</td>
+         <td>
+            <input type="text" class="form-control guide-comment-input" 
+                   data-ticket-id="{{ ticket_id }}" 
+                   value="{{ guide_comment or '' }}" 
+                   placeholder="Guide Kommentar..." 
+                   style="min-width: 150px;">
+          </td>
+         <td>{{ birthdate.strftime("%m/%Y") if birthdate else "" }}</td>
+         <td>
+           {% if is_paid %}
+           <span class="badge badge-success">Ja</span>
+           {% else %}
+           <span class="badge badge-danger">Nein</span>
+           {% endif %}
+         </td>
+         <td>
+          {% if current_user.has_right('guide') %}
+          <a href="{{ url_for('EVENTS.page_mybooking', event_id=event.id, user_id=bucher_user_id) }}" class="badge badge-pill badge-info" style="text-decoration: none;">{{ bucher }}</a>
+          {% else %}
+          <span class="badge badge-pill badge-info">{{ bucher }}</span>
+          {% endif %}
+         </td>
+         <td class="no-print">
+            <a href="#" class="job" data-job="delete" data-ticket_id={{ ticket_id }}>Löschen</a>
+         </td>
+        </tr>
+    {% endfor %}
+      </tbody>
+    </table>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+{{super()}}
+
+<script type="text/javascript">
+$(document).ready(function() {
+    $('.job').click(function(e) {
+        e.preventDefault();
+        var self_data = $(this);
+        var data = {
+            'ticket_id': self_data.data('ticket_id'),
+            'job': self_data.data('job'),
+            'event_id': '{{ event.id }}',
+        }
+        $.post('/event/change_participants', data, function(res) {
+            console.log(res);
+            location.reload();
+        });
+    })
+    
+    // Guide Comment Update
+    $('.guide-comment-input').on('blur', function() {
+        var input = $(this);
+        var ticket_id = input.data('ticket-id');
+        var guide_comment = input.val();
+        
+        var data = {
+            'ticket_id': ticket_id,
+            'job': 'update_guide_comment',
+            'guide_comment': guide_comment,
+            'event_id': '{{ event.id }}'
+        };
+        
+        input.addClass('saving');
+        input.prop('disabled', true);
+        
+        $.post('/event/change_participants', data, function(res) {
+            input.removeClass('saving');
+            input.prop('disabled', false);
+            if (res.success) {
+                input.css('background-color', '#d4edda');
+                setTimeout(function() {
+                    input.css('background-color', '');
+                }, 1000);
+            } else {
+                input.css('background-color', '#f8d7da');
+                setTimeout(function() {
+                    input.css('background-color', '');
+                }, 1000);
+            }
+        }).fail(function() {
+            input.removeClass('saving');
+            input.prop('disabled', false);
+            input.css('background-color', '#f8d7da');
+            setTimeout(function() {
+                input.css('background-color', '');
+            }, 1000);
+        });
+    });
+    
+    // Enter key saves the comment
+    $('.guide-comment-input').on('keypress', function(e) {
+        if (e.which === 13) {
+            $(this).blur();
+        }
+    });
+});
+</script>
+{% endblock %}
