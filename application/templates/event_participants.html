@@ -57,13 +57,29 @@ Keine Teilnehmer für Export oder Mail bestätigt
 <div class="row">
     <div class="col-sm-12">
         <h3>Kategorien</h3>
+        <div class="mb-3">
+            <button type="button" id="showAllCategories" class="btn btn-sm btn-info" style="display: none;" title="Alle anzeigen">
+                <i class="fas fa-eye"></i> Alle anzeigen
+            </button>
+            <button type="button" id="hideAllCategories" class="btn btn-sm btn-warning" title="Alle verstecken">
+                <i class="fas fa-eye-slash"></i> Alle verstecken
+            </button>
+        </div>
         <ul class="list-group">
         {% for ticket_group in extra_tickets.keys() %}
-            <li class="list-group-item d-flex justify-content-between align-items-center">
+            <li id="{{ ticket_group|replace(' ', '_')}}_entry" class="list-group-item d-flex justify-content-between align-items-center category-item" data-category="{{ ticket_group }}">
                 <a href="{{ url_for('EVENTS.page_extra_tickets', event_id=event.id, category=ticket_group) }}" class="text-decoration-none">
                     <strong>{{ ticket_group }}</strong>
                 </a>
-                <span class="badge badge-primary badge-pill">{{ extra_tickets[ticket_group]|length }}</span>
+                <div>
+                    <span class="badge badge-primary badge-pill">{{ extra_tickets[ticket_group]|length }}</span>
+                    <button type="button" class="btn btn-sm btn-outline-secondary hide-category-btn" data-category="{{ ticket_group }}" title="Verstecken">
+                        <i class="fas fa-eye-slash"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-success show-category-btn" data-category="{{ ticket_group }}" style="display: none;" title="Anzeigen">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
             </li>
         {% endfor %}
         </ul>
@@ -172,10 +188,10 @@ Keine Teilnehmer für Export oder Mail bestätigt
 
 
 {% for ticket_group, members in extra_tickets.items() %}
-<div class="row">
+<div class="row extra-ticket-table" data-category="{{ ticket_group }}">
     <h2>{{ ticket_group }}</h2>
 </div>
-    <table class="table table-bordered">
+    <table class="table table-bordered extra-ticket-table" data-category="{{ ticket_group }}">
       <thead>
         <tr>
           <th scope="col">#</td>
@@ -234,6 +250,30 @@ Keine Teilnehmer für Export oder Mail bestätigt
 {% if current_user.has_right('guide') %}
 <script type="text/javascript">
 $(document).ready(function() {
+    var hiddenCategories = new Set();
+    
+    // Load hidden categories from database on page load
+    $.get('/event/get_hidden_categories', {'event_id': '{{ event.id }}'}, function(res) {
+        if (res.success && res.hidden_categories) {
+            res.hidden_categories.forEach(function(category) {
+                hiddenCategories.add(category);
+                // Hide the category
+                var elementId = category.replace(/\s+/g, '_') + '_entry';
+                $('#' + elementId).css({
+                    'display': 'none',
+                    'visibility': 'hidden',
+                    'height': '0',
+                    'padding': '0',
+                    'margin': '0',
+                    'border': 'none',
+                    'overflow': 'hidden'
+                });
+                $('.extra-ticket-table[data-category="' + category + '"]').hide();
+            });
+            updateGlobalButtons();
+        }
+    });
+    
     $('.job').click(function(e) {
         e.preventDefault();
         var self_data = $(this);
@@ -247,6 +287,146 @@ $(document).ready(function() {
             location.reload();
         });
     })
+    
+    // Hide Category Button
+    $('.hide-category-btn').click(function(e) {
+        e.preventDefault();
+        var category = $(this).data('category');
+        hiddenCategories.add(category);
+        
+        // Hide the ticket group entry by ID (handle spaces) and corresponding tables
+        var elementId = category.replace(/\s+/g, '_') + '_entry';
+        $('#' + elementId).css({
+            'display': 'none',
+            'visibility': 'hidden',
+            'height': '0',
+            'padding': '0',
+            'margin': '0',
+            'border': 'none',
+            'overflow': 'hidden'
+        });
+        $('.extra-ticket-table[data-category="' + category + '"]').hide();
+        
+        // Save hidden state to database
+        var data = {
+            'action': 'hide_category',
+            'category': category,
+            'event_id': '{{ event.id }}'
+        };
+        $.post('/event/manage_hidden_categories', data, function(res) {
+            console.log('Category hidden:', res);
+        });
+        
+        // Update global buttons
+        updateGlobalButtons();
+    });
+    
+    // Show Category Button  
+    $('.show-category-btn').click(function(e) {
+        e.preventDefault();
+        var category = $(this).data('category');
+        hiddenCategories.delete(category);
+        
+        // Switch buttons: hide Show button, show Hide button
+        $(this).hide();
+        $(this).siblings('.hide-category-btn').show();
+        
+        // Show corresponding extra ticket tables
+        $('.extra-ticket-table[data-category="' + category + '"]').show();
+        
+        // Save shown state to database
+        var data = {
+            'action': 'show_category',
+            'category': category,
+            'event_id': '{{ event.id }}'
+        };
+        $.post('/event/manage_hidden_categories', data, function(res) {
+            console.log('Category shown:', res);
+        });
+        
+        // Update global buttons
+        updateGlobalButtons();
+    });
+    
+    
+    // Show All Categories Button
+    $('#showAllCategories').click(function() {
+        hiddenCategories.clear();
+        
+        // Show all category items and tables, reset buttons
+        $('.category-item').css({
+            'display': '',
+            'visibility': '',
+            'height': '',
+            'padding': '',
+            'margin': '',
+            'border': '',
+            'overflow': ''
+        }).show();
+        $('.extra-ticket-table').show();
+        $('.hide-category-btn').show();
+        $('.show-category-btn').hide();
+        
+        // Save show all state to database
+        var data = {
+            'action': 'show_all_categories',
+            'event_id': '{{ event.id }}'
+        };
+        $.post('/event/manage_hidden_categories', data, function(res) {
+            console.log('All categories shown:', res);
+        });
+        
+        // Update global buttons
+        updateGlobalButtons();
+    });
+    
+    // Hide All Categories Button
+    $('#hideAllCategories').click(function() {
+        $('.category-item').each(function() {
+            var category = $(this).data('category');
+            hiddenCategories.add(category);
+        });
+        
+        // Hide all category items and tables with robust CSS method
+        $('.category-item').css({
+            'display': 'none',
+            'visibility': 'hidden',
+            'height': '0',
+            'padding': '0',
+            'margin': '0',
+            'border': 'none',
+            'overflow': 'hidden'
+        });
+        $('.extra-ticket-table').hide();
+        
+        // Save hide all state to database
+        var data = {
+            'action': 'hide_all_categories',
+            'event_id': '{{ event.id }}'
+        };
+        $.post('/event/manage_hidden_categories', data, function(res) {
+            console.log('All categories hidden:', res);
+        });
+        
+        // Update global buttons
+        updateGlobalButtons();
+    });
+    
+    function updateGlobalButtons() {
+        var totalCategories = $('.category-item').length;
+        var hiddenCount = hiddenCategories.size;
+        
+        if (hiddenCount === 0) {
+            $('#showAllCategories').hide();
+            $('#hideAllCategories').show();
+        } else if (hiddenCount === totalCategories) {
+            $('#showAllCategories').show();
+            $('#hideAllCategories').hide();
+        } else {
+            $('#showAllCategories').show();
+            $('#hideAllCategories').show();
+        }
+    }
     
     // Guide Comment Update
     $('.guide-comment-input').on('blur', function() {

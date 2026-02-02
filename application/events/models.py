@@ -118,6 +118,9 @@ class Event(db.Document):
 
     participations = db.ListField(field=db.EmbeddedDocumentField(document_type=EventParticipation))
     tickets = db.ListField(field=db.EmbeddedDocumentField(document_type=Ticket))
+    
+    # Global hidden categories for all users
+    hidden_categories = db.ListField(field=db.StringField())
 
 
 

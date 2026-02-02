@@ -589,6 +589,73 @@ def change_participation():
     return response
 
 
+@EVENTS.route('/event/manage_hidden_categories', methods=['POST'])
+def manage_hidden_categories():
+    """
+    Manage global hidden categories
+    """
+    if not current_user.has_right('guide'):
+        return jsonify({'success': False, 'error': 'Not authorized'})
+
+    action = request.form.get('action')
+    event_id = request.form.get('event_id')
+    category = request.form.get('category')
+
+    try:
+        event = Event.objects.get(id=event_id)
+        
+        # Initialize hidden_categories if it doesn't exist
+        if not event.hidden_categories:
+            event.hidden_categories = []
+        
+        if action == 'hide_category':
+            if category and category not in event.hidden_categories:
+                event.hidden_categories.append(category)
+        elif action == 'show_category':
+            if category and category in event.hidden_categories:
+                event.hidden_categories.remove(category)
+        elif action == 'hide_all_categories':
+            # Get all available categories from extra tickets
+            from collections import defaultdict
+            extra_tickets = defaultdict(list)
+            for parti in event.participations:
+                for ticket in parti.tickets:
+                    if ticket.is_extra_ticket:
+                        extra_tickets[ticket.ticket_name].append(ticket)
+            event.hidden_categories = list(extra_tickets.keys())
+        elif action == 'show_all_categories':
+            event.hidden_categories = []
+        
+        event.save()
+        
+        return jsonify({'success': True, 'hidden_categories': event.hidden_categories})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@EVENTS.route('/event/get_hidden_categories', methods=['GET'])
+def get_hidden_categories():
+    """
+    Get global hidden categories
+    """
+    if not current_user.is_authenticated:
+        return jsonify({'success': False, 'error': 'Not authenticated'})
+
+    event_id = request.args.get('event_id')
+    
+    try:
+        event = Event.objects.get(id=event_id)
+        
+        # Get global hidden categories
+        hidden_categories = event.hidden_categories if event.hidden_categories else []
+        
+        return jsonify({'success': True, 'hidden_categories': hidden_categories})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
 def get_participants(event):
     """
     Get List of Participants
