@@ -47,7 +47,12 @@
 {% for owner, tickets_by_status in bookings.items() %}
       <div class="card">
         <div class="card-header" id="heading_{{loop.index}}">
-              {{owner}}
+          {% set user_id = tickets_by_status['paid'][0].ticket_info.bucher_user_id if tickets_by_status['paid'] else tickets_by_status['unpaid'][0].ticket_info.bucher_user_id %}
+          <span class="badge badge-pill badge-info">
+          <a href="{{ url_for('EVENTS.page_mybooking', event_id=event.id, user_id=user_id) }}" style="text-decoration: none; color: inherit;">
+            {{owner}}
+          </a>
+          </span>
           </h2>
         </div>
 
@@ -93,10 +98,20 @@
                     </td>
                     <td>
                       {% if booking_status != 'paid' %}
-                      <a href="#" class="job" data-job="paid" data-ticket_id={{ ticket.id }}>Bezahlen</a></span>
+                      <a href="#" class="job btn btn-sm btn-outline-success me-1" 
+                         data-job="paid" 
+                         data-ticket_id={{ ticket.id }}
+                         title="Als bezahlt markieren">
+                        <i class="fas fa-check"></i>
+                      </a>
                       {% endif %}
                       {% if booking_status != 'unpaid' %}
-                      <a href="#" class="job" data-job="unpaid" data-ticket_id={{ ticket.id }}>Nicht bezahlt</a>
+                      <a href="#" class="job btn btn-sm btn-outline-warning me-1" 
+                         data-job="unpaid" 
+                         data-ticket_id={{ ticket.id }}
+                         title="Als unbezahlt markieren">
+                        <i class="fas fa-times"></i>
+                      </a>
                       {% endif %}
                     </td>
                   </tr>
