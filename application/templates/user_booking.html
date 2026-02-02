@@ -59,6 +59,17 @@
 </div>
 {% endif %}
 
+{% if current_user.has_right('guide') %}
+<div class="row">
+    <div class="col-sm-12">
+        <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#addNewTicket">
+            <i class="fas fa-plus"></i> Neues Ticket für {{ target_user.first_name }} {{ target_user.last_name }} hinzufügen
+        </button>
+    </div>
+</div>
+<br>
+{% endif %}
+
 <div class="row">
     <div class="col-sm-12">
         <div class="alert alert-info" role="alert">
@@ -83,17 +94,22 @@
       <th scope="col">Buchungszeit</th>
       <th scope="col">Preis</th>
       <th scope="col">Bezahlt</th>
+      {% if current_user.has_right('guide') %}
+      <th scope="col">Aktionen</th>
+      {% endif %}
     </tr>
   </thead>
   <tbody>
 
   {% for ticket_name, tickets in tickets_by_name.items() %}
   <tr>
-      <th colspan=10>{{ticket_name}}</th>
+      <th colspan="{% if current_user.has_right('guide') %}11{% else %}10{% endif %}">{{ticket_name}}</th>
   </tr>
     {% for ticket in tickets %}
       <tr>
-        <td><a class="far fa-edit" 
+        <td>
+          {% if current_user.has_right('guide') or target_user == current_user %}
+          <a class="far fa-edit" 
                data-ticket-id="{{ ticket.ticket_id }}"
                data-name="{{ticket.name_on_ticket}}"
                data-email="{{ticket.email_on_ticket}}"
@@ -102,7 +118,10 @@
                data-comment="{{ticket.comment_on_ticket }}"
                data-toggle="modal" data-target="#editName"
                href='#' title="Daten ändern"></a>
-               </span></td>
+          {% else %}
+          <span class="text-muted">-</span>
+          {% endif %}
+        </td>
         <td><span id="user_name_{{ticket.ticket_id}}">{{ticket.name_on_ticket}}</span></td>
         <td><span id="user_email_{{ticket.ticket_id}}">{{ticket.email_on_ticket}}</span></td>
         <td><span id="user_phone_{{ticket.ticket_id}}">{{ticket.phone_on_ticket}}</span></td>
@@ -142,6 +161,16 @@
           <span class="badge badge-danger">Nein</span>
           {% endif %}
          </td>
+         {% if current_user.has_right('guide') %}
+         <td>
+            <a href="#" class="job btn btn-sm btn-outline-danger" 
+               data-job="delete"
+               data-ticket_id="{{ ticket.ticket_id }}"
+               title="Ticket löschen">
+              <i class="fas fa-trash"></i>
+            </a>
+         </td>
+         {% endif %}
             </tr>
      {% endfor %}
   {% endfor %}
@@ -174,6 +203,7 @@
       <textarea id="new_comment" name="new_comment" class="form-control" type="text" placeholder="Kommentar" autocomplete="off"></textarea>
       <input id="ticket_id" name="ticket_id" type="hidden" class="form-control">
       <input id="event_id" name="event_id" type="hidden" class="form-control" value="{{event.id}}">
+      <input id="target_user_id" name="target_user_id" type="hidden" class="form-control" value="{{target_user.id}}">>
       </div>
       <div class="modal-footer">
         <button type="submit" class="btn btn-primary">Neuen Daten speichern</button>
@@ -184,6 +214,50 @@
   </div>
 </div>
 
+<!-- Modal for adding new ticket (Guide only) -->
+{% if current_user.has_right('guide') %}
+<div class="modal" tabindex="-1" role="dialog" id="addNewTicket">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Neues Ticket für {{ target_user.first_name }} {{ target_user.last_name }} hinzufügen</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+      <form id="add_ticket_form" method="POST" autocomplete="off">
+        <div class="form-group">
+          <label for="ticket_type">Ticket-Typ</label>
+          <select id="ticket_type" name="ticket_type" class="form-control" required>
+            <option value="">Bitte auswählen...</option>
+            {% for ticket in event.tickets %}
+            <option value="{{ticket.name}}">{{ticket.name}} ({{ticket.price}}€)</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="position-relative">
+          <input id="add_new_name" name="new_name" class="form-control" placeholder="Name des Teilnehmers" autocomplete="nope" required>
+          <div id="add_suggestions" class="list-group position-absolute w-100" style="z-index: 1050; display: none; max-height: 200px; overflow-y: auto;"></div>
+        </div>
+        <br>
+        <input id="add_new_phone" name="new_phone" class="form-control" placeholder="Handynummer" autocomplete="new-password">
+        <input id="add_new_email" name="new_email" class="form-control" placeholder="E-Mail Adresse" autocomplete="new-password">
+        <input id="add_new_birthdate" name="new_birthdate" class="form-control" type="date" placeholder="Geburtsdatum" autocomplete="new-password">
+        <textarea id="add_new_comment" name="new_comment" class="form-control" type="text" placeholder="Kommentar" autocomplete="off"></textarea>
+        <input id="add_event_id" name="event_id" type="hidden" class="form-control" value="{{event.id}}">
+        <input id="add_user_id" name="user_id" type="hidden" class="form-control" value="{{target_user.id}}">
+      </div>
+      <div class="modal-footer">
+        <button type="submit" class="btn btn-primary">Ticket hinzufügen</button>
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Abbrechen</button>
+      </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 
 
 {% endblock %}
@@ -193,45 +267,60 @@
     <script>
     $(document).ready(function() {
         var modal = $('#editName');
+        var addModal = $('#addNewTicket');
         var suggestionsDiv = $('#suggestions');
+        var addSuggestionsDiv = $('#add_suggestions');
         var nameInput = $('#new_name');
+        var addNameInput = $('#add_new_name');
 
-        // Handle name input for suggestions
-        nameInput.on('input', function() {
-            var query = $(this).val().toLowerCase();
-            
-            if (query.length < 2) {
-                suggestionsDiv.hide();
-                return;
-            }
+        // Handle name input for suggestions (both modals)
+        function handleNameInput(input, suggDiv) {
+            input.on('input', function() {
+                var query = $(this).val().toLowerCase();
+                
+                if (query.length < 2) {
+                    suggDiv.hide();
+                    return;
+                }
 
-            // Make API call with current query
-            var eventId = $('#event_id').val();
-            if (eventId) {
-                $.get('/user/get_data/' + eventId, { q: query })
-                    .done(function(data) {
-                        displaySuggestions(data);
-                    })
-                    .fail(function() {
-                        console.error('Failed to load user data from API');
-                        suggestionsDiv.hide();
-                    });
-            }
-        });
+                // Make API call with current query
+                var eventId = $('#event_id').val() || $('#add_event_id').val();
+                var targetUserId = $('#target_user_id').val() || $('#add_user_id').val();
+                if (eventId) {
+                    var requestData = { q: query };
+                    if (targetUserId) {
+                        requestData.target_user_id = targetUserId;
+                    }
+                    
+                    $.get('/user/get_data/' + eventId, requestData)
+                        .done(function(data) {
+                            displaySuggestions(data, suggDiv, input);
+                        })
+                        .fail(function() {
+                            console.error('Failed to load user data from API');
+                            suggDiv.hide();
+                        });
+                }
+            });
+        }
+
+        handleNameInput(nameInput, suggestionsDiv);
+        handleNameInput(addNameInput, addSuggestionsDiv);
 
         // Hide suggestions when clicking outside
         $(document).on('click', function(e) {
-            if (!$(e.target).closest('#new_name, #suggestions').length) {
+            if (!$(e.target).closest('#new_name, #suggestions, #add_new_name, #add_suggestions').length) {
                 suggestionsDiv.hide();
+                addSuggestionsDiv.hide();
             }
         });
 
-        // Display suggestions
-        function displaySuggestions(suggestions) {
-            suggestionsDiv.empty();
+        // Display suggestions (updated to handle both modals)
+        function displaySuggestions(suggestions, suggDiv, targetInput) {
+            suggDiv.empty();
             
             if (suggestions.length === 0) {
-                suggestionsDiv.hide();
+                suggDiv.hide();
                 return;
             }
 
@@ -242,22 +331,25 @@
                 
                 suggestionItem.on('click', function(e) {
                     e.preventDefault();
-                    fillFormWithPersonData($(this).data('person'));
-                    suggestionsDiv.hide();
+                    fillFormWithPersonData($(this).data('person'), targetInput);
+                    suggDiv.hide();
                 });
 
-                suggestionsDiv.append(suggestionItem);
+                suggDiv.append(suggestionItem);
             });
 
-            suggestionsDiv.show();
+            suggDiv.show();
         }
 
-        // Fill form with selected person data
-        function fillFormWithPersonData(person) {
-            $('#new_name').val(person.name);
-            $('#new_email').val(person.email);
-            $('#new_phone').val(person.phone);
-            $('#new_birthdate').val(person.birthdate);
+        // Fill form with selected person data (updated for both modals)
+        function fillFormWithPersonData(person, targetInput) {
+            var isAddModal = targetInput.attr('id') === 'add_new_name';
+            var prefix = isAddModal ? 'add_' : '';
+            
+            $('#' + prefix + 'new_name').val(person.name);
+            $('#' + prefix + 'new_email').val(person.email);
+            $('#' + prefix + 'new_phone').val(person.phone);
+            $('#' + prefix + 'new_birthdate').val(person.birthdate);
         }
 
         modal.on('show.bs.modal', function(e){
@@ -275,6 +367,50 @@
             $('#ticket_id').val(ticket_id);
             // Hide suggestions when modal opens
             suggestionsDiv.hide();
+            addSuggestionsDiv.hide();
+        });
+
+        // Handle add ticket form submission
+        $('#add_ticket_form').on('submit', function(e){
+            e.preventDefault();
+            var form = $(this).serialize();
+            
+            $.post('/user/add_ticket', form, function(res){
+                if(res.success) {
+                    // Reload the page to show the new ticket
+                    location.reload();
+                } else {
+                    alert('Fehler beim Hinzufügen des Tickets: ' + (res.message || 'Unbekannter Fehler'));
+                }
+            }).fail(function() {
+                alert('Fehler beim Hinzufügen des Tickets. Bitte versuchen Sie es erneut.');
+            });
+        });
+
+        // Handle delete ticket functionality (using existing system)
+        $('.job').on('click', function(e){
+            e.preventDefault();
+            var self_data = $(this);
+            var job = self_data.data('job');
+            
+            if(job === 'delete') {
+                var ticketId = self_data.data('ticket_id');
+                
+                if(confirm('Soll das Ticket wirklich gelöscht werden?')) {
+                    var data = {
+                        'ticket_id': ticketId,
+                        'job': job,
+                        'event_id': '{{event.id}}'
+                    };
+                    
+                    $.post('/event/change_participants', data, function(res){
+                        console.log(res);
+                        location.reload();
+                    }).fail(function() {
+                        alert('Fehler beim Löschen des Tickets. Bitte versuchen Sie es erneut.');
+                    });
+                }
+            }
         });
 
         $('#change_form').on('submit', function(e){

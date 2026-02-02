@@ -22,6 +22,8 @@ from application.auth.forms import LoginForm
 from application.auth.views import do_login
 from application.events.forms import EventForm, EventRegisterForm, EventSearchForm
 from application.models.config import Config
+from application.models.user import User
+from application.events.models import OwnedTicket
 
 from application.modules.email import send_email
 
@@ -200,16 +202,98 @@ def ajax_mybooking():
     new_birthdate = request.form['new_birthdate']
     new_comment = request.form['new_comment']
     ticket_id = request.form['ticket_id']
+    target_user_id = request.form.get('target_user_id')
 
     event = Event.objects.get(id=event_id)
-    ticket = event.get_booked_ticket(ticket_id, current_user)
-    ticket.name_on_ticket = new_name
-    ticket.phone_on_ticket = new_phone
-    ticket.email_on_ticket = new_email
-    ticket.birthdate_on_ticket = new_birthdate
-    ticket.comment_on_ticket = new_comment
-    event.save()
-    return {'msg': 'success'}
+    
+    # Determine which user's tickets we should be editing
+    if current_user.has_right('guide') and target_user_id:
+        target_user = User.objects.get(id=target_user_id)
+        ticket = event.get_booked_ticket(ticket_id, target_user)
+    else:
+        # Regular user can only edit their own tickets
+        ticket = event.get_booked_ticket(ticket_id, current_user)
+    
+    if ticket:
+        ticket.name_on_ticket = new_name
+        ticket.phone_on_ticket = new_phone
+        ticket.email_on_ticket = new_email
+        ticket.birthdate_on_ticket = new_birthdate
+        ticket.comment_on_ticket = new_comment
+        event.save()
+        return {'msg': 'success'}
+    else:
+        return {'msg': 'error', 'error': 'Ticket nicht gefunden oder keine Berechtigung'}, 403
+
+@EVENTS.route('/user/add_ticket', methods=['POST'])
+def ajax_add_ticket():
+    """
+    Add new ticket for a user (Guide only)
+    """
+    if not current_user.has_right('guide'):
+        return {'success': False, 'message': 'Keine Berechtigung'}, 403
+        
+    event_id = request.form['event_id']
+    user_id = request.form['user_id']
+    ticket_type = request.form['ticket_type']
+    new_name = request.form['new_name']
+    new_email = request.form['new_email']
+    new_phone = request.form['new_phone']
+    new_birthdate = request.form['new_birthdate']
+    new_comment = request.form['new_comment']
+    
+    
+    try:
+        event = Event.objects.get(id=event_id)
+        target_user = User.objects.get(id=user_id)
+        
+        # Check if ticket type exists
+        ticket_definition = None
+        for ticket_def in event.tickets:
+            if ticket_def.name == ticket_type:
+                ticket_definition = ticket_def
+                break
+                
+        if not ticket_definition:
+            return {'success': False, 'message': 'Ticket-Typ nicht gefunden'}, 400
+        
+        # Find or create participation for the target user
+        participation = None
+        for parti in event.participations:
+            if parti.user == target_user:
+                participation = parti
+                break
+                
+        if not participation:
+            # Create new participation
+            participation = EventParticipation()
+            participation.user = target_user
+            participation.booking_date = datetime.now()
+            participation.custom_fields = []
+            participation.tickets = []
+            event.participations.append(participation)
+        
+        # Create new ticket
+        new_ticket = OwnedTicket()
+        new_ticket.ticket_id = str(uuid.uuid4())
+        new_ticket.ticket_name = ticket_type
+        new_ticket.name_on_ticket = new_name if new_name else f"{target_user.first_name} {target_user.last_name}"
+        new_ticket.email_on_ticket = new_email if new_email else target_user.email
+        new_ticket.phone_on_ticket = new_phone if new_phone else target_user.phone
+        new_ticket.birthdate_on_ticket = datetime.strptime(new_birthdate, '%Y-%m-%d').date() if new_birthdate else target_user.birthdate
+        new_ticket.comment_on_ticket = new_comment
+        new_ticket.is_extra_ticket = ticket_definition.is_extra_ticket
+        new_ticket.confirmed = False  # Guide needs to confirm
+        new_ticket.waitinglist = False
+        new_ticket.is_paid = False
+        
+        participation.tickets.append(new_ticket)
+        event.save()
+        
+        return {'success': True, 'message': 'Ticket erfolgreich hinzugefügt'}
+        
+    except Exception as e:
+        return {'success': False, 'message': str(e)}, 500
 
 @EVENTS.route('/user/get_data/<event_id>', methods=['GET'])
 def ajax_ticketdata(event_id):
@@ -218,44 +302,38 @@ def ajax_ticketdata(event_id):
     """
     
     query = request.args.get('q', '').lower()
+    target_user_id = request.args.get('target_user_id')
     
     event = Event.objects.get(id=event_id)
-    tickets = event.get_tickets_of_user(current_user)
-    all_tickets = []
-    found_names = []
+    
+    # Determine which user's tickets to search through
+    if current_user.has_right('guide') and target_user_id:
+        target_user = User.objects.get(id=target_user_id)
+        tickets = event.get_tickets_of_user(target_user)
+    else:
+        tickets = event.get_tickets_of_user(current_user)
+        
+    merged_data = {
+        'name': query,
+        'email': '',
+        'phone': '',
+        'birthdate': ''
+    }
     
     for ticket in tickets:
-        if ticket.name_on_ticket not in found_names:
-            def merge_ticket_information(tickets, name):
-                """
-                Merge information from all tickets with the same name
-                """
-                merged_data = {
-                    'name': name,
-                    'email': '',
-                    'phone': '',
-                    'birthdate': ''
-                }
-                
-                for ticket in tickets:
-                    if ticket.name_on_ticket == name:
-                        # Use non-empty values to fill merged data
-                        if not merged_data['email'] and ticket.email_on_ticket:
-                            merged_data['email'] = ticket.email_on_ticket
-                        if not merged_data['phone'] and ticket.phone_on_ticket:
-                            merged_data['phone'] = ticket.phone_on_ticket
-                        if not merged_data['birthdate'] and ticket.birthdate_on_ticket:
-                            merged_data['birthdate'] = ticket.birthdate_on_ticket.strftime('%Y-%m-%d')
-                
-                return merged_data
+        print(query)
+        print(ticket.name_on_ticket, flush=True)
+        if query in ticket.name_on_ticket.lower():
+            print('HIT', flush=True)
+            merged_data['name'] = ticket.name_on_ticket
+            if not merged_data['email'] and ticket.email_on_ticket:
+                merged_data['email'] = ticket.email_on_ticket
+            if not merged_data['phone'] and ticket.phone_on_ticket:
+                merged_data['phone'] = ticket.phone_on_ticket
+            if not merged_data['birthdate'] and ticket.birthdate_on_ticket:
+                merged_data['birthdate'] = ticket.birthdate_on_ticket.strftime('%Y-%m-%d')
 
-            # Merge ticket information instead of finding the best one
-            if not query or query in ticket.name_on_ticket.lower():
-                found_names.append(ticket.name_on_ticket)
-                merged_ticket_data = merge_ticket_information(tickets, ticket.name_on_ticket)
-                all_tickets.append(merged_ticket_data)
-
-    return jsonify(all_tickets)
+    return jsonify([merged_data])
 
 @EVENTS.route('/user/booking')
 def page_mybooking():
@@ -275,7 +353,6 @@ def page_mybooking():
     # Determine which user's booking to show
     target_user = current_user
     if user_id and current_user.has_right('guide'):
-        from application.models.user import User
         target_user = User.objects.get(id=user_id)
     
     for parti in event.participations:
