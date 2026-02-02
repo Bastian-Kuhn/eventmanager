@@ -10,15 +10,23 @@
         <a class="nav-link" href="{{ url_for('EVENTS.page_details', event_id=event.id) }}">Übersicht</a>
       </li>
     {% if current_user.is_authenticated %}
-       {% if current_user.has_right('guide') or current_user.participate_event(event.id) %}
-      <li class="nav-item">
-        <a class="nav-link active" href="{{ url_for('EVENTS.page_participants', event_id=event.id) }}">Teilnehmerliste</a>
-      </li>
-      {% if current_user.has_right('guide') %}
-      <li class="nav-item">
-        <a class="nav-link" href="{{ url_for('EVENTS.page_billing', event_id=event.id) }}">Abrechnung</a>
-      </li>
-      {% endif %}
+        {% if current_user.has_right('guide') or current_user.participate_event(event.id) %}
+          <li class="nav-item">
+            <a class="nav-link active" href="{{ url_for('EVENTS.page_participants', event_id=event.id) }}">Teilnehmerliste</a>
+          </li>
+          {% if current_user.has_right('guide') %}
+            {% set ns = namespace(has_paid_tickets=false) %}
+            {% for ticket in event.tickets %}
+              {% if ticket.price and ticket.price > 0 %}
+                {% set ns.has_paid_tickets = true %}
+              {% endif %}
+            {% endfor %}
+            {% if ns.has_paid_tickets %}
+            <li class="nav-item">
+              <a class="nav-link" href="{{ url_for('EVENTS.page_billing', event_id=event.id) }}">Abrechnung</a>
+            </li>
+            {% endif %}
+          {% endif %}
       {% endif %}
     {% if current_user.has_right('guide') or current_user.participate_event(event.id) %}
       <li class="nav-item">
@@ -181,9 +189,9 @@ Keine Teilnehmer für Export oder Mail bestätigt
 {% endfor %}
 </div>
 
-{% if current_user.has_right('guide') %}
+{% if current_user.has_right('guide') and extra_tickets %}
 <div class="row">
-<h1>Weitere Daten</h1>
+<h1>Kategorien</h1>
 </div>
 
 
