@@ -321,10 +321,7 @@ def ajax_ticketdata(event_id):
     }
     
     for ticket in tickets:
-        print(query)
-        print(ticket.name_on_ticket, flush=True)
         if query in ticket.name_on_ticket.lower():
-            print('HIT', flush=True)
             merged_data['name'] = ticket.name_on_ticket
             if not merged_data['email'] and ticket.email_on_ticket:
                 merged_data['email'] = ticket.email_on_ticket
