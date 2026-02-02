@@ -74,7 +74,7 @@ Keine Teilnehmer für Export oder Mail bestätigt
             </button>
         </div>
         <ul class="list-group">
-        {% for ticket_group in extra_tickets.keys() %}
+        {% for ticket_group in extra_tickets.keys()|sort %}
             <li id="{{ ticket_group|replace(' ', '_')}}_entry" class="list-group-item d-flex justify-content-between align-items-center category-item" data-category="{{ ticket_group }}">
                 <a href="{{ url_for('EVENTS.page_extra_tickets', event_id=event.id, category=ticket_group) }}" class="text-decoration-none">
                     <strong>{{ ticket_group }}</strong>
@@ -195,7 +195,7 @@ Keine Teilnehmer für Export oder Mail bestätigt
 </div>
 
 
-{% for ticket_group, members in extra_tickets.items() %}
+{% for ticket_group, members in extra_tickets.items()|sort %}
 <div class="row extra-ticket-table" data-category="{{ ticket_group }}">
     <h2>{{ ticket_group }}</h2>
 </div>
