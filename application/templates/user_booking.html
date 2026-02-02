@@ -176,6 +176,21 @@
          </td>
          {% if current_user.has_right('guide') %}
          <td>
+            {% if not ticket.is_paid %}
+            <a href="#" class="job btn btn-sm btn-outline-success me-1" 
+               data-job="paid"
+               data-ticket_id="{{ ticket.ticket_id }}"
+               title="Als bezahlt markieren">
+              <i class="fas fa-check"></i>
+            </a>
+            {% else %}
+            <a href="#" class="job btn btn-sm btn-outline-warning me-1" 
+               data-job="unpaid"
+               data-ticket_id="{{ ticket.ticket_id }}"
+               title="Als unbezahlt markieren">
+              <i class="fas fa-times"></i>
+            </a>
+            {% endif %}
             <a href="#" class="job btn btn-sm btn-outline-danger" 
                data-job="delete"
                data-ticket_id="{{ ticket.ticket_id }}"
@@ -423,6 +438,20 @@
                         alert('Fehler beim Löschen des Tickets. Bitte versuchen Sie es erneut.');
                     });
                 }
+            } else if(job === 'paid' || job === 'unpaid') {
+                var ticketId = self_data.data('ticket_id');
+                var data = {
+                    'ticket_id': ticketId,
+                    'job': job,
+                    'event_id': '{{event.id}}'
+                };
+                
+                $.post('/event/change_paidstatus', data, function(res){
+                    console.log(res);
+                    location.reload();
+                }).fail(function() {
+                    alert('Fehler beim Ändern des Bezahlstatus. Bitte versuchen Sie es erneut.');
+                });
             }
         });
 
