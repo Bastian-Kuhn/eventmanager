@@ -70,13 +70,16 @@
 <br>
 {% endif %}
 
+{% if total_cost %}
 <div class="row">
     <div class="col-sm-12">
         <div class="alert alert-info" role="alert">
-            <strong>Gesamtkosten: {{ total_cost }}€</strong>
+            <strong>Kosten: {{open_cost}}/ {{ total_cost }}€</strong>
+
         </div>
     </div>
 </div>
+{% endif %}
 
 <div class="row">
 <table class="table table-hover">
@@ -152,7 +155,17 @@
         </td>
         <td>{{ticket.booking_date.strftime('%d.%m.%Y %H:%M')}}</td>
         <td>
-        {{ ticket.price }}€
+        {% if current_user.has_right('guide') %}
+          <span class="editable-price" 
+                data-ticket-id="{{ ticket.ticket_id }}" 
+                data-original-price="{{ ticket.price }}"
+                style="cursor: pointer; text-decoration: underline;" 
+                title="Preis bearbeiten (klicken)">
+            {{ ticket.price }}€
+          </span>
+        {% else %}
+          {{ ticket.price }}€
+        {% endif %}
         </td>
         <td>
           {% if ticket.is_paid %}
@@ -430,6 +443,39 @@
                 $('#user_comment'+data.ticket_id).html(data.new_comment);
                 modal.modal('hide');
             });
+        });
+
+        // Handle price editing for guides
+        $('.editable-price').on('click', function(e){
+            e.preventDefault();
+            var $this = $(this);
+            var ticketId = $this.data('ticket-id');
+            var originalPrice = $this.data('original-price');
+            
+            var newPrice = prompt('Neuer Preis für dieses Ticket:', originalPrice);
+            
+            if (newPrice !== null && newPrice !== '' && !isNaN(newPrice)) {
+                var data = {
+                    'ticket_id': ticketId,
+                    'new_price': parseFloat(newPrice),
+                    'event_id': '{{event.id}}'
+                };
+                
+                $.post('/event/change_price', data, function(res){
+                    if(res.success) {
+                        $this.text(res.new_price + '€');
+                        $this.data('original-price', res.new_price);
+                        // Reload page to update totals
+                        location.reload();
+                    } else {
+                        alert('Fehler beim Ändern des Preises: ' + (res.message || 'Unbekannter Fehler'));
+                    }
+                }).fail(function() {
+                    alert('Fehler beim Ändern des Preises. Bitte versuchen Sie es erneut.');
+                });
+            } else if (newPrice !== null) {
+                alert('Bitte geben Sie einen gültigen Preis ein.');
+            }
         });
     });
 

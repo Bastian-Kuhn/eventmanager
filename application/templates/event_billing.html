@@ -82,7 +82,15 @@
                    <td>{{ ticket.ticket_info.name }}</td>
                     <td>{{ ticket.ticket_info.role }}</td>
                     <td>{{ age(ticket.ticket_info.birthdate) }}</td>
-                    <td>{{ticket.price }}</td>
+                    <td>
+                      <span class="editable-price" 
+                            data-ticket-id="{{ ticket.id }}" 
+                            data-original-price="{{ ticket.price }}"
+                            style="cursor: pointer; text-decoration: underline;" 
+                            title="Preis bearbeiten (klicken)">
+                        {{ ticket.price }}€
+                      </span>
+                    </td>
                     <td>
                       {% if booking_status != 'paid' %}
                       <a href="#" class="job" data-job="paid" data-ticket_id={{ ticket.id }}>Bezahlen</a></span>
@@ -122,6 +130,39 @@ $(document).ready(function() {
             location.reload();
         });
     })
+    
+    // Handle price editing
+    $('.editable-price').on('click', function(e){
+        e.preventDefault();
+        var $this = $(this);
+        var ticketId = $this.data('ticket-id');
+        var originalPrice = $this.data('original-price');
+        
+        var newPrice = prompt('Neuer Preis für dieses Ticket:', originalPrice);
+        
+        if (newPrice !== null && newPrice !== '' && !isNaN(newPrice)) {
+            var data = {
+                'ticket_id': ticketId,
+                'new_price': parseFloat(newPrice),
+                'event_id': '{{ event.id }}'
+            };
+            
+            $.post('/event/change_price', data, function(res){
+                if(res.success) {
+                    $this.text(res.new_price + '€');
+                    $this.data('original-price', res.new_price);
+                    // Reload page to update totals
+                    location.reload();
+                } else {
+                    alert('Fehler beim Ändern des Preises: ' + (res.message || 'Unbekannter Fehler'));
+                }
+            }).fail(function() {
+                alert('Fehler beim Ändern des Preises. Bitte versuchen Sie es erneut.');
+            });
+        } else if (newPrice !== null) {
+            alert('Bitte geben Sie einen gültigen Preis ein.');
+        }
+    });
 });
 </script>
 {% endif %}

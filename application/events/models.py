@@ -48,6 +48,7 @@ class OwnedTicket(db.EmbeddedDocument):
 
     is_extra_ticket = db.BooleanField(default=False)
     is_paid = db.BooleanField(default=False)
+    custom_price = db.FloatField()  # Individual price override for guides
 
 class CustomFieldDefintion(db.EmbeddedDocument):
     """ Extra Questions for Events """

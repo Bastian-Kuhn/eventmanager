@@ -342,6 +342,7 @@ def page_mybooking():
     event = Event.objects.get(id=event_id)
     tickets_by_name = {}
     total_cost = 0
+    open_cost = 0  # Track unpaid costs
     # Create a mapping of event tickets to get price information
     event_tickets_by_name = {}
     for event_ticket in event.tickets:
@@ -357,11 +358,21 @@ def page_mybooking():
             for ticket in parti.tickets:
                 ticket.booking_date = parti.booking_date
                 # Add price information to the ticket
-                if ticket.ticket_name in event_tickets_by_name:
+                if ticket.custom_price:
+                    # Use custom price set by guide
+                    ticket.price = ticket.custom_price
+                elif ticket.ticket_name in event_tickets_by_name:
                     ticket.price = event_tickets_by_name[ticket.ticket_name].price
-                    total_cost += ticket.price
                 else:
                     ticket.price = 0
+                
+                # Always add to total cost
+                total_cost += ticket.price
+                
+                # Add to open costs if not paid
+                if not ticket.is_paid:
+                    open_cost += ticket.price
+                    
                 tickets_by_name.setdefault(ticket.ticket_name, [])
                 tickets_by_name[ticket.ticket_name].append(ticket)
 
@@ -369,6 +380,7 @@ def page_mybooking():
         'event': event,
         'tickets_by_name': tickets_by_name,
         'total_cost': total_cost,
+        'open_cost': open_cost,
         'target_user': target_user,
         'is_viewing_other_user': target_user != current_user,
     }
@@ -619,7 +631,7 @@ def get_participants(event):
                 'is_extra_ticket': ticket.is_extra_ticket,
                 'booking_date': parti.booking_date,
                 'is_paid': ticket.is_paid,
-                'price': tickets_by_name[ticket.ticket_name].price,
+                'price': ticket.custom_price if (hasattr(ticket, 'custom_price') and ticket.custom_price is not None) else tickets_by_name[ticket.ticket_name].price,
                 'ticket_info': {
                     'name': ticket.ticket_name,
                     'bucher': bucher,
@@ -768,6 +780,36 @@ def change_paidstatus():
     event.save()
 
     return response
+
+@EVENTS.route('/event/change_price', methods=['POST'])
+@login_required
+def change_price():
+    """
+    Helper to change ticket prices for guides
+    """
+    if not current_user.has_right('guide'):
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+        
+    event_id = request.form.get('event_id')
+    ticket_id = request.form.get('ticket_id')
+    new_price = request.form.get('new_price')
+    
+    try:
+        new_price = float(new_price)
+    except ValueError:
+        return jsonify({'success': False, 'message': 'Invalid price format'}), 400
+    
+    event = Event.objects.get(id=event_id)
+    
+    # Find the ticket and update its custom price
+    for parti in event.participations:
+        for ticket in parti.tickets:
+            if str(ticket.ticket_id) == str(ticket_id):
+                ticket.custom_price = new_price
+                event.save()
+                return jsonify({'success': True, 'new_price': new_price})
+    
+    return jsonify({'success': False, 'message': 'Ticket not found'}), 404
 
 @EVENTS.route('/event/extra_tickets/<category>')
 def page_extra_tickets(category):
