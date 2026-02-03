@@ -692,13 +692,17 @@ def get_participants(event):
             else:
                 role = "Nicht überprüft"
 
+            ticket_by_name_price = 0
+            if ticket.ticket_name in tickets_by_name:
+                ticket_by_name_price = tickets_by_name[ticket.ticket_name].price
+
             bookings[what].append({
                 'id': ticket.ticket_id,
                 'ticket_owner': ticket.name_on_ticket,
                 'is_extra_ticket': ticket.is_extra_ticket,
                 'booking_date': parti.booking_date,
                 'is_paid': ticket.is_paid,
-                'price': ticket.custom_price if (hasattr(ticket, 'custom_price') and ticket.custom_price is not None) else tickets_by_name[ticket.ticket_name].price,
+                'price': ticket.custom_price if (hasattr(ticket, 'custom_price') and ticket.custom_price is not None) else ticket_by_name_price,
                 'ticket_info': {
                     'name': ticket.ticket_name,
                     'bucher': bucher,
