@@ -222,6 +222,56 @@
     </div>
 </div>
 
+{% if persons %}
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header"><h4 class="mb-0">Ausgaben pro Person</h4></div>
+            <div class="card-body">
+                <div class="table-responsive">
+                <table class="table table-bordered stack-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Person</th>
+                            <th scope="col" class="text-end">Anzahl</th>
+                            <th scope="col" class="text-end">Gesamt</th>
+                            <th scope="col" class="text-end">Bezahlt</th>
+                            <th scope="col" class="text-end">Offen</th>
+                            <th scope="col">Aktion</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for person, info in persons.items() %}
+                        <tr class="{{ 'table-success' if info.all_paid else '' }}">
+                            <td data-label="Person">{{ person if person else "(keine Person)" }}</td>
+                            <td data-label="Anzahl" class="text-end">{{ info.count }}</td>
+                            <td data-label="Gesamt" class="text-end">{{ info.total }}€</td>
+                            <td data-label="Bezahlt" class="text-end">{{ info.paid }}€</td>
+                            <td data-label="Offen" class="text-end">{{ info.open }}€</td>
+                            <td data-label="Aktion">
+                                <form method="post" action="{{ url_for('EVENTS.mark_person_paid') }}" style="margin:0;">
+                                    <input type="hidden" name="event_id" value="{{ event.id }}">
+                                    <input type="hidden" name="person" value="{{ person }}">
+                                    {% if info.all_paid %}
+                                    <input type="hidden" name="job" value="unpaid">
+                                    <button type="submit" class="btn btn-sm btn-outline-warning">Auf offen setzen</button>
+                                    {% else %}
+                                    <input type="hidden" name="job" value="paid">
+                                    <button type="submit" class="btn btn-sm btn-outline-success">Alles als bezahlt</button>
+                                    {% endif %}
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <div class="row">
     <div class="col-md-6 mb-3">
         <div class="card">

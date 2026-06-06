@@ -1166,6 +1166,21 @@ def page_finance():
     expenses_paid = sum(c.price for c in event.costs if c.price and c.is_paid)
     expenses_open = expenses - expenses_paid
 
+    # Ausgaben pro Person aggregieren
+    persons = {}
+    for cost in event.costs:
+        key = cost.person or ''
+        person = persons.setdefault(key, {'total': 0, 'paid': 0, 'open': 0, 'count': 0})
+        amount = cost.price or 0
+        person['total'] += amount
+        person['count'] += 1
+        if cost.is_paid:
+            person['paid'] += amount
+        else:
+            person['open'] += amount
+    for person in persons.values():
+        person['all_paid'] = person['open'] == 0
+
     context = {
         'event': event,
         'received': received,
@@ -1177,6 +1192,7 @@ def page_finance():
         'expenses': expenses,
         'expenses_paid': expenses_paid,
         'expenses_open': expenses_open,
+        'persons': persons,
         'balance_current': received - expenses,
         'balance_potential': potential - expenses,
     }
@@ -1234,6 +1250,27 @@ def edit_cost():
     else:
         cost.date = None
     cost.is_paid = request.form.get('is_paid') == 'y'
+    event.save()
+
+    return redirect(url_for('EVENTS.page_finance', event_id=event_id))
+
+@EVENTS.route('/event/finance/mark_person_paid', methods=['POST'])
+def mark_person_paid():
+    """
+    Alle Ausgaben einer Person als bezahlt/offen markieren
+    """
+    if not current_user.has_right('guide'):
+        abort(403)
+
+    event_id = request.form['event_id']
+    person = request.form.get('person', '')
+    job = request.form['job']
+
+    event = Event.objects.get(id=event_id)
+    new_state = job == 'paid'
+    for cost in event.costs:
+        if (cost.person or '') == person:
+            cost.is_paid = new_state
     event.save()
 
     return redirect(url_for('EVENTS.page_finance', event_id=event_id))
