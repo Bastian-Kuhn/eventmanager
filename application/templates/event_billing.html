@@ -2,6 +2,41 @@
 {% import 'bootstrap/wtf.html' as wtf %}
 
 {% block page_content %}
+<style>
+/* Tabellen auf Mobile als gestapelte Karten statt breiter Tabelle */
+@media (max-width: 767px) {
+  .billing-table thead { display: none; }
+  .billing-table, .billing-table tbody, .billing-table tr, .billing-table td {
+    display: block;
+    width: 100%;
+  }
+  .billing-table tr {
+    margin-bottom: 0.75rem;
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+  }
+  .billing-table td {
+    border: none;
+    border-bottom: 1px solid #f0f0f0;
+    text-align: right;
+    padding-left: 45%;
+    position: relative;
+    min-height: 2.4rem;
+  }
+  .billing-table td:last-child { border-bottom: none; }
+  .billing-table td::before {
+    content: attr(data-label);
+    position: absolute;
+    left: 0.6rem;
+    width: 40%;
+    font-weight: bold;
+    text-align: left;
+    white-space: nowrap;
+  }
+  .billing-table td[data-label="Optionen"] { text-align: left; padding-left: 0.6rem; }
+  .billing-table td[data-label="Optionen"]::before { position: static; display: block; width: auto; margin-bottom: 0.3rem; }
+}
+</style>
 <div class="row">
     <div class="col-sm-12">
 
@@ -48,7 +83,7 @@
 </div>
 
 <div class="row mb-3">
-    <div class="col-sm-6">
+    <div class="col-md-4 mb-2">
         <div class="card">
             <div class="card-body">
                 <h5 class="card-title">Bereits abgerechnet</h5>
@@ -56,11 +91,19 @@
             </div>
         </div>
     </div>
-    <div class="col-sm-6">
+    <div class="col-md-4 mb-2">
         <div class="card">
             <div class="card-body">
                 <h5 class="card-title">Noch nicht abgerechnet</h5>
                 <p class="card-text" style="font-size: 1.5rem;">{{ total_unbilled }}€</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-2">
+        <div class="card border-warning">
+            <div class="card-body">
+                <h5 class="card-title">Überweisung vorgemerkt</h5>
+                <p class="card-text" style="font-size: 1.5rem;">{{ total_transfer }}€</p>
             </div>
         </div>
     </div>
@@ -98,7 +141,7 @@
 {% for owner, tickets_by_status in bookings.items() %}
       <div class="card">
         <div class="card-header" id="heading_{{loop.index}}">
-          {% set all_tickets = tickets_by_status['paid'] + tickets_by_status['unpaid'] + tickets_by_status['free'] %}
+          {% set all_tickets = tickets_by_status['paid'] + tickets_by_status['unpaid'] + tickets_by_status['free'] + tickets_by_status['transfer'] %}
           {% set user_id = all_tickets[0].ticket_info.bucher_user_id %}
           <span class="badge badge-pill badge-info">
           <a href="{{ url_for('EVENTS.page_mybooking', event_id=event.id, user_id=user_id) }}" style="text-decoration: none; color: inherit;">
@@ -110,21 +153,25 @@
 
         <div class="card-body">
           Total offen: {{ tickets_by_status['total'] }}
-          {% for booking_status in ['paid', 'unpaid', 'free'] %}
+          {% for booking_status in ['paid', 'unpaid', 'transfer', 'free'] %}
               {% if not tickets_by_status[booking_status] %}
               {% else %}
               {% if booking_status == 'unpaid' %}
                   <h3>Nicht bezahlt</h3><br>
               {% elif booking_status == 'paid' %}
                   <h3>Bezahlt</h3>
+              {% elif booking_status == 'transfer' %}
+                  <h3 class="text-warning">Überweisung ausstehend</h3>
               {% elif booking_status == 'free' %}
                   <h3>Frei</h3>
               {% endif %}
               <div class="table-responsive">
-              {% if booking_status != 'unpaid' %}
-              <table class="table table-bordered" style="opacity: 0.6; color: #666;">
+              {% if booking_status == 'transfer' %}
+              <table class="table table-bordered billing-table table-warning">
+              {% elif booking_status != 'unpaid' %}
+              <table class="table table-bordered billing-table" style="opacity: 0.6; color: #666;">
               {% else %}
-              <table class="table table-bordered">
+              <table class="table table-bordered billing-table">
               {% endif %}
                 <thead>
                   <tr>
@@ -140,20 +187,20 @@
                 {% for ticket in tickets_by_status[booking_status] %}
                   {% if ticket.price != 0 %}
                   <tr>
-                   <td>{{ ticket.ticket_owner }}</td>
-                   <td>{{ ticket.ticket_info.name }}</td>
-                    <td>{{ ticket.ticket_info.role }}</td>
-                    <td>{{ age(ticket.ticket_info.birthdate) }}</td>
-                    <td>
-                      <span class="editable-price" 
-                            data-ticket-id="{{ ticket.id }}" 
+                   <td data-label="Teilnehmer">{{ ticket.ticket_owner }}</td>
+                   <td data-label="Was">{{ ticket.ticket_info.name }}</td>
+                    <td data-label="Vereinsrolle">{{ ticket.ticket_info.role }}</td>
+                    <td data-label="Alter">{{ age(ticket.ticket_info.birthdate) }}</td>
+                    <td data-label="Preis">
+                      <span class="editable-price"
+                            data-ticket-id="{{ ticket.id }}"
                             data-original-price="{{ ticket.price }}"
-                            style="cursor: pointer; text-decoration: underline;" 
+                            style="cursor: pointer; text-decoration: underline;"
                             title="Preis bearbeiten (klicken)">
                         {{ ticket.price }}€
                       </span>
                     </td>
-                    <td>
+                    <td data-label="Optionen">
                       <div class="d-flex flex-wrap gap-1">
                       {% if booking_status != 'paid' %}
                       <a href="#" class="job btn btn-sm btn-outline-success"
@@ -169,6 +216,21 @@
                          data-ticket_id={{ ticket.id }}
                          title="Als unbezahlt markieren">
                         <i class="fas fa-times"></i>
+                      </a>
+                      {% endif %}
+                      {% if booking_status != 'transfer' %}
+                      <a href="#" class="job btn btn-sm btn-outline-info"
+                         data-job="transfer"
+                         data-ticket_id={{ ticket.id }}
+                         title="Überweisung vormerken">
+                        <i class="fas fa-university"></i>
+                      </a>
+                      {% else %}
+                      <a href="#" class="job btn btn-sm btn-outline-info"
+                         data-job="untransfer"
+                         data-ticket_id={{ ticket.id }}
+                         title="Überweisung aufheben">
+                        <i class="fas fa-undo"></i>
                       </a>
                       {% endif %}
                       {% if booking_status != 'free' %}

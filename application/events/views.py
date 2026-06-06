@@ -703,6 +703,7 @@ def get_participants(event):
                 'booking_date': parti.booking_date,
                 'is_paid': ticket.is_paid,
                 'is_free': getattr(ticket, 'is_free', False),
+                'is_transfer': getattr(ticket, 'is_transfer', False),
                 'price': ticket.custom_price if (hasattr(ticket, 'custom_price') and ticket.custom_price is not None) else ticket_by_name_price,
                 'ticket_info': {
                     'name': ticket.ticket_name,
@@ -853,6 +854,10 @@ def change_paidstatus():
         ticket.is_free = True
     elif job == 'unfree':
         ticket.is_free = False
+    elif job == 'transfer':
+        ticket.is_transfer = True
+    elif job == 'untransfer':
+        ticket.is_transfer = False
     event.save()
 
     return response
@@ -1068,9 +1073,11 @@ def page_billing():
 
     def sort_ticket(ticket):
         bucher = ticket['ticket_info']['bucher']
-        tickets.setdefault(bucher, {'paid': [], 'unpaid': [], 'free': []})
+        tickets.setdefault(bucher, {'paid': [], 'unpaid': [], 'free': [], 'transfer': []})
         if ticket['is_free']:
             tickets[bucher]['free'].append(ticket)
+        elif ticket['is_transfer']:
+            tickets[bucher]['transfer'].append(ticket)
         elif ticket['is_paid']:
             tickets[bucher]['paid'].append(ticket)
         else:
@@ -1086,17 +1093,21 @@ def page_billing():
 
     total_billed = 0
     total_unbilled = 0
+    total_transfer = 0
     for bucher in tickets:
         for ticket in tickets[bucher]['paid']:
             total_billed += ticket['price']
         for ticket in tickets[bucher]['unpaid']:
             total_unbilled += ticket['price']
+        for ticket in tickets[bucher]['transfer']:
+            total_transfer += ticket['price']
 
     for bucher in tickets.copy():
         total_pay = 0
         for ticket in tickets[bucher]['unpaid']:
             total_pay += ticket['price']
-        if total_pay == 0:
+        # Bucher mit vorgemerkter Ueberweisung sichtbar lassen, auch wenn nichts offen ist
+        if total_pay == 0 and not tickets[bucher]['transfer']:
             del tickets[bucher]
         else:
             tickets[bucher]['total'] = total_pay
@@ -1107,6 +1118,7 @@ def page_billing():
     context['bookings'] = tickets
     context['total_billed'] = total_billed
     context['total_unbilled'] = total_unbilled
+    context['total_transfer'] = total_transfer
 
 
     return render_template('event_billing.html', **context)
@@ -1129,12 +1141,15 @@ def page_finance():
 
     received = 0
     outstanding = 0
+    transfer = 0
     free_count = 0
 
     def account(ticket):
-        nonlocal received, outstanding, free_count
+        nonlocal received, outstanding, transfer, free_count
         if ticket['is_free']:
             free_count += 1
+        elif ticket['is_transfer']:
+            transfer += ticket['price']
         elif ticket['is_paid']:
             received += ticket['price']
         else:
@@ -1146,13 +1161,14 @@ def page_finance():
         if ticket['is_extra_ticket']:
             account(ticket)
 
-    potential = received + outstanding
+    potential = received + outstanding + transfer
     expenses = sum(c.price for c in event.costs if c.price)
 
     context = {
         'event': event,
         'received': received,
         'outstanding': outstanding,
+        'transfer': transfer,
         'potential': potential,
         'free_count': free_count,
         'costs': event.costs,

@@ -49,6 +49,7 @@ class OwnedTicket(db.EmbeddedDocument):
     is_extra_ticket = db.BooleanField(default=False)
     is_paid = db.BooleanField(default=False)
     is_free = db.BooleanField(default=False)  # Teilnehmer zahlt nichts, gilt als erledigt
+    is_transfer = db.BooleanField(default=False)  # Ueberweisung vorgemerkt, noch nicht eingegangen
     custom_price = db.FloatField()  # Individual price override for guides
 
 class EventCost(db.EmbeddedDocument):

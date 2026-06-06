@@ -2,6 +2,38 @@
 {% import 'bootstrap/wtf.html' as wtf %}
 
 {% block page_content %}
+<style>
+@media (max-width: 767px) {
+  .stack-table thead { display: none; }
+  .stack-table, .stack-table tbody, .stack-table tr, .stack-table td {
+    display: block;
+    width: 100%;
+  }
+  .stack-table tr {
+    margin-bottom: 0.75rem;
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+  }
+  .stack-table td {
+    border: none;
+    border-bottom: 1px solid #f0f0f0;
+    text-align: right;
+    padding-left: 45%;
+    position: relative;
+    min-height: 2.4rem;
+  }
+  .stack-table td:last-child { border-bottom: none; }
+  .stack-table td[data-label]::before {
+    content: attr(data-label);
+    position: absolute;
+    left: 0.6rem;
+    width: 40%;
+    font-weight: bold;
+    text-align: left;
+    white-space: nowrap;
+  }
+}
+</style>
 <div class="row">
     <div class="col-sm-12">
 
@@ -58,6 +90,10 @@
                             <td>Bereits eingenommen (bezahlt)</td>
                             <td class="text-end">{{ received }}€</td>
                         </tr>
+                        <tr class="table-warning">
+                            <td>Überweisung angekündigt</td>
+                            <td class="text-end">{{ transfer }}€</td>
+                        </tr>
                         <tr>
                             <td>Noch offen</td>
                             <td class="text-end">{{ outstanding }}€</td>
@@ -82,7 +118,7 @@
             <div class="card-header"><h4 class="mb-0">Ausgaben</h4></div>
             <div class="card-body">
                 <div class="table-responsive">
-                <table class="table table-bordered">
+                <table class="table table-bordered stack-table">
                     <thead>
                         <tr>
                             <th scope="col">Name</th>
@@ -94,9 +130,9 @@
                     <tbody>
                     {% for cost in costs %}
                         <tr>
-                            <td>{{ cost.name }}</td>
-                            <td>{{ cost.date.strftime("%d.%m.%Y") if cost.date else "" }}</td>
-                            <td class="text-end">{{ cost.price or 0 }}€</td>
+                            <td data-label="Name">{{ cost.name }}</td>
+                            <td data-label="Datum">{{ cost.date.strftime("%d.%m.%Y") if cost.date else "" }}</td>
+                            <td data-label="Preis" class="text-end">{{ cost.price or 0 }}€</td>
                             <td>
                                 <form method="post" action="{{ url_for('EVENTS.delete_cost') }}" style="margin:0;">
                                     <input type="hidden" name="event_id" value="{{ event.id }}">
