@@ -1163,6 +1163,8 @@ def page_finance():
 
     potential = received + outstanding + transfer
     expenses = sum(c.price for c in event.costs if c.price)
+    expenses_paid = sum(c.price for c in event.costs if c.price and c.is_paid)
+    expenses_open = expenses - expenses_paid
 
     context = {
         'event': event,
@@ -1173,6 +1175,8 @@ def page_finance():
         'free_count': free_count,
         'costs': event.costs,
         'expenses': expenses,
+        'expenses_paid': expenses_paid,
+        'expenses_open': expenses_open,
         'balance_current': received - expenses,
         'balance_potential': potential - expenses,
     }
@@ -1191,6 +1195,7 @@ def add_cost():
 
     cost = EventCost()
     cost.name = request.form.get('name')
+    cost.person = request.form.get('person')
     try:
         cost.price = float(request.form.get('price') or 0)
     except ValueError:
@@ -1198,6 +1203,37 @@ def add_cost():
     if request.form.get('date'):
         cost.date = datetime.strptime(request.form['date'], '%Y-%m-%d').date()
     event.costs.append(cost)
+    event.save()
+
+    return redirect(url_for('EVENTS.page_finance', event_id=event_id))
+
+@EVENTS.route('/event/finance/edit_cost', methods=['POST'])
+def edit_cost():
+    """
+    Kostenposition bearbeiten (inkl. Bezahlt-Status)
+    """
+    if not current_user.has_right('guide'):
+        abort(403)
+
+    event_id = request.form['event_id']
+    event = Event.objects.get(id=event_id)
+
+    try:
+        cost = event.costs[int(request.form['index'])]
+    except (ValueError, IndexError):
+        return redirect(url_for('EVENTS.page_finance', event_id=event_id))
+
+    cost.name = request.form.get('name')
+    cost.person = request.form.get('person')
+    try:
+        cost.price = float(request.form.get('price') or 0)
+    except ValueError:
+        cost.price = 0
+    if request.form.get('date'):
+        cost.date = datetime.strptime(request.form['date'], '%Y-%m-%d').date()
+    else:
+        cost.date = None
+    cost.is_paid = request.form.get('is_paid') == 'y'
     event.save()
 
     return redirect(url_for('EVENTS.page_finance', event_id=event_id))

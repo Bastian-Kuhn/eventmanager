@@ -57,8 +57,10 @@ class EventCost(db.EmbeddedDocument):
     Ausgabe/Kosten eines Events
     """
     name = db.StringField()
+    person = db.StringField()  # Empfaenger der Ausgabe
     price = db.FloatField()
     date = db.DateField()
+    is_paid = db.BooleanField(default=False)  # Wurde an die Person ausgezahlt
 
 class CustomFieldDefintion(db.EmbeddedDocument):
     """ Extra Questions for Events """

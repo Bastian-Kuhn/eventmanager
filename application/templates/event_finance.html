@@ -122,37 +122,76 @@
                     <thead>
                         <tr>
                             <th scope="col">Name</th>
+                            <th scope="col">Person</th>
                             <th scope="col">Datum</th>
                             <th scope="col" class="text-end">Preis</th>
+                            <th scope="col">Bezahlt</th>
                             <th scope="col"></th>
                         </tr>
                     </thead>
                     <tbody>
                     {% for cost in costs %}
-                        <tr>
-                            <td data-label="Name">{{ cost.name }}</td>
-                            <td data-label="Datum">{{ cost.date.strftime("%d.%m.%Y") if cost.date else "" }}</td>
-                            <td data-label="Preis" class="text-end">{{ cost.price or 0 }}€</td>
-                            <td>
-                                <form method="post" action="{{ url_for('EVENTS.delete_cost') }}" style="margin:0;">
-                                    <input type="hidden" name="event_id" value="{{ event.id }}">
-                                    <input type="hidden" name="index" value="{{ loop.index0 }}">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger"
-                                            title="Löschen"><i class="fas fa-trash"></i></button>
-                                </form>
+                        <tr class="{{ 'table-success' if cost.is_paid else '' }}">
+                            <td data-label="Name">
+                                <input type="text" name="name" form="editcost_{{ loop.index0 }}"
+                                       class="form-control form-control-sm" value="{{ cost.name or '' }}">
+                            </td>
+                            <td data-label="Person">
+                                <input type="text" name="person" form="editcost_{{ loop.index0 }}"
+                                       class="form-control form-control-sm" value="{{ cost.person or '' }}">
+                            </td>
+                            <td data-label="Datum">
+                                <input type="date" name="date" form="editcost_{{ loop.index0 }}"
+                                       class="form-control form-control-sm"
+                                       value="{{ cost.date.strftime('%Y-%m-%d') if cost.date else '' }}">
+                            </td>
+                            <td data-label="Preis">
+                                <input type="number" step="0.01" name="price" form="editcost_{{ loop.index0 }}"
+                                       class="form-control form-control-sm" value="{{ cost.price or 0 }}">
+                            </td>
+                            <td data-label="Bezahlt">
+                                <input type="checkbox" name="is_paid" value="y" form="editcost_{{ loop.index0 }}"
+                                       class="form-check-input" {{ 'checked' if cost.is_paid else '' }}>
+                            </td>
+                            <td data-label="Aktionen">
+                                <div class="d-flex flex-wrap gap-1">
+                                    <button type="submit" form="editcost_{{ loop.index0 }}"
+                                            class="btn btn-sm btn-outline-primary" title="Speichern">
+                                        <i class="fas fa-save"></i></button>
+                                    <button type="submit" form="delcost_{{ loop.index0 }}"
+                                            class="btn btn-sm btn-outline-danger" title="Löschen">
+                                        <i class="fas fa-trash"></i></button>
+                                </div>
                             </td>
                         </tr>
                     {% else %}
-                        <tr><td colspan="4" class="text-muted">Noch keine Kosten erfasst.</td></tr>
+                        <tr><td colspan="6" class="text-muted">Noch keine Kosten erfasst.</td></tr>
                     {% endfor %}
                         <tr class="table-active">
-                            <td colspan="2"><strong>Gesamtausgaben</strong></td>
+                            <td colspan="3"><strong>Gesamtausgaben</strong></td>
                             <td class="text-end"><strong>{{ expenses }}€</strong></td>
-                            <td></td>
+                            <td colspan="2"></td>
                         </tr>
                     </tbody>
                 </table>
                 </div>
+
+                {# Formulare ausserhalb der Tabelle, per HTML5 form-Attribut verknuepft #}
+                {% for cost in costs %}
+                <form method="post" action="{{ url_for('EVENTS.edit_cost') }}" id="editcost_{{ loop.index0 }}">
+                    <input type="hidden" name="event_id" value="{{ event.id }}">
+                    <input type="hidden" name="index" value="{{ loop.index0 }}">
+                </form>
+                <form method="post" action="{{ url_for('EVENTS.delete_cost') }}" id="delcost_{{ loop.index0 }}">
+                    <input type="hidden" name="event_id" value="{{ event.id }}">
+                    <input type="hidden" name="index" value="{{ loop.index0 }}">
+                </form>
+                {% endfor %}
+
+                <p class="mb-2">
+                    Davon bezahlt: <strong>{{ expenses_paid }}€</strong> &middot;
+                    Noch auszuzahlen: <strong>{{ expenses_open }}€</strong>
+                </p>
 
                 <form method="post" action="{{ url_for('EVENTS.add_cost') }}"
                       class="d-flex flex-wrap gap-2 align-items-end mt-2">
@@ -160,6 +199,10 @@
                     <div class="flex-grow-1">
                         <label class="form-label mb-0">Name</label>
                         <input type="text" name="name" class="form-control form-control-sm" required>
+                    </div>
+                    <div class="flex-grow-1">
+                        <label class="form-label mb-0">Person</label>
+                        <input type="text" name="person" class="form-control form-control-sm">
                     </div>
                     <div>
                         <label class="form-label mb-0">Preis €</label>
