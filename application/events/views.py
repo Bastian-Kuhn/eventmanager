@@ -852,8 +852,10 @@ def change_paidstatus():
         ticket.is_paid = False
     elif job == 'free':
         ticket.is_free = True
+        ticket.is_paid = True  # frei gilt als erledigt, nicht mehr offen
     elif job == 'unfree':
         ticket.is_free = False
+        ticket.is_paid = False
     elif job == 'transfer':
         ticket.is_transfer = True
     elif job == 'untransfer':
@@ -1106,8 +1108,9 @@ def page_billing():
         total_pay = 0
         for ticket in tickets[bucher]['unpaid']:
             total_pay += ticket['price']
-        # Bucher mit vorgemerkter Ueberweisung sichtbar lassen, auch wenn nichts offen ist
-        if total_pay == 0 and not tickets[bucher]['transfer']:
+        # Bucher mit vorgemerkter Ueberweisung oder frei markierten Tickets sichtbar
+        # lassen, auch wenn nichts offen ist (sonst kein Ruecknahme-Button)
+        if total_pay == 0 and not tickets[bucher]['transfer'] and not tickets[bucher]['free']:
             del tickets[bucher]
         else:
             tickets[bucher]['total'] = total_pay
