@@ -1029,6 +1029,14 @@ def page_billing():
         else:
             tickets[bucher]['unpaid'].append(ticket)
 
+    total_billed = 0
+    total_unbilled = 0
+    for bucher in tickets:
+        for ticket in tickets[bucher]['paid']:
+            total_billed += ticket['price']
+        for ticket in tickets[bucher]['unpaid']:
+            total_unbilled += ticket['price']
+
     for bucher in tickets.copy():
         total_pay = 0
         for ticket in tickets[bucher]['unpaid']:
@@ -1042,6 +1050,8 @@ def page_billing():
 
     context['event'] = event
     context['bookings'] = tickets
+    context['total_billed'] = total_billed
+    context['total_unbilled'] = total_unbilled
 
 
     return render_template('event_billing.html', **context)

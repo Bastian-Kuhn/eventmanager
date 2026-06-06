@@ -44,6 +44,25 @@
     <h1>{{event.event_name}} ({{event.start_date.strftime("%d.%m.%Y") }})</h1>
 </div>
 
+<div class="row mb-3">
+    <div class="col-sm-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Bereits abgerechnet</h5>
+                <p class="card-text" style="font-size: 1.5rem;">{{ total_billed }}€</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Noch nicht abgerechnet</h5>
+                <p class="card-text" style="font-size: 1.5rem;">{{ total_unbilled }}€</p>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% for owner, tickets_by_status in bookings.items() %}
       <div class="card">
         <div class="card-header" id="heading_{{loop.index}}">
