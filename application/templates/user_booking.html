@@ -2,6 +2,27 @@
 {% import 'bootstrap/wtf.html' as wtf %}
 
 {% block page_content %}
+<style>
+/* Tabs auf Mobile horizontal scrollbar statt umbrechen */
+.nav-tabs { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.nav-tabs .nav-link { white-space: nowrap; }
+/* Breite Buchungstabelle auf Mobile als gestapelte Karten */
+@media (max-width: 767px) {
+  .stack-table thead { display: none; }
+  .stack-table, .stack-table tbody, .stack-table tr, .stack-table td { display: block; width: 100%; }
+  .stack-table tr { margin-bottom: 0.75rem; border: 1px solid #dee2e6; border-radius: 0.25rem; }
+  .stack-table td {
+    border: none; border-bottom: 1px solid #f0f0f0;
+    text-align: right; padding-left: 45%; position: relative; min-height: 2.4rem;
+  }
+  .stack-table td:last-child { border-bottom: none; }
+  .stack-table td[data-label]::before {
+    content: attr(data-label); position: absolute; left: 0.6rem; width: 40%;
+    font-weight: bold; text-align: left; white-space: nowrap;
+  }
+  .stack-table th[colspan] { display: block; background-color: #e9ecef; }
+}
+</style>
 <div class="row">
     <div class="col-sm-12">
 
@@ -85,10 +106,13 @@
 {% endif %}
 
 <div class="row">
-<table class="table table-hover">
+    <div class="col-sm-12">
+    <div class="table-responsive">
+<table class="table table-hover stack-table">
+  <caption class="sr-only">Liste der gebuchten Tickets dieser Buchung</caption>
   <thead>
     <tr>
-      <th></th>
+      <th scope="col"><span class="sr-only">Bearbeiten</span></th>
       <th scope="col">Name</th>
       <th scope="col">E-Mail</th>
       <th scope="col">Handy</th>
@@ -109,13 +133,13 @@
 
   {% for ticket_name, tickets in tickets_by_name.items() %}
   <tr>
-      <th colspan="{% if current_user.has_right('guide') %}11{% else %}10{% endif %}">{{ticket_name}}</th>
+      <th scope="colgroup" colspan="{% if current_user.has_right('guide') %}11{% else %}10{% endif %}">{{ticket_name}}</th>
   </tr>
     {% for ticket in tickets %}
       <tr>
-        <td>
+        <td data-label="Bearbeiten">
           {% if current_user.has_right('guide') or target_user == current_user %}
-          <a class="far fa-edit" 
+          <a role="button"
                data-ticket-id="{{ ticket.ticket_id }}"
                data-name="{{ticket.name_on_ticket}}"
                data-email="{{ticket.email_on_ticket}}"
@@ -123,18 +147,18 @@
                data-birthdate="{{ticket.birthdate_on_ticket}}"
                data-comment="{{ticket.comment_on_ticket }}"
                data-toggle="modal" data-target="#editName"
-               href='#' title="Daten ändern"></a>
+               href='#' aria-label="Daten von {{ticket.name_on_ticket}} ändern" title="Daten ändern"><i class="far fa-edit" aria-hidden="true"></i></a>
           {% else %}
           <span class="text-muted">-</span>
           {% endif %}
         </td>
-        <td><span id="user_name_{{ticket.ticket_id}}">{{ticket.name_on_ticket}}</span></td>
-        <td><span id="user_email_{{ticket.ticket_id}}">{{ticket.email_on_ticket}}</span></td>
-        <td><span id="user_phone_{{ticket.ticket_id}}">{{ticket.phone_on_ticket}}</span></td>
-        <td><span id="user_age{{ticket.ticket_id}}">{{age(ticket.birthdate_on_ticket)}}</span></td>
-        <td><span id="user_comment{{ticket.ticket_id}}">{{ticket.comment_on_ticket}}</span></td>
-        <td><span id="user_guide{{ticket.ticket_id}}">{{ticket.guide or "-"}}</span></td>
-        <td>
+        <td data-label="Name"><span id="user_name_{{ticket.ticket_id}}">{{ticket.name_on_ticket}}</span></td>
+        <td data-label="E-Mail"><span id="user_email_{{ticket.ticket_id}}">{{ticket.email_on_ticket}}</span></td>
+        <td data-label="Handy"><span id="user_phone_{{ticket.ticket_id}}">{{ticket.phone_on_ticket}}</span></td>
+        <td data-label="Alter"><span id="user_age{{ticket.ticket_id}}">{{age(ticket.birthdate_on_ticket)}}</span></td>
+        <td data-label="Kommentar"><span id="user_comment{{ticket.ticket_id}}">{{ticket.comment_on_ticket}}</span></td>
+        <td data-label="Guide"><span id="user_guide{{ticket.ticket_id}}">{{ticket.guide or "-"}}</span></td>
+        <td data-label="Teilnahme bestätigt?">
           {% if not ticket.is_extra_ticket %}
             {% if ticket.confirmed %}
               <span class="badge badge-success">{{translate_bool(ticket.confirmed)}}</span>
@@ -145,7 +169,7 @@
             <span class="text-muted">-</span>
           {% endif %}
         </td>
-        <td>
+        <td data-label="Auf Warteliste?">
           {% if not ticket.is_extra_ticket %}
             {% if ticket.waitinglist %}
               <span class="badge badge-danger">{{translate_bool(ticket.waitinglist)}}</span>
@@ -156,21 +180,21 @@
             <span class="text-muted">-</span>
           {% endif %}
         </td>
-        <td>{{ticket.booking_date.strftime('%d.%m.%Y %H:%M')}}</td>
-        <td>
+        <td data-label="Buchungszeit">{{ticket.booking_date.strftime('%d.%m.%Y %H:%M')}}</td>
+        <td data-label="Preis">
         {% if current_user.has_right('guide') %}
-          <span class="editable-price" 
-                data-ticket-id="{{ ticket.ticket_id }}" 
+          <button type="button" class="editable-price btn btn-link p-0"
+                data-ticket-id="{{ ticket.ticket_id }}"
                 data-original-price="{{ ticket.price }}"
-                style="cursor: pointer; text-decoration: underline;" 
+                aria-label="Preis von {{ ticket.price }}€ für {{ ticket.name_on_ticket }} bearbeiten"
                 title="Preis bearbeiten (klicken)">
             {{ ticket.price }}€
-          </span>
+          </button>
         {% else %}
           {{ ticket.price }}€
         {% endif %}
         </td>
-        <td>
+        <td data-label="Bezahlt">
           {% if ticket.is_paid %}
           <span class="badge badge-success">Ja</span>
           {% else %}
@@ -178,28 +202,30 @@
           {% endif %}
          </td>
          {% if current_user.has_right('guide') %}
-         <td>
+         <td data-label="Aktionen">
+            <div class="d-flex flex-wrap gap-1">
             {% if not ticket.is_paid %}
-            <a href="#" class="job btn btn-sm btn-outline-success me-1" 
+            <a href="#" role="button" class="job btn btn-sm btn-outline-success"
                data-job="paid"
                data-ticket_id="{{ ticket.ticket_id }}"
-               title="Als bezahlt markieren">
-              <i class="fas fa-check"></i>
+               aria-label="{{ ticket.name_on_ticket }} als bezahlt markieren" title="Als bezahlt markieren">
+              <i class="fas fa-check" aria-hidden="true"></i>
             </a>
             {% else %}
-            <a href="#" class="job btn btn-sm btn-outline-warning me-1" 
+            <a href="#" role="button" class="job btn btn-sm btn-outline-warning"
                data-job="unpaid"
                data-ticket_id="{{ ticket.ticket_id }}"
-               title="Als unbezahlt markieren">
-              <i class="fas fa-times"></i>
+               aria-label="{{ ticket.name_on_ticket }} als unbezahlt markieren" title="Als unbezahlt markieren">
+              <i class="fas fa-times" aria-hidden="true"></i>
             </a>
             {% endif %}
-            <a href="#" class="job btn btn-sm btn-outline-danger" 
+            <a href="#" role="button" class="job btn btn-sm btn-outline-danger"
                data-job="delete"
                data-ticket_id="{{ ticket.ticket_id }}"
-               title="Ticket löschen">
-              <i class="fas fa-trash"></i>
+               aria-label="Ticket von {{ ticket.name_on_ticket }} löschen" title="Ticket löschen">
+              <i class="fas fa-trash" aria-hidden="true"></i>
             </a>
+            </div>
          </td>
          {% endif %}
             </tr>
@@ -207,6 +233,8 @@
   {% endfor %}
   </tbody>
 </table>
+</div>
+    </div>
 </div>
 
 <div class="modal" tabindex="-1" role="dialog" id="editName">
@@ -224,17 +252,21 @@
       <input type="text" style="display: none;">
       <input type="password" style="display: none;">
       <div class="position-relative">
+        <label for="new_name">Name des Teilnehmers</label>
         <input id="new_name" name="new_name" class="form-control" placeholder="Name des Teilnehmers" autocomplete="nope">
-        <div id="suggestions" class="list-group position-absolute w-100" style="z-index: 1050; display: none; max-height: 200px; overflow-y: auto;"></div>
+        <div id="suggestions" class="list-group position-absolute w-100" role="listbox" aria-label="Namensvorschläge" style="z-index: 1050; display: none; max-height: 200px; overflow-y: auto;"></div>
       </div>
-      <br>
+      <label for="new_phone" class="mt-2">Handynummer</label>
       <input id="new_phone" name="new_phone" class="form-control" placeholder="Handynummer" autocomplete="new-password">
-      <input id="new_email" name="new_email" class="form-control" placeholder="E-Mail Adresse" autocomplete="new-password">
+      <label for="new_email" class="mt-2">E-Mail Adresse</label>
+      <input id="new_email" name="new_email" type="email" class="form-control" placeholder="E-Mail Adresse" autocomplete="new-password">
+      <label for="new_birthdate" class="mt-2">Geburtsdatum</label>
       <input id="new_birthdate" name="new_birthdate" class="form-control" type="date" placeholder="Geburtsdatum" autocomplete="new-password">
-      <textarea id="new_comment" name="new_comment" class="form-control" type="text" placeholder="Kommentar" autocomplete="off"></textarea>
-      <input id="ticket_id" name="ticket_id" type="hidden" class="form-control">
-      <input id="event_id" name="event_id" type="hidden" class="form-control" value="{{event.id}}">
-      <input id="target_user_id" name="target_user_id" type="hidden" class="form-control" value="{{target_user.id}}">>
+      <label for="new_comment" class="mt-2">Kommentar</label>
+      <textarea id="new_comment" name="new_comment" class="form-control" placeholder="Kommentar" autocomplete="off"></textarea>
+      <input id="ticket_id" name="ticket_id" type="hidden">
+      <input id="event_id" name="event_id" type="hidden" value="{{event.id}}">
+      <input id="target_user_id" name="target_user_id" type="hidden" value="{{target_user.id}}">
       </div>
       <div class="modal-footer">
         <button type="submit" class="btn btn-primary">Neuen Daten speichern</button>
@@ -268,16 +300,20 @@
           </select>
         </div>
         <div class="position-relative">
+          <label for="add_new_name">Name des Teilnehmers</label>
           <input id="add_new_name" name="new_name" class="form-control" placeholder="Name des Teilnehmers" autocomplete="nope" required>
-          <div id="add_suggestions" class="list-group position-absolute w-100" style="z-index: 1050; display: none; max-height: 200px; overflow-y: auto;"></div>
+          <div id="add_suggestions" class="list-group position-absolute w-100" role="listbox" aria-label="Namensvorschläge" style="z-index: 1050; display: none; max-height: 200px; overflow-y: auto;"></div>
         </div>
-        <br>
+        <label for="add_new_phone" class="mt-2">Handynummer</label>
         <input id="add_new_phone" name="new_phone" class="form-control" placeholder="Handynummer" autocomplete="new-password">
-        <input id="add_new_email" name="new_email" class="form-control" placeholder="E-Mail Adresse" autocomplete="new-password">
+        <label for="add_new_email" class="mt-2">E-Mail Adresse</label>
+        <input id="add_new_email" name="new_email" type="email" class="form-control" placeholder="E-Mail Adresse" autocomplete="new-password">
+        <label for="add_new_birthdate" class="mt-2">Geburtsdatum</label>
         <input id="add_new_birthdate" name="new_birthdate" class="form-control" type="date" placeholder="Geburtsdatum" autocomplete="new-password">
-        <textarea id="add_new_comment" name="new_comment" class="form-control" type="text" placeholder="Kommentar" autocomplete="off"></textarea>
-        <input id="add_event_id" name="event_id" type="hidden" class="form-control" value="{{event.id}}">
-        <input id="add_user_id" name="user_id" type="hidden" class="form-control" value="{{target_user.id}}">
+        <label for="add_new_comment" class="mt-2">Kommentar</label>
+        <textarea id="add_new_comment" name="new_comment" class="form-control" placeholder="Kommentar" autocomplete="off"></textarea>
+        <input id="add_event_id" name="event_id" type="hidden" value="{{event.id}}">
+        <input id="add_user_id" name="user_id" type="hidden" value="{{target_user.id}}">
       </div>
       <div class="modal-footer">
         <button type="submit" class="btn btn-primary">Ticket hinzufügen</button>
