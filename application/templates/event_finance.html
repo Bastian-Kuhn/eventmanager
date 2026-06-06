@@ -1,0 +1,165 @@
+{% extends 'base.html' %}
+{% import 'bootstrap/wtf.html' as wtf %}
+
+{% block page_content %}
+<div class="row">
+    <div class="col-sm-12">
+
+    <ul class="nav nav-tabs">
+      <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('EVENTS.page_details', event_id=event.id) }}">Übersicht</a>
+      </li>
+    {% if current_user.is_authenticated %}
+       {% if current_user.has_right('guide') or current_user.participate_event(event.id) %}
+      <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('EVENTS.page_participants', event_id=event.id) }}">Teilnehmerliste</a>
+      </li>
+      {% endif %}
+      {% if current_user.has_right('guide') %}
+      <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('EVENTS.page_billing', event_id=event.id) }}">Abrechnung</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link active" href="{{ url_for('EVENTS.page_finance', event_id=event.id) }}">Finanzen</a>
+      </li>
+      {% endif %}
+    {% if current_user.has_right('guide') or current_user.participate_event(event.id) %}
+      <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('EVENTS.page_mybooking', event_id=event.id) }}">Meine Buchung</a>
+      </li>
+    {% endif %}
+      {% if current_user.has_right('guide') %}
+      <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('EVENTS.page_admin', event_id=event.id) }}">Bearbeiten</a>
+      </li>
+
+      <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('EVENTS.page_create', event_id=event.id) }}">Klonen</a>
+      </li>
+      {% endif %}
+    {% endif %}
+    </ul>
+    </div>
+</div>
+
+<div class="row">
+    <h1>{{event.event_name}} ({{event.start_date.strftime("%d.%m.%Y") }})</h1>
+</div>
+
+<div class="row mt-3">
+    <div class="col-md-6 mb-3">
+        <div class="card h-100">
+            <div class="card-header"><h4 class="mb-0">Einnahmen</h4></div>
+            <div class="card-body">
+                <div class="table-responsive">
+                <table class="table table-bordered mb-0">
+                    <tbody>
+                        <tr>
+                            <td>Bereits eingenommen (bezahlt)</td>
+                            <td class="text-end">{{ received }}€</td>
+                        </tr>
+                        <tr>
+                            <td>Noch offen</td>
+                            <td class="text-end">{{ outstanding }}€</td>
+                        </tr>
+                        <tr class="table-active">
+                            <td><strong>Potenzielle Gesamteinnahmen</strong></td>
+                            <td class="text-end"><strong>{{ potential }}€</strong></td>
+                        </tr>
+                        <tr>
+                            <td>Frei markiert</td>
+                            <td class="text-end">{{ free_count }} ×</td>
+                        </tr>
+                    </tbody>
+                </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 mb-3">
+        <div class="card h-100">
+            <div class="card-header"><h4 class="mb-0">Ausgaben</h4></div>
+            <div class="card-body">
+                <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th scope="col">Name</th>
+                            <th scope="col">Datum</th>
+                            <th scope="col" class="text-end">Preis</th>
+                            <th scope="col"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for cost in costs %}
+                        <tr>
+                            <td>{{ cost.name }}</td>
+                            <td>{{ cost.date.strftime("%d.%m.%Y") if cost.date else "" }}</td>
+                            <td class="text-end">{{ cost.price or 0 }}€</td>
+                            <td>
+                                <form method="post" action="{{ url_for('EVENTS.delete_cost') }}" style="margin:0;">
+                                    <input type="hidden" name="event_id" value="{{ event.id }}">
+                                    <input type="hidden" name="index" value="{{ loop.index0 }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger"
+                                            title="Löschen"><i class="fas fa-trash"></i></button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="4" class="text-muted">Noch keine Kosten erfasst.</td></tr>
+                    {% endfor %}
+                        <tr class="table-active">
+                            <td colspan="2"><strong>Gesamtausgaben</strong></td>
+                            <td class="text-end"><strong>{{ expenses }}€</strong></td>
+                            <td></td>
+                        </tr>
+                    </tbody>
+                </table>
+                </div>
+
+                <form method="post" action="{{ url_for('EVENTS.add_cost') }}"
+                      class="d-flex flex-wrap gap-2 align-items-end mt-2">
+                    <input type="hidden" name="event_id" value="{{ event.id }}">
+                    <div class="flex-grow-1">
+                        <label class="form-label mb-0">Name</label>
+                        <input type="text" name="name" class="form-control form-control-sm" required>
+                    </div>
+                    <div>
+                        <label class="form-label mb-0">Preis €</label>
+                        <input type="number" step="0.01" name="price" class="form-control form-control-sm"
+                               style="max-width: 110px;" required>
+                    </div>
+                    <div>
+                        <label class="form-label mb-0">Datum</label>
+                        <input type="date" name="date" class="form-control form-control-sm">
+                    </div>
+                    <div>
+                        <button type="submit" class="btn btn-sm btn-primary">Hinzufügen</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6 mb-3">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Saldo aktuell (eingenommen − Ausgaben)</h5>
+                <p class="card-text" style="font-size: 1.5rem;">{{ balance_current }}€</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mb-3">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Saldo potenziell (potenziell − Ausgaben)</h5>
+                <p class="card-text" style="font-size: 1.5rem;">{{ balance_potential }}€</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

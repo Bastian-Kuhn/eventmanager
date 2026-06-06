@@ -16,7 +16,7 @@ from markupsafe import Markup
 
 
 from application.events.models import Event, EventParticipation,\
-                             CustomField, CustomFieldDefintion, Ticket, OwnedTicket, difficulties
+                             CustomField, CustomFieldDefintion, Ticket, OwnedTicket, EventCost, difficulties
 from application.models.user import roles
 from application.auth.forms import LoginForm
 from application.auth.views import do_login
@@ -702,6 +702,7 @@ def get_participants(event):
                 'is_extra_ticket': ticket.is_extra_ticket,
                 'booking_date': parti.booking_date,
                 'is_paid': ticket.is_paid,
+                'is_free': getattr(ticket, 'is_free', False),
                 'price': ticket.custom_price if (hasattr(ticket, 'custom_price') and ticket.custom_price is not None) else ticket_by_name_price,
                 'ticket_info': {
                     'name': ticket.ticket_name,
@@ -848,9 +849,63 @@ def change_paidstatus():
         ticket.is_paid = True
     elif job == 'unpaid':
         ticket.is_paid = False
+    elif job == 'free':
+        ticket.is_free = True
+    elif job == 'unfree':
+        ticket.is_free = False
     event.save()
 
     return response
+
+@EVENTS.route('/event/bulk_paidstatus', methods=['POST'])
+def bulk_paidstatus():
+    """
+    Alle Tickets eines Events auf bezahlt/unbezahlt setzen
+    """
+    if not current_user.has_right('guide'):
+        abort(403)
+
+    job = request.form['job']
+    event_id = request.form['event_id']
+
+    event = Event.objects.get(id=event_id)
+    new_state = job == 'all_paid'
+    for parti in event.participations:
+        for ticket in parti.tickets:
+            ticket.is_paid = new_state
+    event.save()
+
+    return {}
+
+@EVENTS.route('/event/bulk_change_price', methods=['POST'])
+@login_required
+def bulk_change_price():
+    """
+    Preis eines Ticket-Typs fuer alle Buchungen setzen
+    """
+    if not current_user.has_right('guide'):
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+
+    event_id = request.form.get('event_id')
+    ticket_name = request.form.get('ticket_name')
+    new_price = request.form.get('new_price')
+
+    try:
+        new_price = float(new_price)
+    except (ValueError, TypeError):
+        return jsonify({'success': False, 'message': 'Invalid price format'}), 400
+
+    event = Event.objects.get(id=event_id)
+
+    updated = 0
+    for parti in event.participations:
+        for ticket in parti.tickets:
+            if ticket.ticket_name == ticket_name:
+                ticket.custom_price = new_price
+                updated += 1
+    event.save()
+
+    return jsonify({'success': True, 'new_price': new_price, 'updated': updated})
 
 @EVENTS.route('/event/change_price', methods=['POST'])
 @login_required
@@ -1011,23 +1066,23 @@ def page_billing():
     tickets = {
     }
 
-    for ticket in participants['confirmed']:
+    def sort_ticket(ticket):
         bucher = ticket['ticket_info']['bucher']
-        tickets.setdefault(bucher, {'paid': [], 'unpaid': []})
-        if ticket['is_paid']:
+        tickets.setdefault(bucher, {'paid': [], 'unpaid': [], 'free': []})
+        if ticket['is_free']:
+            tickets[bucher]['free'].append(ticket)
+        elif ticket['is_paid']:
             tickets[bucher]['paid'].append(ticket)
         else:
             tickets[bucher]['unpaid'].append(ticket)
 
+    for ticket in participants['confirmed']:
+        sort_ticket(ticket)
+
     for ticket in participants['unconfirmed']:
-        bucher = ticket['ticket_info']['bucher']
-        tickets.setdefault(bucher, {'paid': [], 'unpaid': []})
         if not ticket['is_extra_ticket']:
             continue
-        if ticket['is_paid']:
-            tickets[bucher]['paid'].append(ticket)
-        else:
-            tickets[bucher]['unpaid'].append(ticket)
+        sort_ticket(ticket)
 
     total_billed = 0
     total_unbilled = 0
@@ -1055,6 +1110,101 @@ def page_billing():
 
 
     return render_template('event_billing.html', **context)
+
+@EVENTS.route('/event/finance')
+def page_finance():
+    """
+    Finanzuebersicht: potenzielle Einnahmen vs. Ausgaben
+    """
+    event_id = request.args.get('event_id')
+
+    if not current_user.is_authenticated:
+        return redirect(url_for('auth.login'))
+
+    if not current_user.has_right('guide'):
+        abort(403)
+
+    event = Event.objects.get(id=event_id)
+    participants = get_participants(event)
+
+    received = 0
+    outstanding = 0
+    free_count = 0
+
+    def account(ticket):
+        nonlocal received, outstanding, free_count
+        if ticket['is_free']:
+            free_count += 1
+        elif ticket['is_paid']:
+            received += ticket['price']
+        else:
+            outstanding += ticket['price']
+
+    for ticket in participants['confirmed']:
+        account(ticket)
+    for ticket in participants['unconfirmed']:
+        if ticket['is_extra_ticket']:
+            account(ticket)
+
+    potential = received + outstanding
+    expenses = sum(c.price for c in event.costs if c.price)
+
+    context = {
+        'event': event,
+        'received': received,
+        'outstanding': outstanding,
+        'potential': potential,
+        'free_count': free_count,
+        'costs': event.costs,
+        'expenses': expenses,
+        'balance_current': received - expenses,
+        'balance_potential': potential - expenses,
+    }
+    return render_template('event_finance.html', **context)
+
+@EVENTS.route('/event/finance/add_cost', methods=['POST'])
+def add_cost():
+    """
+    Kostenposition zum Event hinzufuegen
+    """
+    if not current_user.has_right('guide'):
+        abort(403)
+
+    event_id = request.form['event_id']
+    event = Event.objects.get(id=event_id)
+
+    cost = EventCost()
+    cost.name = request.form.get('name')
+    try:
+        cost.price = float(request.form.get('price') or 0)
+    except ValueError:
+        cost.price = 0
+    if request.form.get('date'):
+        cost.date = datetime.strptime(request.form['date'], '%Y-%m-%d').date()
+    event.costs.append(cost)
+    event.save()
+
+    return redirect(url_for('EVENTS.page_finance', event_id=event_id))
+
+@EVENTS.route('/event/finance/delete_cost', methods=['POST'])
+def delete_cost():
+    """
+    Kostenposition entfernen
+    """
+    if not current_user.has_right('guide'):
+        abort(403)
+
+    event_id = request.form['event_id']
+    event = Event.objects.get(id=event_id)
+
+    try:
+        index = int(request.form['index'])
+        event.costs.pop(index)
+        event.save()
+    except (ValueError, IndexError):
+        pass
+
+    return redirect(url_for('EVENTS.page_finance', event_id=event_id))
 
 #.
 #   . Event Details Page

@@ -48,7 +48,16 @@ class OwnedTicket(db.EmbeddedDocument):
 
     is_extra_ticket = db.BooleanField(default=False)
     is_paid = db.BooleanField(default=False)
+    is_free = db.BooleanField(default=False)  # Teilnehmer zahlt nichts, gilt als erledigt
     custom_price = db.FloatField()  # Individual price override for guides
+
+class EventCost(db.EmbeddedDocument):
+    """
+    Ausgabe/Kosten eines Events
+    """
+    name = db.StringField()
+    price = db.FloatField()
+    date = db.DateField()
 
 class CustomFieldDefintion(db.EmbeddedDocument):
     """ Extra Questions for Events """
@@ -118,6 +127,7 @@ class Event(db.Document):
 
     participations = db.ListField(field=db.EmbeddedDocumentField(document_type=EventParticipation))
     tickets = db.ListField(field=db.EmbeddedDocumentField(document_type=Ticket))
+    costs = db.ListField(field=db.EmbeddedDocumentField(document_type=EventCost))
     
     # Global hidden categories for all users
     hidden_categories = db.ListField(field=db.StringField())
