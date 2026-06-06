@@ -40,6 +40,7 @@ class User(db.Document, UserMixin):
     data_optin = db.BooleanField()
 
     event_registrations = db.ListField(field=db.ReferenceField(document_type=Event))
+    favorites = db.ListField(field=db.ReferenceField(document_type=Event))
 
     pwdhash = db.StringField()
 
@@ -76,6 +77,25 @@ class User(db.Document, UserMixin):
         if str(event_id) in [ str(x.id) for x in self.event_registrations]:
             return True
         return False
+
+    def is_favorite(self, event_id):
+        """
+        Check if event is favored by user
+        """
+        return str(event_id) in [str(x.id) for x in self.favorites]
+
+    def toggle_favorite(self, event):
+        """
+        Add/remove event from favorites, return new state
+        """
+        for fav in self.favorites:
+            if str(fav.id) == str(event.id):
+                self.favorites.remove(fav)
+                self.save()
+                return False
+        self.favorites.append(event)
+        self.save()
+        return True
 
 
     def set_password(self, password):

@@ -72,7 +72,19 @@
             {% endif %}
            </div>
            <div class="card-body">
-             <h5 class="card-title"><a href="{{ url_for('EVENTS.page_details', event_id=event.id) }}">{{ event.event_name }}</a></h5>
+             <h5 class="card-title">
+               {% if current_user.is_authenticated %}
+               <a href="#" class="favorite-toggle" data-event-id="{{ event.id }}"
+                  role="button"
+                  aria-pressed="{{ 'true' if (event.id|string) in favorite_ids else 'false' }}"
+                  aria-label="{{ 'Favorit entfernen' if (event.id|string) in favorite_ids else 'Als Favorit speichern' }}"
+                  title="{{ 'Favorit entfernen' if (event.id|string) in favorite_ids else 'Als Favorit speichern' }}">
+                 <i class="fas fa-star" aria-hidden="true"
+                    style="color: {{ '#f0ad4e' if (event.id|string) in favorite_ids else '#ccc' }};"></i>
+               </a>
+               {% endif %}
+               <a href="{{ url_for('EVENTS.page_details', event_id=event.id) }}">{{ event.event_name }}</a>
+             </h5>
              <p class="card-text">{{ event.event_teaser }}</p>
             {% if current_user.is_authenticated and current_user.has_right('guide') %}
                 <a class="card-link" href="{{ url_for('EVENTS.page_admin', event_id=event.id) }}">Bearbeiten</a>
@@ -102,4 +114,26 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% if current_user.is_authenticated %}
+<script type="text/javascript">
+$(document).ready(function() {
+    $('.favorite-toggle').click(function(e) {
+        e.preventDefault();
+        var self = $(this);
+        $.post('{{ url_for("EVENTS.toggle_favorite") }}', {
+            'event_id': self.data('event-id')
+        }, function(res) {
+            if (res.success) {
+                // Neu laden, damit Favoriten oben angepinnt werden
+                location.reload();
+            }
+        });
+    });
+});
+</script>
+{% endif %}
 {% endblock %}

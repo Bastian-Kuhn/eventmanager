@@ -471,7 +471,26 @@ def page_list():
                 result.append(event)
     else:
         result = events
+
+    # Favoriten oben anpinnen (auch vergangene, ausser bei aktiver Inhalts-Suche)
+    favorite_ids = set()
+    if current_user.is_authenticated:
+        result = list(result)
+        fav_events = list(current_user.favorites)
+        favorite_ids = {str(f.id) for f in fav_events}
+        pinned = [e for e in result if str(e.id) in favorite_ids]
+        rest = [e for e in result if str(e.id) not in favorite_ids]
+        pinned_ids = {str(e.id) for e in pinned}
+        content_filter = bool(filter_name) or (filter_category not in (None, 'None')) \
+            or bool(filter_date) or bool(filters.get('filter_own'))
+        if not content_filter:
+            for fav in fav_events:
+                if str(fav.id) not in pinned_ids:
+                    pinned.append(fav)
+                    pinned_ids.add(str(fav.id))
+        result = pinned + rest
     context['events'] = result
+    context['favorite_ids'] = favorite_ids
     context['render_dificulty'] = difficult_to_icon
 
     if filter_names:
@@ -487,6 +506,17 @@ def page_list():
         return render_template('event_list.html', **context)
     elif mode == 'export':
         return render_template('event_list_export.html', **context)
+
+@EVENTS.route('/event/favorite', methods=['POST'])
+@login_required
+def toggle_favorite():
+    """
+    Tour als Favorit speichern/entfernen
+    """
+    event_id = request.form.get('event_id')
+    event = Event.objects.get(id=event_id)
+    is_favorite = current_user.toggle_favorite(event)
+    return jsonify({'success': True, 'favorite': is_favorite})
 #.
 #   . Event Admin Page
 
