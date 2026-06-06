@@ -904,6 +904,11 @@ def bulk_change_price():
 
     event = Event.objects.get(id=event_id)
 
+    # Ticket-Definition anpassen, damit auch zukuenftige Buchungen den neuen Preis haben
+    for ticket_def in event.tickets:
+        if ticket_def.name == ticket_name:
+            ticket_def.price = new_price
+
     updated = 0
     for parti in event.participations:
         for ticket in parti.tickets:
