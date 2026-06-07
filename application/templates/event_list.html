@@ -47,7 +47,7 @@
           <ul class="nav nav-pills nav-fill">
               {% for category, category_name in event_categories.items() %} 
               <li class="nav-item">
-                <a class="nav-link" href="?filter_category={{ category }}">{{ category_name }}</a>
+                <a class="nav-link" href="?filter_category={{ category }}&filter_future=y">{{ category_name }}</a>
               </li>
               {% endfor %}
           </ul>

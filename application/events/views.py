@@ -401,34 +401,47 @@ def page_list():
             for x,y in categrories_detailed.items()]
     mode = 'page'
     context = {}
-    search_form = EventSearchForm(request.form)
-    search_form.filter_category.choices = categories 
     now = datetime.now()
-    filters = {}
     filter_names = []
     filter_expr = {}
-    search = False
 
+    # Post/Redirect/Get: Filter kommen per POST und werden sofort auf eine GET-URL
+    # mit Query-Parametern umgeleitet. So loest ein Reload (z.B. nach dem Favoriten-
+    # Toggle) keine erneute Formular-Sendung aus ("Daten muessen erneut gesendet werden").
+    post_form = EventSearchForm(request.form)
+    post_form.filter_category.choices = categories
+    if request.method == 'POST' and post_form.validate_on_submit():
+        params = {}
+        for key in ('filter_name', 'filter_category', 'filter_date'):
+            value = request.form.get(key)
+            if value and value != 'None':
+                params[key] = value
+        for key in ('filter_future', 'filter_own', 'export'):
+            if request.form.get(key):
+                params[key] = 'y'
+        return redirect(url_for('EVENTS.page_list', **params))
 
-    if search_form.validate_on_submit():
-        filters = request.form
-        search = True
+    # Ab hier ist alles GET; Filter kommen aus request.args
+    search_form = EventSearchForm(formdata=request.args if request.args else None)
+    search_form.filter_category.choices = categories
 
-    if request.args.get('filter_category'):
+    filters = request.args.to_dict()
+    search = any(request.args.get(k) for k in
+                 ('filter_name', 'filter_category', 'filter_date', 'filter_own', 'export')) \
+             or request.args.get('filter') == 'my_events'
+
+    if request.args.get('filter') == 'my_events':
+        filters['filter_own'] = 'y'
         filters['filter_future'] = 'y'
-        filters['filter_category'] = request.args['filter_category']
-        search = True
+        search_form.filter_own.data = 'y'
 
     if filters.get('export'):
         mode = 'export'
 
+    filters.setdefault('filter_category', 'None')
     if not search:
         filters['filter_future'] = 'y'
-        filters['filter_category'] = 'None'
         search_form.filter_future.data = 'y'
-        if request.args.get('filter') == 'my_events':
-            filters['filter_own'] = 'y'
-            search_form.filter_own.data = 'y'
 
     # We need to check this filte
     filter_date = filters.get('filter_date')
