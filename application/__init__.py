@@ -169,8 +169,7 @@ from application.events.models import Event
 from application.events.admin import EventView
 
 
-admin = Admin(app, name="Admin", template_mode='bootstrap4',
-              index_view=IndexView())
+admin = Admin(app, name="Admin", index_view=IndexView())
 
 
 def translate_bool(what):

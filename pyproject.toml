@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dav-eventmanager"
+version = "0.1.0"
+description = "Event management system for DAV Sektion Kampenwand — registrations, tickets, billing, guides"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Bastian Kuhn", email = "mail@bastian-kuhn.de" }]
+requires-python = ">=3.10"
+keywords = [
+    "dav",
+    "alpenverein",
+    "event-management",
+    "tickets",
+    "flask",
+    "mongoengine",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Web Environment",
+    "Framework :: Flask",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business",
+]
+
+dynamic = ["dependencies"]
+
+[project.urls]
+Repository = "https://github.com/bastian-kuhn/eventmanager"
+Issues = "https://github.com/bastian-kuhn/eventmanager/issues"
+
+[tool.setuptools.dynamic]
+dependencies = {file = "requirements.txt"}
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["application*"]
+
+[tool.setuptools.package-data]
+application = [
+    "templates/**/*",
+    "static/**/*",
+]
+
+[tool.pylint.typecheck]
+# mongoengine's Document.objects is a QuerySetManager descriptor that pylint
+# cannot resolve statically.
+generated-members = ["objects"]

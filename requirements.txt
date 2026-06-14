@@ -15,7 +15,7 @@ Flask-JSON==0.4.0
 Flask-Limiter==3.5.0
 Flask-Login==0.6.3
 Flask-Mail==0.9.1
-flask-mongoengine @ git+https://github.com/idoshr/flask-mongoengine.git@e244408acf440c4208f7ddcd6e5d819cb472e4da
+flask-mongoengine-3==1.1.0
 flask-request-id-header==0.1.1
 Flask-WTF==1.2.1
 idna==3.4
@@ -42,6 +42,5 @@ Werkzeug==3.0.1
 wrapt==1.16.0
 WTForms==3.1.1
 zipp==3.17.0
-uWSGI==2.0.22
-Flask-Admin @ git+https://github.com/flask-admin/flask-admin.git@14e24c970f0ee3a29add830612eee9a0b0ba5dcc
+Flask-Admin==2.0.2
 python-dateutil==2.8.2
