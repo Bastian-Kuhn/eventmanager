@@ -37,6 +37,9 @@ class BaseConfig():
 
     ADMIN_SESSION_HOURS = 8
     PERMANENT_SESSION_LIFETIME = ADMIN_SESSION_HOURS * 60 * 60
+    # How long the "Angemeldet bleiben" remember-me cookie keeps the user
+    # logged in across browser restarts (must outlive the normal session).
+    REMEMBER_COOKIE_DAYS = 30
     SECURITY_MSG_LOGIN_MESSAGE = False
 
     BOOTSTRAP_SERVE_LOCAL = True

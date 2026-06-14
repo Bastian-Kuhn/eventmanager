@@ -46,7 +46,7 @@ def do_login(login_form, context):
         existing_user,
         remember=remember_login,
         duration=timedelta(
-            hours=(current_app.config['ADMIN_SESSION_HOURS'] or 8)
+            days=(current_app.config.get('REMEMBER_COOKIE_DAYS') or 30)
         )
     )
     existing_user.last_login = datetime.now()
