@@ -1,15 +1,14 @@
 {#
-  Wiederverwendbarer Einwilligungstext (Foto/Video) fuer Registrierung und Profil.
-  Quelle: application/static/docs/einwilligung-foto-video.pdf (DAV Sektion Kampenwand).
+  Wiederverwendbarer Einwilligungstext (Foto/Video) fuer Registrierung, Profil und Buchung.
+  Wird am Ort der Einwilligung sichtbar angezeigt (rechtssicher, kein PDF).
 #}
-<details class="media-consent mb-2">
-  <summary>Einwilligung Foto und Video – Text anzeigen</summary>
-  <div class="mt-2">
-    <p><strong>Einverständniserklärung für Anfertigung und Veröffentlichung von
+<div class="media-consent card border mb-2">
+  <div class="card-body p-3" style="max-height: 240px; overflow-y: auto;">
+    <p class="mb-2"><strong>Einverständniserklärung für Anfertigung und Veröffentlichung von
       Foto- und Videoaufnahmen</strong></p>
     <p>durch die DAV Sektion Kampenwand als Veranlasser der Veröffentlichung der Aufnahmen.</p>
     <p class="mb-1">Zweck:</p>
-    <ul>
+    <ul class="mb-2">
       <li>Newsletter der Sektion Kampenwand</li>
       <li>Zeitschrift „Kampenwand Echo“</li>
       <li>Website DAV Sektion Kampenwand und des Deutschen Alpenvereins</li>
@@ -18,11 +17,7 @@
     </ul>
     <p>Aus der Zustimmung zur Veröffentlichung von Fotos bzw. Videos, auf welchen ich
       erkennbar bin, leite ich keine Rechte (z.&nbsp;B. Entgelt) ab.</p>
-    <p>Diese Einverständniserklärung kann ich gegenüber dem Veranlasser bei Vorliegen eines
-      wichtigen Grundes mit Wirkung für die Zukunft widerrufen.</p>
-    <p>
-      <a href="{{ url_for('static', filename='docs/einwilligung-foto-video.pdf') }}"
-         target="_blank" rel="noopener">Vollständiges Dokument als PDF öffnen</a>
-    </p>
+    <p class="mb-0">Diese Einverständniserklärung kann ich gegenüber dem Veranlasser bei Vorliegen
+      eines wichtigen Grundes mit Wirkung für die Zukunft widerrufen (z.&nbsp;B. in meinem Profil).</p>
   </div>
-</details>
+</div>

@@ -11,7 +11,8 @@ class ConsentForm(FlaskForm):
     """
     Globale Einwilligungen im Profil bearbeiten
     """
-    media_optin = BooleanField("Von mir dürfen Fotos und Videos erstellt werden")
+    media_optin = BooleanField("Ich willige ein, dass von mir Fotos und Videos angefertigt und "
+                               "– wie in der folgenden Erklärung beschrieben – veröffentlicht werden dürfen")
     data_optin = BooleanField("Ich bin einverstanden, dass meine Kontaktdaten mit anderen Mitgliedern geteilt werden")
     submit_consent = SubmitField("Einwilligungen speichern")
 
@@ -50,7 +51,8 @@ class NewUserForm(FlaskForm):
     phone = StringField("Handynummer", validators=[InputRequired()])
     birthdate = DateField("Geburstdatum", validators=[InputRequired()])
     club_id = StringField("Mitgliedsnummer")
-    media_optin = BooleanField("Von mir drürfen Fotos und Videos erstellt werden")
+    media_optin = BooleanField("Ich willige ein, dass von mir Fotos und Videos angefertigt und "
+                               "– wie in der folgenden Erklärung beschrieben – veröffentlicht werden dürfen")
     data_optin = BooleanField("Ich bin einverstanden das meine Kontaktdaten mit anderen Mitgliedern geteilt werden")
     password  = PasswordField("Neues Passwort", validators=[InputRequired(),validate_password, EqualTo('password_repeat')])
     password_repeat = PasswordField("Password widerholen", validators=[InputRequired()])

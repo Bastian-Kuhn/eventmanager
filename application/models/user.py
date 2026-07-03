@@ -37,6 +37,7 @@ class User(db.Document, UserMixin):
     club_id = db.StringField()
 
     media_optin = db.BooleanField()
+    media_optin_date = db.DateTimeField()  # Zeitpunkt der Foto/Video-Einwilligung (Nachweis)
     data_optin = db.BooleanField()
 
     event_registrations = db.ListField(field=db.ReferenceField(document_type=Event))

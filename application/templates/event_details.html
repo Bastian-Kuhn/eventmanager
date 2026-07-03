@@ -152,6 +152,17 @@
             {% endfor %}
             </fieldset>
             <hr>
+            <fieldset class="form-group">
+             <legend>Bildfreigabe:</legend>
+             <p class="mb-2">
+               Deine aktuelle Foto-/Video-Einwilligung:
+               <strong>{{ 'Ja' if current_user.media_optin else 'Nein' }}</strong> –
+               ändern kannst du das in deinem
+               <a href="{{ url_for('USER.page_user_profil') }}">Profil</a>.
+             </p>
+             {% include '_media_consent.html' %}
+            </fieldset>
+            <hr>
             {{ wtf.form_field(regform.submit) }}
         </form>
 

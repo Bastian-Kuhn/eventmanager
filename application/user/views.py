@@ -61,6 +61,9 @@ def page_user_consent():
     """
     form = ConsentForm()
     if form.validate_on_submit():
+        # Zeitpunkt der Einwilligung nur bei Zustimmung als Nachweis festhalten
+        if form.media_optin.data and not current_user.media_optin:
+            current_user.media_optin_date = datetime.now()
         current_user.media_optin = form.media_optin.data
         current_user.data_optin = form.data_optin.data
         current_user.save()
@@ -142,6 +145,8 @@ def page_user_create():
             if field == 'email':
                 value = value.lower()
             setattr(new_user, field, value)
+        if new_user.media_optin:
+            new_user.media_optin_date = datetime.now()
         new_user.set_password(request.form['password'])
         new_user.save()
         flash("Anmeldung erfolgreich", 'info')
