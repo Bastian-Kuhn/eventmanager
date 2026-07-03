@@ -93,6 +93,7 @@
                 <a href="{{ url_for('EVENTS.page_details', event_id=event.id) }}">{{ event.event_name }}</a>
               </td>
               <td>
+                {% if item.editable %}
                 <form method="POST" action="{{ url_for('USER.page_user_event_optin') }}"
                       class="form-inline">
                   <input type="hidden" name="event_id" value="{{ event.id }}">
@@ -109,6 +110,17 @@
                   </select>
                   <button type="submit" class="btn btn-sm btn-outline-primary">Speichern</button>
                 </form>
+                {% else %}
+                {# Nach Tourbeginn: nur Anzeige, Aenderung nur durch Guides #}
+                <span>
+                  {% if item.override is sameas true %}Ja, erlaubt
+                  {% elif item.override is sameas false %}Nein
+                  {% else %}Standard ({{ 'Ja' if current_user.media_optin else 'Nein' }})
+                  {% endif %}
+                </span>
+                <i class="fas fa-lock text-muted ml-1" aria-hidden="true"></i>
+                <span class="sr-only">– nach Tourbeginn nur durch Guides änderbar</span>
+                {% endif %}
               </td>
             </tr>
             {% endfor %}

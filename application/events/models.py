@@ -207,6 +207,12 @@ class Event(db.Document):
         end = self.end_date or self.start_date
         return bool(end and end < now)
 
+    def is_started(self, now):
+        """
+        True wenn die Tour begonnen hat (start_date erreicht).
+        """
+        return bool(self.start_date and self.start_date <= now)
+
     def delete_ticket(self, ticket_id):
         """
         Delete given Ticket id
