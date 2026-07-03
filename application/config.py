@@ -5,6 +5,7 @@ Configuration
 import os
 #from re import DEBUG
 import secrets
+from datetime import timedelta
 
 class BaseConfig():
     """
@@ -18,7 +19,10 @@ class BaseConfig():
 
     ENABLE_SENTRY = False
 
-    SECRET_KEY = "NICHTGEHEIMN"
+    # Must be STABLE and identical across all gunicorn workers/restarts, otherwise
+    # session- and "Angemeldet bleiben"-Cookies (mit SECRET_KEY signiert) werden von
+    # anderen Workern verworfen und der User fliegt raus. In prod per Env setzen.
+    SECRET_KEY = os.environ.get("SECRET_KEY") or "NICHTGEHEIMN"
 
     # If true, only Useres with the flag Admin can login on the website
     ADMIN_LOGIN_ONLY = False
@@ -40,6 +44,10 @@ class BaseConfig():
     # How long the "Angemeldet bleiben" remember-me cookie keeps the user
     # logged in across browser restarts (must outlive the normal session).
     REMEMBER_COOKIE_DAYS = 30
+    REMEMBER_COOKIE_DURATION = timedelta(days=REMEMBER_COOKIE_DAYS)
+    # SameSite=Lax, damit die Cookies bei normaler Navigation erhalten bleiben.
+    SESSION_COOKIE_SAMESITE = "Lax"
+    REMEMBER_COOKIE_SAMESITE = "Lax"
     SECURITY_MSG_LOGIN_MESSAGE = False
 
     BOOTSTRAP_SERVE_LOCAL = True
@@ -101,7 +109,10 @@ class ProductionConfig(BaseConfig):
     """
     Production Configuration.
     """
-    SECRET_KEY = secrets.token_urlsafe(48)
+    # NICHT pro Prozess neu generieren (secrets.token_urlsafe) - das gibt jedem
+    # gunicorn-Worker einen anderen Key und loggt User staendig aus. Stattdessen
+    # den stabilen, env-basierten SECRET_KEY aus BaseConfig verwenden und in prod
+    # zwingend die Env-Variable SECRET_KEY setzen.
     ENVIRONMENT = "Prod"
     SESSION_COOKIE_SECURE = True
     ENABLE_SENTRY = True
