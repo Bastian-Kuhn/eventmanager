@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+
+{% block page_content %}
+<div class="row">
+  <div class="col-12">
+    <h1>Mein Profil</h1>
+    <p class="text-muted">{{ current_user.first_name }} {{ current_user.last_name }} &middot; {{ current_user.email }}</p>
+  </div>
+</div>
+
+<div class="row">
+  <!-- Passwort aendern -->
+  <div class="col-md-6 mb-4">
+    <section class="card h-100" aria-labelledby="pw-heading">
+      <div class="card-header"><h2 class="h5 mb-0" id="pw-heading">Passwort ändern</h2></div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('USER.page_user_password') }}">
+          {{ password_form.hidden_tag() }}
+          <div class="form-group">
+            {{ password_form.old_password.label(class="form-control-label") }}
+            {{ password_form.old_password(class="form-control", autocomplete="current-password") }}
+          </div>
+          <div class="form-group">
+            {{ password_form.password.label(class="form-control-label") }}
+            {{ password_form.password(class="form-control", autocomplete="new-password") }}
+          </div>
+          <div class="form-group">
+            {{ password_form.password_repeat.label(class="form-control-label") }}
+            {{ password_form.password_repeat(class="form-control", autocomplete="new-password") }}
+          </div>
+          {{ password_form.submit_password(class="btn btn-primary") }}
+        </form>
+      </div>
+    </section>
+  </div>
+
+  <!-- Einwilligungen -->
+  <div class="col-md-6 mb-4">
+    <section class="card h-100" aria-labelledby="consent-heading">
+      <div class="card-header"><h2 class="h5 mb-0" id="consent-heading">Einwilligungen</h2></div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('USER.page_user_consent') }}">
+          {{ consent_form.hidden_tag() }}
+          <fieldset>
+            <legend class="sr-only">Globale Einwilligungen</legend>
+            <div class="form-check mb-2">
+              {{ consent_form.media_optin(class="form-check-input") }}
+              {{ consent_form.media_optin.label(class="form-check-label") }}
+            </div>
+            {% include '_media_consent.html' %}
+            <div class="form-check mb-3 mt-3">
+              {{ consent_form.data_optin(class="form-check-input") }}
+              {{ consent_form.data_optin.label(class="form-check-label") }}
+            </div>
+          </fieldset>
+          {{ consent_form.submit_consent(class="btn btn-primary") }}
+        </form>
+        <p class="text-muted mt-3 mb-0">
+          <small>Diese Einstellung gilt als Standard. Bei vergangenen Touren kannst du sie unten
+          einzeln überschreiben.</small>
+        </p>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- Vergangene Touren -->
+<div class="row">
+  <div class="col-12">
+    <section aria-labelledby="past-heading">
+      <h2 class="h4" id="past-heading">Vergangene Touren</h2>
+      {% if not past_events %}
+      <p class="text-muted">Du hast noch an keiner beendeten Tour teilgenommen.</p>
+      {% else %}
+      <div class="table-responsive">
+        <table class="table table-striped align-middle">
+          <caption class="sr-only">Vergangene Touren mit individueller Medien-Einwilligung</caption>
+          <thead>
+            <tr>
+              <th scope="col">Datum</th>
+              <th scope="col">Tour</th>
+              <th scope="col">Foto/Video für diese Tour</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in past_events %}
+            {% set event = item.event %}
+            <tr>
+              <th scope="row" class="font-weight-normal">
+                {{ event.start_date.strftime("%d.%m.%Y") if event.start_date else "-" }}
+              </th>
+              <td>
+                <a href="{{ url_for('EVENTS.page_details', event_id=event.id) }}">{{ event.event_name }}</a>
+              </td>
+              <td>
+                <form method="POST" action="{{ url_for('USER.page_user_event_optin') }}"
+                      class="form-inline">
+                  <input type="hidden" name="event_id" value="{{ event.id }}">
+                  <label class="sr-only" for="optin-{{ event.id }}">
+                    Medien-Einwilligung für {{ event.event_name }}
+                  </label>
+                  <select class="form-control form-control-sm mr-2" id="optin-{{ event.id }}"
+                          name="media_optin">
+                    <option value="default" {{ 'selected' if item.override is none }}>
+                      Standard ({{ 'Ja' if current_user.media_optin else 'Nein' }})
+                    </option>
+                    <option value="yes" {{ 'selected' if item.override is sameas true }}>Ja, erlaubt</option>
+                    <option value="no" {{ 'selected' if item.override is sameas false }}>Nein</option>
+                  </select>
+                  <button type="submit" class="btn btn-sm btn-outline-primary">Speichern</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}

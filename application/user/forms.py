@@ -7,6 +7,26 @@ from application.models.user import User
 from application.auth.forms import validate_password
 
 
+class ConsentForm(FlaskForm):
+    """
+    Globale Einwilligungen im Profil bearbeiten
+    """
+    media_optin = BooleanField("Von mir dürfen Fotos und Videos erstellt werden")
+    data_optin = BooleanField("Ich bin einverstanden, dass meine Kontaktdaten mit anderen Mitgliedern geteilt werden")
+    submit_consent = SubmitField("Einwilligungen speichern")
+
+
+class ChangePasswordForm(FlaskForm):
+    """
+    Passwort im Profil aendern (aktuelles Passwort erforderlich)
+    """
+    old_password = PasswordField("Aktuelles Passwort", validators=[InputRequired()])
+    password = PasswordField("Neues Passwort",
+                             validators=[InputRequired(), validate_password, EqualTo('password_repeat')])
+    password_repeat = PasswordField("Neues Passwort wiederholen", validators=[InputRequired()])
+    submit_password = SubmitField("Passwort ändern")
+
+
 def validate_user(form, field):
     """
     Check if the user can be registered

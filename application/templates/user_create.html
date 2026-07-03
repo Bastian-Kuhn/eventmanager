@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% import 'bootstrap/wtf.html' as wtf %}
+
+{% block page_content %}
+<div class="row">
+  <div class="col-sm-12 col-md-8">
+    <h1>Registrieren</h1>
+    <form method="POST" action="{{ url_for('USER.page_user_create') }}">
+      {{ form.hidden_tag() }}
+      {{ wtf.form_field(form.first_name) }}
+      {{ wtf.form_field(form.last_name) }}
+      {{ wtf.form_field(form.email) }}
+      {{ wtf.form_field(form.phone) }}
+      {{ wtf.form_field(form.birthdate) }}
+      {{ wtf.form_field(form.club_id) }}
+      {{ wtf.form_field(form.media_optin) }}
+      {% include '_media_consent.html' %}
+      {{ wtf.form_field(form.data_optin) }}
+      {{ wtf.form_field(form.password) }}
+      {{ wtf.form_field(form.password_repeat) }}
+      {{ wtf.form_field(form.submit) }}
+    </form>
+  </div>
+</div>
+{% endblock %}

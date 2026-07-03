@@ -2,27 +2,118 @@
 Frontend User
 """
 # pylint: disable=no-member
+from datetime import datetime
 from application import limiter
 from application.models.user import User
 
 from flask import request, render_template, current_app, \
      flash, redirect, session, Blueprint, url_for
 from flask_login import current_user, login_required
-from .forms import NewUserForm
+from .forms import NewUserForm, ConsentForm, ChangePasswordForm
 
 
 USER = Blueprint('USER', __name__)
 
 
 @USER.route('/user/profile')
+@login_required
 def page_user_profil():
     """
-    User profile
+    User profile: Passwort aendern, vergangene Touren, Medien-Einwilligung
+    (global + pro Event ueberschreibbar).
     """
+    now = datetime.now()
 
-    context = {}
+    consent_form = ConsentForm(
+        media_optin=current_user.media_optin,
+        data_optin=current_user.data_optin,
+    )
+    password_form = ChangePasswordForm()
 
-    return render_template('events_list.html', **context)
+    past_events = []
+    for event in current_user.event_registrations:
+        if not event.is_over(now):
+            continue
+        participation = event.get_participation(current_user)
+        past_events.append({
+            'event': event,
+            # None = globalen Profilwert nutzen, sonst True/False als Ueberschreibung
+            'override': participation.media_optin if participation else None,
+        })
+    past_events.sort(key=lambda item: item['event'].start_date or datetime.min, reverse=True)
+
+    context = {
+        'consent_form': consent_form,
+        'password_form': password_form,
+        'past_events': past_events,
+    }
+    return render_template('user_profile.html', **context)
+
+
+@USER.route('/user/profile/consent', methods=['POST'])
+@login_required
+def page_user_consent():
+    """
+    Globale Einwilligungen speichern
+    """
+    form = ConsentForm()
+    if form.validate_on_submit():
+        current_user.media_optin = form.media_optin.data
+        current_user.data_optin = form.data_optin.data
+        current_user.save()
+        flash("Einwilligungen gespeichert", 'success')
+    else:
+        flash("Einwilligungen konnten nicht gespeichert werden", 'danger')
+    return redirect(url_for('USER.page_user_profil'))
+
+
+@USER.route('/user/profile/password', methods=['POST'])
+@login_required
+def page_user_password():
+    """
+    Passwort aendern (aktuelles Passwort erforderlich)
+    """
+    form = ChangePasswordForm()
+    if form.validate_on_submit():
+        if not current_user.check_password(form.old_password.data):
+            flash("Aktuelles Passwort ist falsch", 'danger')
+            return redirect(url_for('USER.page_user_profil'))
+        current_user.set_password(form.password.data)
+        current_user.force_password_change = False
+        current_user.save()
+        flash("Passwort geändert", 'success')
+    else:
+        for _, messages in form.errors.items():
+            flash(messages[0], 'danger')
+    return redirect(url_for('USER.page_user_profil'))
+
+
+@USER.route('/user/profile/event_optin', methods=['POST'])
+@login_required
+def page_user_event_optin():
+    """
+    Medien-Einwilligung fuer ein einzelnes Event ueberschreiben
+    """
+    from application.events.models import Event
+
+    event_id = request.form.get('event_id')
+    choice = request.form.get('media_optin')  # 'default' | 'yes' | 'no'
+    value = {'yes': True, 'no': False}.get(choice)  # 'default' -> None
+
+    event = Event.objects(id=event_id).first()
+    if not event:
+        flash("Event nicht gefunden", 'danger')
+        return redirect(url_for('USER.page_user_profil'))
+
+    participation = event.get_participation(current_user)
+    if not participation:
+        flash("Für diese Tour liegt keine Anmeldung vor", 'danger')
+        return redirect(url_for('USER.page_user_profil'))
+
+    participation.media_optin = value
+    event.save()
+    flash("Einwilligung für diese Tour gespeichert", 'success')
+    return redirect(url_for('USER.page_user_profil'))
 
 @USER.route('/user/create', methods=['POST', 'GET'])
 @limiter.limit("4/min 1/sec")
@@ -54,4 +145,4 @@ def page_user_create():
         'form': form
     }
 
-    return render_template('formular.html', **context)
+    return render_template('user_create.html', **context)

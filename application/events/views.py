@@ -15,6 +15,7 @@ from wtforms.validators import InputRequired
 from markupsafe import Markup
 
 
+from mongoengine import Q
 from application.events.models import Event, EventParticipation,\
                              CustomField, CustomFieldDefintion, Ticket, OwnedTicket, EventCost, difficulties
 from application.models.user import roles
@@ -470,11 +471,17 @@ def page_list():
         filter_expr['start_date__lte'] = date_end
         filter_names.append(f"Zeitpunkt: {filter_date}")
 
+    future_q = None
     if filter_future == 'y':
-        filter_expr['start_date__gte'] = now
+        # Events bleiben auf der Startseite, bis sie beendet sind (end_date).
+        # Events ohne end_date fallen auf start_date zurueck.
+        future_q = Q(end_date__gte=now) | (Q(end_date=None) & Q(start_date__gte=now))
         #filter_names.append("Zeitpunkt: Zukünftige")
 
-    events = Event.objects(**filter_expr).order_by('start_date')
+    if future_q is not None:
+        events = Event.objects(future_q, **filter_expr).order_by('start_date')
+    else:
+        events = Event.objects(**filter_expr).order_by('start_date')
     result = []
     if filters.get('filter_own') and current_user.is_authenticated:
         filter_names.append("Angemeldet")

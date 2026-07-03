@@ -1,0 +1,28 @@
+{#
+  Wiederverwendbarer Einwilligungstext (Foto/Video) fuer Registrierung und Profil.
+  Quelle: application/static/docs/einwilligung-foto-video.pdf (DAV Sektion Kampenwand).
+#}
+<details class="media-consent mb-2">
+  <summary>Einwilligung Foto und Video – Text anzeigen</summary>
+  <div class="mt-2">
+    <p><strong>Einverständniserklärung für Anfertigung und Veröffentlichung von
+      Foto- und Videoaufnahmen</strong></p>
+    <p>durch die DAV Sektion Kampenwand als Veranlasser der Veröffentlichung der Aufnahmen.</p>
+    <p class="mb-1">Zweck:</p>
+    <ul>
+      <li>Newsletter der Sektion Kampenwand</li>
+      <li>Zeitschrift „Kampenwand Echo“</li>
+      <li>Website DAV Sektion Kampenwand und des Deutschen Alpenvereins</li>
+      <li>Social Media DAV Sektion Kampenwand (z.&nbsp;B. Facebook, Instagram, Youtube)</li>
+      <li>Öffentlichkeitsarbeit der DAV Sektion Kampenwand, u.&nbsp;a. Jahresbericht, Sektionswerbung</li>
+    </ul>
+    <p>Aus der Zustimmung zur Veröffentlichung von Fotos bzw. Videos, auf welchen ich
+      erkennbar bin, leite ich keine Rechte (z.&nbsp;B. Entgelt) ab.</p>
+    <p>Diese Einverständniserklärung kann ich gegenüber dem Veranlasser bei Vorliegen eines
+      wichtigen Grundes mit Wirkung für die Zukunft widerrufen.</p>
+    <p>
+      <a href="{{ url_for('static', filename='docs/einwilligung-foto-video.pdf') }}"
+         target="_blank" rel="noopener">Vollständiges Dokument als PDF öffnen</a>
+    </p>
+  </div>
+</details>

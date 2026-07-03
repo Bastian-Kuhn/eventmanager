@@ -85,6 +85,10 @@ class EventParticipation(db.EmbeddedDocument):
 
     comment = db.StringField()
 
+    # Ueberschreibt das globale User.media_optin fuer genau dieses Event.
+    # None = globalen Wert aus dem Profil verwenden, True/False = bewusst gesetzt.
+    media_optin = db.BooleanField()
+
     def get_field(self, fieldname):
         """
         Return given field from participation
@@ -186,6 +190,22 @@ class Event(db.Document):
             if parti.user == user:
                 for ticket in parti.tickets:
                     yield ticket
+
+    def get_participation(self, user):
+        """
+        Return the EventParticipation of the given user, or None.
+        """
+        for parti in self.participations:
+            if parti.user == user:
+                return parti
+        return None
+
+    def is_over(self, now):
+        """
+        True wenn das Event beendet ist. end_date hat Vorrang, sonst start_date.
+        """
+        end = self.end_date or self.start_date
+        return bool(end and end < now)
 
     def delete_ticket(self, ticket_id):
         """
