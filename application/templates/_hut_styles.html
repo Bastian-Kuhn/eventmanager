@@ -1,0 +1,58 @@
+<style>
+  .hut-portal{
+    --hp-bg:#fff; --hp-fg:#3b4657; --hp-muted:#98a1b3; --hp-line:#eceff3;
+    --hp-track:#f0f2f6; --hp-accent:#3b82f6; --hp-soft:#f7f8fb;
+    --lvl-low:#3aa469; --lvl-high:#e6a52b; --lvl-full:#e2605f;
+  }
+  @media (prefers-color-scheme: dark){
+    .hut-portal{
+      --hp-bg:#1a1d23; --hp-fg:#d8dce6; --hp-muted:#828b9c; --hp-line:#2b303a;
+      --hp-track:#262b33; --hp-accent:#6aa0ff; --hp-soft:#20242b;
+      --lvl-low:#46c47f; --lvl-high:#f0bd4a; --lvl-full:#f07d7b;
+    }
+  }
+  .hut-portal{ color:var(--hp-fg); }
+  .hp-chips{ display:flex; flex-wrap:wrap; gap:.5rem; margin:.25rem 0 1rem; }
+  .hp-chip{ display:inline-flex; align-items:center; gap:.35rem; padding:.3rem .7rem;
+    border:1px solid var(--hp-line); border-radius:999px; font-size:.85rem; background:var(--hp-soft); }
+  .hp-card{ background:var(--hp-bg); border:1px solid var(--hp-line); border-radius:16px;
+    padding:1.1rem 1.15rem; margin-bottom:1.25rem; }
+  .hp-card h2{ font-size:1.05rem; font-weight:600; margin:0 0 .85rem; }
+  .hp-avail{ display:flex; align-items:center; gap:1rem; flex-wrap:wrap; }
+  .hp-avail-num{ font-size:2rem; font-weight:700; line-height:1; }
+  .hp-avail-num.ok{ color:var(--lvl-low); } .hp-avail-num.none{ color:var(--lvl-full); }
+  .hp-avail-sub{ color:var(--hp-muted); font-size:.9rem; }
+  .hp-bar{ flex:1 1 180px; height:12px; border-radius:999px; background:var(--hp-track); overflow:hidden; min-width:160px; }
+  .hp-bar > span{ display:block; height:100%; border-radius:999px; }
+  .hp-fill-low{ background:var(--lvl-low);} .hp-fill-high{ background:var(--lvl-high);} .hp-fill-full{ background:var(--lvl-full);}
+  .hp-hint{ color:var(--hp-muted); font-size:.85rem; }
+
+  /* Kalender */
+  .cal-head{ display:flex; align-items:center; justify-content:space-between; gap:.75rem; margin-bottom:.9rem; }
+  .cal-title{ font-size:1.05rem; font-weight:600; margin:0; }
+  .cal-nav{ display:inline-flex; align-items:center; justify-content:center; width:2.2rem; height:2.2rem;
+    border-radius:50%; border:1px solid var(--hp-line); color:var(--hp-fg); background:var(--hp-bg);
+    text-decoration:none; font-size:1.05rem; line-height:1; }
+  .cal-nav:hover{ background:var(--hp-track); color:var(--hp-fg); text-decoration:none; }
+  .cal-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:6px; }
+  .cal-wd{ text-align:center; font-size:.7rem; font-weight:600; letter-spacing:.04em;
+    text-transform:uppercase; color:var(--hp-muted); padding:.1rem 0; }
+  .cal-day{ background:var(--hp-bg); border:1px solid var(--hp-line); border-radius:10px;
+    min-height:4.6rem; padding:.35rem .45rem; display:flex; flex-direction:column; gap:.3rem; }
+  .cal-day.outside{ background:transparent; border-color:transparent; }
+  .cal-day.outside .cal-dnum{ color:var(--hp-muted); opacity:.55; }
+  .cal-day.today{ border-color:var(--hp-accent); box-shadow:inset 0 0 0 1px var(--hp-accent); }
+  .cal-dnum{ font-size:.85rem; font-weight:600; }
+  .cal-day.today .cal-dnum{ color:var(--hp-accent); }
+  .cal-meter{ height:6px; border-radius:999px; background:var(--hp-track); overflow:hidden; }
+  .cal-meter > span{ display:block; height:100%; border-radius:999px; }
+  .cal-fill-low{ background:var(--lvl-low);} .cal-fill-high{ background:var(--lvl-high);} .cal-fill-full{ background:var(--lvl-full);}
+  .cal-occ{ font-size:.72rem; color:var(--hp-muted); margin-top:auto; }
+  .cal-occ strong{ color:var(--hp-fg); font-weight:600; }
+  .cal-occ .full{ color:var(--lvl-full); font-weight:600; }
+  .cal-names{ margin-top:.2rem; font-size:.68rem; line-height:1.25; color:var(--hp-fg); }
+  .cal-names > div{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .cal-legend{ display:flex; flex-wrap:wrap; gap:1rem; margin-top:.9rem; font-size:.78rem; color:var(--hp-muted); }
+  .cal-legend .dot{ display:inline-block; width:.8rem; height:.8rem; border-radius:3px; margin-right:.35rem; vertical-align:-1px; }
+  @media (max-width:576px){ .cal-day{ min-height:3.8rem; border-radius:8px; } .cal-occ{ font-size:.66rem; } }
+</style>

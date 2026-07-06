@@ -98,49 +98,60 @@ def page_hut_detail(hut_id):
     if can_manage:
         pending = list(HutBooking.objects(hut=hut, confirmed=False).order_by('from_date'))
 
+    total = hut.total_places()
+    free = hut.free_places(from_date, to_date) if range_active else None
+    # Eingebetteter Kalender: Monat aus Query oder aus Anreisedatum bzw. heute.
+    today = datetime.now().date()
+    cal_year, cal_month = _month_from_args(today)
+    if not request.args.get('month') and from_date:
+        cal_year, cal_month = from_date.year, from_date.month
+    cal_extra = {k: request.args.get(k) for k in ('from_date', 'to_date') if request.args.get(k)}
+
     context = {
         'hut': hut,
-        'total_places': hut.total_places(),
-        'free_places': hut.free_places(from_date, to_date) if range_active else None,
+        'total_places': total,
+        'free_places': free,
         'from_date': request.args.get('from_date', ''),
         'to_date': request.args.get('to_date', ''),
         'range_active': range_active,
         'can_manage': can_manage,
         'my_bookings': my_bookings,
         'pending': pending,
+        'cal': _cal_context(hut, cal_year, cal_month, today, 'HUTS.page_hut_detail', cal_extra),
     }
     return render_template('hut_detail.html', **context)
 
 
-@HUTS.route('/huetten/<hut_id>/kalender')
-def page_hut_calendar(hut_id):
-    """Belegungskalender einer Hütte (Auslastung pro Tag)."""
-    hut = Hut.objects(id=hut_id).first()
-    if not hut:
-        abort(404)
-
-    today = datetime.now().date()
+def _month_from_args(today):
+    """(year, month) aus Query-Parametern oder aktueller Monat."""
     try:
         year = int(request.args.get('year') or today.year)
         month = int(request.args.get('month') or today.month)
     except ValueError:
-        year, month = today.year, today.month
+        return today.year, today.month
     if not 1 <= month <= 12:
-        year, month = today.year, today.month
+        return today.year, today.month
+    return year, month
 
+
+def _occupancy_weeks(hut, year, month, today):
+    """Wochen-Raster mit Belegung pro Tag; jede Zelle enthält auch die Bucher
+    (entries: label/places/blocked) für die Anzeige an Verwalter."""
     total = hut.total_places()
     first = date(year, month, 1)
     next_first = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
 
-    # Belegte Plätze pro Tag (halb-offen: Abreisetag zählt nicht mehr)
-    occ = {}
+    occ, entries = {}, {}
     for booking in HutBooking.objects(hut=hut, from_date__lt=next_first, to_date__gt=first):
         if not (booking.from_date and booking.to_date):
             continue
+        label = "Gesperrt" if booking.blocked else (booking.name or "Buchung")
         day = max(booking.from_date, first)
         end = min(booking.to_date, next_first)
         while day < end:
             occ[day] = occ.get(day, 0) + (booking.places or 0)
+            entries.setdefault(day, []).append(
+                {'label': label, 'places': booking.places or 0, 'blocked': booking.blocked})
             day += timedelta(days=1)
 
     weeks = []
@@ -149,14 +160,7 @@ def page_hut_calendar(hut_id):
         for day in week:
             used = occ.get(day, 0)
             ratio = (used / total) if total else 0
-            if used == 0:
-                level = 'free'
-            elif ratio >= 1:
-                level = 'full'
-            elif ratio >= 0.75:
-                level = 'high'
-            else:
-                level = 'low'
+            level = 'free' if used == 0 else ('full' if ratio >= 1 else ('high' if ratio >= 0.75 else 'low'))
             row.append({
                 'date': day,
                 'in_month': day.month == month,
@@ -164,22 +168,40 @@ def page_hut_calendar(hut_id):
                 'used': used,
                 'free': total - used,
                 'level': level,
+                'entries': entries.get(day, []),
             })
         weeks.append(row)
+    return weeks
 
+
+def _cal_context(hut, year, month, today, endpoint, extra=None):
+    """Kalender-Kontext inkl. Monats-Navigations-URLs (extra bleibt erhalten)."""
+    extra = extra or {}
     prev_year, prev_month = (year - 1, 12) if month == 1 else (year, month - 1)
     next_year, next_month = (year + 1, 1) if month == 12 else (year, month + 1)
+    return {
+        'weeks': _occupancy_weeks(hut, year, month, today),
+        'weekdays': WEEKDAYS_DE,
+        'month_name': MONTH_NAMES_DE[month],
+        'year': year,
+        'prev_url': url_for(endpoint, hut_id=hut.id, year=prev_year, month=prev_month, **extra),
+        'next_url': url_for(endpoint, hut_id=hut.id, year=next_year, month=next_month, **extra),
+    }
 
+
+@HUTS.route('/huetten/<hut_id>/kalender')
+def page_hut_calendar(hut_id):
+    """Belegungskalender einer Hütte (Auslastung pro Tag)."""
+    hut = Hut.objects(id=hut_id).first()
+    if not hut:
+        abort(404)
+    today = datetime.now().date()
+    year, month = _month_from_args(today)
     context = {
         'hut': hut,
-        'total_places': total,
-        'weeks': weeks,
-        'weekdays': WEEKDAYS_DE,
-        'year': year,
-        'month': month,
-        'month_name': MONTH_NAMES_DE[month],
-        'prev_year': prev_year, 'prev_month': prev_month,
-        'next_year': next_year, 'next_month': next_month,
+        'total_places': hut.total_places(),
+        'cal': _cal_context(hut, year, month, today, 'HUTS.page_hut_calendar'),
+        'can_manage': hut.can_manage(current_user),
     }
     return render_template('hut_calendar.html', **context)
 

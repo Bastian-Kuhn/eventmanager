@@ -1,0 +1,38 @@
+{# Erwartet: cal (weeks, weekdays, month_name, year, prev_url, next_url),
+   total_places, can_manage. #}
+<div class="cal-head">
+  <a class="cal-nav" aria-label="Vorheriger Monat" href="{{ cal.prev_url }}">&larr;</a>
+  <h3 class="cal-title" aria-live="polite">{{ cal.month_name }} {{ cal.year }}</h3>
+  <a class="cal-nav" aria-label="Nächster Monat" href="{{ cal.next_url }}">&rarr;</a>
+</div>
+
+<div class="cal-grid" role="table" aria-label="Belegung {{ cal.month_name }} {{ cal.year }}">
+  <div role="row" style="display:contents">
+    {% for wd in cal.weekdays %}<div class="cal-wd" role="columnheader">{{ wd }}</div>{% endfor %}
+  </div>
+  {% for week in cal.weeks %}
+  <div role="row" style="display:contents">
+    {% for cell in week %}
+    {% set pct = ((cell.used / total_places * 100) if total_places else 0) | round(0, 'ceil') | int %}
+    <div class="cal-day {{ 'outside' if not cell.in_month }} {{ 'today' if cell.is_today }}" role="cell">
+      <div class="cal-dnum">{{ cell.date.day }}</div>
+      {% if cell.in_month and total_places %}
+      <div class="cal-meter" aria-hidden="true">
+        {% if cell.used %}<span class="cal-fill-{{ cell.level if cell.level != 'free' else 'low' }}"
+              style="width: {{ [pct, 100] | min }}%"></span>{% endif %}
+      </div>
+      <div class="cal-occ" aria-label="{{ cell.used }} von {{ total_places }} belegt, {{ cell.free }} frei">
+        <strong>{{ cell.used }}</strong>/{{ total_places }} ·
+        <span class="{{ 'full' if cell.free <= 0 }}">{{ cell.free if cell.free > 0 else 'voll' }}{% if cell.free > 0 %} frei{% endif %}</span>
+        {% if can_manage and cell.entries %}
+        <div class="cal-names">
+          {% for e in cell.entries %}<div>{{ e.label }} ({{ e.places }})</div>{% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+</div>

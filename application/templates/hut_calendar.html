@@ -1,100 +1,24 @@
 {% extends 'base.html' %}
 
-{% block styles %}
-{{ super() }}
-<style>
-  .cal-wrap{
-    --cal-bg:#fff; --cal-fg:#3b4657; --cal-muted:#98a1b3; --cal-line:#eceff3;
-    --cal-track:#f0f2f6; --cal-accent:#3b82f6;
-    --lvl-low:#3aa469; --lvl-high:#e6a52b; --lvl-full:#e2605f;
-  }
-  @media (prefers-color-scheme: dark){
-    .cal-wrap{
-      --cal-bg:#1a1d23; --cal-fg:#d8dce6; --cal-muted:#828b9c; --cal-line:#2b303a;
-      --cal-track:#262b33; --cal-accent:#6aa0ff;
-      --lvl-low:#46c47f; --lvl-high:#f0bd4a; --lvl-full:#f07d7b;
-    }
-  }
-  .cal-head{ display:flex; align-items:center; justify-content:space-between; gap:.75rem; margin-bottom:1rem; }
-  .cal-title{ font-size:1.35rem; font-weight:600; margin:0; color:var(--cal-fg); }
-  .cal-nav{ display:inline-flex; align-items:center; justify-content:center; width:2.4rem; height:2.4rem;
-    border-radius:50%; border:1px solid var(--cal-line); color:var(--cal-fg); background:var(--cal-bg);
-    text-decoration:none; font-size:1.1rem; line-height:1; }
-  .cal-nav:hover{ background:var(--cal-track); color:var(--cal-fg); text-decoration:none; }
-  .cal-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:6px; }
-  .cal-wd{ text-align:center; font-size:.72rem; font-weight:600; letter-spacing:.04em;
-    text-transform:uppercase; color:var(--cal-muted); padding:.15rem 0; }
-  .cal-day{ background:var(--cal-bg); border:1px solid var(--cal-line); border-radius:12px;
-    min-height:5.2rem; padding:.4rem .5rem; display:flex; flex-direction:column; gap:.35rem; }
-  .cal-day.outside{ background:transparent; border-color:transparent; }
-  .cal-day.outside .cal-dnum{ color:var(--cal-muted); opacity:.6; }
-  .cal-day.today{ border-color:var(--cal-accent); box-shadow:inset 0 0 0 1px var(--cal-accent); }
-  .cal-dnum{ font-size:.9rem; font-weight:600; color:var(--cal-fg); }
-  .cal-day.today .cal-dnum{ color:var(--cal-accent); }
-  .cal-meter{ height:6px; border-radius:999px; background:var(--cal-track); overflow:hidden; }
-  .cal-meter > span{ display:block; height:100%; border-radius:999px; }
-  .cal-fill-low{  background:var(--lvl-low); }
-  .cal-fill-high{ background:var(--lvl-high); }
-  .cal-fill-full{ background:var(--lvl-full); }
-  .cal-occ{ font-size:.74rem; color:var(--cal-muted); margin-top:auto; }
-  .cal-occ strong{ color:var(--cal-fg); font-weight:600; }
-  .cal-occ .full{ color:var(--lvl-full); font-weight:600; }
-  .cal-legend{ display:flex; flex-wrap:wrap; gap:1rem; margin-top:1rem; font-size:.8rem; color:var(--cal-muted); }
-  .cal-legend .dot{ display:inline-block; width:.8rem; height:.8rem; border-radius:3px; margin-right:.35rem; vertical-align:-1px; }
-  @media (max-width:576px){ .cal-day{ min-height:4.2rem; border-radius:9px; } .cal-occ{ font-size:.68rem; } }
-</style>
-{% endblock %}
+{% block styles %}{{ super() }}{% include '_hut_styles.html' %}{% endblock %}
 
 {% block page_content %}
-<div class="cal-wrap">
+<div class="hut-portal">
   <nav aria-label="Brotkrümel" class="mb-2">
     <a href="{{ url_for('HUTS.page_hut_detail', hut_id=hut.id) }}">&larr; {{ hut.name }}</a>
   </nav>
 
   <h1 class="h3">Belegungskalender</h1>
-  <p class="text-muted">{{ hut.name }} · Gesamtkapazität {{ total_places }} Plätze
+  <p class="hp-hint">{{ hut.name }} · Gesamtkapazität {{ total_places }} Plätze
     (Anreisetag zählt, Abreisetag nicht).</p>
 
-  <div class="cal-head">
-    <a class="cal-nav" aria-label="Vorheriger Monat"
-       href="{{ url_for('HUTS.page_hut_calendar', hut_id=hut.id, year=prev_year, month=prev_month) }}">&larr;</a>
-    <h2 class="cal-title" aria-live="polite">{{ month_name }} {{ year }}</h2>
-    <a class="cal-nav" aria-label="Nächster Monat"
-       href="{{ url_for('HUTS.page_hut_calendar', hut_id=hut.id, year=next_year, month=next_month) }}">&rarr;</a>
-  </div>
-
-  <div class="cal-grid" role="table" aria-label="Belegung {{ month_name }} {{ year }}">
-    <div role="row" style="display:contents">
-      {% for wd in weekdays %}<div class="cal-wd" role="columnheader">{{ wd }}</div>{% endfor %}
-    </div>
-    {% for week in weeks %}
-    <div role="row" style="display:contents">
-      {% for cell in week %}
-      {% set pct = ((cell.used / total_places * 100) if total_places else 0) | round(0, 'ceil') | int %}
-      <div class="cal-day {{ 'outside' if not cell.in_month }} {{ 'today' if cell.is_today }}" role="cell">
-        <div class="cal-dnum">{{ cell.date.day }}</div>
-        {% if cell.in_month and total_places %}
-        <div class="cal-meter" aria-hidden="true">
-          {% if cell.used %}
-          <span class="cal-fill-{{ cell.level if cell.level != 'free' else 'low' }}"
-                style="width: {{ [pct, 100] | min }}%"></span>
-          {% endif %}
-        </div>
-        <div class="cal-occ">
-          <strong>{{ cell.used }}</strong>/{{ total_places }}
-          · <span class="{{ 'full' if cell.free <= 0 }}">{{ cell.free if cell.free > 0 else 'voll' }}{% if cell.free > 0 %} frei{% endif %}</span>
-        </div>
-        {% endif %}
-      </div>
-      {% endfor %}
-    </div>
-    {% endfor %}
-  </div>
+  {% include '_hut_calendar_grid.html' %}
 
   <div class="cal-legend">
     <span><span class="dot" style="background:var(--lvl-low)"></span>wenig belegt</span>
     <span><span class="dot" style="background:var(--lvl-high)"></span>hoch (≥75%)</span>
     <span><span class="dot" style="background:var(--lvl-full)"></span>voll</span>
+    {% if can_manage %}<span class="hp-hint">Namen sind nur für die Hütten-Verwaltung sichtbar.</span>{% endif %}
   </div>
 </div>
 {% endblock %}
