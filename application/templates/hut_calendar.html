@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+
+{% block styles %}
+{{ super() }}
+<style>
+  .hut-cal { table-layout: fixed; }
+  .hut-cal td { height: 4.5rem; vertical-align: top; }
+  .hut-cal .day-num { font-weight: bold; }
+  .hut-cal .outside { opacity: .45; }
+  .hut-cal .today { outline: 2px solid #0d6efd; outline-offset: -2px; }
+  .hut-cal .lvl-free { background: #e9f7ef; }
+  .hut-cal .lvl-low  { background: #d4edda; }
+  .hut-cal .lvl-high { background: #fff3cd; }
+  .hut-cal .lvl-full { background: #f8d7da; }
+  .hut-cal .occ { font-size: .8rem; }
+  @media (prefers-color-scheme: dark) {
+    .hut-cal .lvl-free { background: #14351f; }
+    .hut-cal .lvl-low  { background: #1c4a2a; }
+    .hut-cal .lvl-high { background: #4d4318; }
+    .hut-cal .lvl-full { background: #4d1f24; }
+  }
+</style>
+{% endblock %}
+
+{% block page_content %}
+<nav aria-label="Brotkrümel">
+  <a href="{{ url_for('HUTS.page_hut_detail', hut_id=hut.id) }}">&larr; {{ hut.name }}</a>
+</nav>
+
+<h1>Belegungskalender – {{ hut.name }}</h1>
+<p class="text-muted">Gesamtkapazität: {{ total_places }} Plätze. Angezeigt werden die belegten
+  Plätze je Tag (Anreisetag zählt, Abreisetag nicht).</p>
+
+<div class="d-flex justify-content-between align-items-center mb-2">
+  <a class="btn btn-outline-secondary btn-sm"
+     href="{{ url_for('HUTS.page_hut_calendar', hut_id=hut.id, year=prev_year, month=prev_month) }}"
+     aria-label="Vorheriger Monat">&larr; {{ prev_month }}/{{ prev_year }}</a>
+  <h2 class="h4 mb-0" aria-live="polite">{{ month_name }} {{ year }}</h2>
+  <a class="btn btn-outline-secondary btn-sm"
+     href="{{ url_for('HUTS.page_hut_calendar', hut_id=hut.id, year=next_year, month=next_month) }}"
+     aria-label="Nächster Monat">{{ next_month }}/{{ next_year }} &rarr;</a>
+</div>
+
+<div class="table-responsive">
+  <table class="table table-bordered text-center hut-cal">
+    <caption class="sr-only">Belegung pro Tag im {{ month_name }} {{ year }}</caption>
+    <thead>
+      <tr>{% for wd in weekdays %}<th scope="col">{{ wd }}</th>{% endfor %}</tr>
+    </thead>
+    <tbody>
+      {% for week in weeks %}
+      <tr>
+        {% for cell in week %}
+        <td class="{{ 'lvl-' ~ cell.level if cell.in_month else '' }} {{ 'outside' if not cell.in_month }} {{ 'today' if cell.is_today }}">
+          <div class="day-num">{{ cell.date.day }}</div>
+          {% if cell.in_month and total_places %}
+          <div class="occ" aria-label="{{ cell.used }} von {{ total_places }} Plätzen belegt, {{ cell.free }} frei">
+            {{ cell.used }}/{{ total_places }}
+            <br><span class="{{ 'text-danger' if cell.free <= 0 else 'text-muted' }}">{{ cell.free }} frei</span>
+          </div>
+          {% endif %}
+        </td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<p class="occ">
+  <span class="badge lvl-low">wenig</span>
+  <span class="badge lvl-high">hoch (≥75%)</span>
+  <span class="badge lvl-full">voll</span>
+</p>
+{% endblock %}

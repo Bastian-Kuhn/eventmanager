@@ -205,6 +205,18 @@ def inject_hut_management():
         pass
     return {'manages_huts': False}
 
+@app.context_processor
+def inject_hut_nav():
+    """Nav-Infos: Anzahl Huetten (0/1/mehr) und id der einzigen Huette."""
+    try:
+        ids = [str(h.id) for h in Hut.objects.only('id').limit(2)]
+        return {
+            'hut_count': len(ids),
+            'single_hut_id': ids[0] if len(ids) == 1 else None,
+        }
+    except Exception:  # pylint: disable=broad-except
+        return {'hut_count': 0, 'single_hut_id': None}
+
 #System
 admin.add_view(EventView(Event))
 admin.add_view(HutView(Hut, name="Hütten"))

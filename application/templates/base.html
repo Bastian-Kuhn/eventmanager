@@ -12,7 +12,11 @@
   <div class="collapse navbar-collapse" id="navbarSupportedContent">
     <ul class="navbar-nav mr-auto">
       <li class="nav-item"><a class="nav-link" href="/">Startseite</a></li>
+      {% if hut_count == 1 %}
+      <li class="nav-item"><a class="nav-link" href="{{ url_for('HUTS.page_hut_detail', hut_id=single_hut_id) }}">Hütte</a></li>
+      {% elif hut_count > 1 %}
       <li class="nav-item"><a class="nav-link" href="{{ url_for('HUTS.page_huts') }}">Hütten</a></li>
+      {% endif %}
       {% if not current_user.is_authenticated %}
       <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.login') }}">Login</a></li>
       <li class="nav-item"><a class="nav-link" href="{{ url_for('USER.page_user_create') }}">Registrieren</a></li>

@@ -4,13 +4,18 @@ Mitglieder (sofort bestätigt oder – je Hütte – Freigabe durch Hütten-Admi
 sowie eine Freigabe-Übersicht für Hütten-Admins.
 """
 #pylint: disable=no-member
-from datetime import datetime
+import calendar as _calendar
+from datetime import datetime, date, timedelta
 from flask import Blueprint, render_template, request, redirect, url_for, flash, abort
 from flask_login import current_user, login_required
 
 from application.huts.models import Hut, HutBooking
 
 HUTS = Blueprint('HUTS', __name__)
+
+MONTH_NAMES_DE = ["", "Januar", "Februar", "März", "April", "Mai", "Juni", "Juli",
+                  "August", "September", "Oktober", "November", "Dezember"]
+WEEKDAYS_DE = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
 
 
 def _parse_date(value):
@@ -34,7 +39,11 @@ def _manageable_huts(user):
 
 @HUTS.route('/huetten')
 def page_huts():
-    """Öffentliche Übersicht aller Hütten."""
+    """Öffentliche Übersicht aller Hütten. Bei nur einer Hütte direkt zur Detailseite."""
+    if Hut.objects.count() == 1:
+        only = Hut.objects.first()
+        return redirect(url_for('HUTS.page_hut_detail', hut_id=only.id))
+
     from_date = _parse_date(request.args.get('from_date'))
     to_date = _parse_date(request.args.get('to_date'))
     range_active = bool(from_date and to_date and from_date < to_date)
@@ -101,6 +110,78 @@ def page_hut_detail(hut_id):
         'pending': pending,
     }
     return render_template('hut_detail.html', **context)
+
+
+@HUTS.route('/huetten/<hut_id>/kalender')
+def page_hut_calendar(hut_id):
+    """Belegungskalender einer Hütte (Auslastung pro Tag)."""
+    hut = Hut.objects(id=hut_id).first()
+    if not hut:
+        abort(404)
+
+    today = datetime.now().date()
+    try:
+        year = int(request.args.get('year') or today.year)
+        month = int(request.args.get('month') or today.month)
+    except ValueError:
+        year, month = today.year, today.month
+    if not 1 <= month <= 12:
+        year, month = today.year, today.month
+
+    total = hut.total_places()
+    first = date(year, month, 1)
+    next_first = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
+
+    # Belegte Plätze pro Tag (halb-offen: Abreisetag zählt nicht mehr)
+    occ = {}
+    for booking in HutBooking.objects(hut=hut, from_date__lt=next_first, to_date__gt=first):
+        if not (booking.from_date and booking.to_date):
+            continue
+        day = max(booking.from_date, first)
+        end = min(booking.to_date, next_first)
+        while day < end:
+            occ[day] = occ.get(day, 0) + (booking.places or 0)
+            day += timedelta(days=1)
+
+    weeks = []
+    for week in _calendar.Calendar(firstweekday=0).monthdatescalendar(year, month):
+        row = []
+        for day in week:
+            used = occ.get(day, 0)
+            ratio = (used / total) if total else 0
+            if used == 0:
+                level = 'free'
+            elif ratio >= 1:
+                level = 'full'
+            elif ratio >= 0.75:
+                level = 'high'
+            else:
+                level = 'low'
+            row.append({
+                'date': day,
+                'in_month': day.month == month,
+                'is_today': day == today,
+                'used': used,
+                'free': total - used,
+                'level': level,
+            })
+        weeks.append(row)
+
+    prev_year, prev_month = (year - 1, 12) if month == 1 else (year, month - 1)
+    next_year, next_month = (year + 1, 1) if month == 12 else (year, month + 1)
+
+    context = {
+        'hut': hut,
+        'total_places': total,
+        'weeks': weeks,
+        'weekdays': WEEKDAYS_DE,
+        'year': year,
+        'month': month,
+        'month_name': MONTH_NAMES_DE[month],
+        'prev_year': prev_year, 'prev_month': prev_month,
+        'next_year': next_year, 'next_month': next_month,
+    }
+    return render_template('hut_calendar.html', **context)
 
 
 @HUTS.route('/huetten/<hut_id>/book', methods=['POST'])

@@ -46,6 +46,12 @@
   {% if hut.note %}<dt class="col-sm-3">Notiz</dt><dd class="col-sm-9">{{ hut.note }}</dd>{% endif %}
 </dl>
 
+<p>
+  <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('HUTS.page_hut_calendar', hut_id=hut.id) }}">
+    Belegungskalender ansehen
+  </a>
+</p>
+
 {% if hut.rooms %}
 <h2 class="h5">Zimmer</h2>
 <ul>
