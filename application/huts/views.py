@@ -117,7 +117,7 @@ def book_hut(hut_id):
         places = int(request.form.get('places') or 0)
     except ValueError:
         places = 0
-    room = request.form.get('room') or None
+    rooms = [r for r in request.form.getlist('rooms') if r]
     comment = request.form.get('comment') or None
 
     back = url_for('HUTS.page_hut_detail', hut_id=hut_id,
@@ -142,7 +142,7 @@ def book_hut(hut_id):
         from_date=from_date,
         to_date=to_date,
         places=places,
-        room=room,
+        rooms=rooms,
         comment=comment,
         name=f"{current_user.first_name} {current_user.last_name}",
         user=current_user,

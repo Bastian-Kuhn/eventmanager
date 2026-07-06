@@ -164,7 +164,7 @@
               <td>{{ b.from_date.strftime('%d.%m.%Y') if b.from_date else '–' }} –
                   {{ b.to_date.strftime('%d.%m.%Y') if b.to_date else '–' }}</td>
               <td class="text-right">{{ b.places }}</td>
-              <td>{{ b.room or '–' }}</td>
+              <td>{{ b.rooms | join(', ') if b.rooms else '–' }}</td>
               <td>
                 {% if b.confirmed %}<span class="badge badge-success">Bestätigt</span>
                 {% else %}<span class="badge badge-warning">Anfrage – wartet auf Freigabe</span>{% endif %}

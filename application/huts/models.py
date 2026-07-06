@@ -88,7 +88,7 @@ class HutBooking(db.Document):
     from_date = db.DateField()
     to_date = db.DateField()
     places = db.IntField(default=0)
-    room = db.StringField()               # optional: bestimmtes Zimmer
+    rooms = db.ListField(field=db.StringField())  # optional: gewählte Zimmer (mehrere)
     name = db.StringField()               # wer bucht (Freitext, z.B. Gruppe)
     user = db.ReferenceField(document_type='User')      # optional
     event = db.ReferenceField(document_type='Event')    # optional: verknüpfte Tour

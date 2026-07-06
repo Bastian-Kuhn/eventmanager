@@ -33,7 +33,7 @@
               {{ b.to_date.strftime('%d.%m.%Y') if b.to_date else '–' }}</td>
           <td>{{ b.name or '–' }}</td>
           <td class="text-right">{{ b.places }}</td>
-          <td>{{ b.room or '–' }}</td>
+          <td>{{ b.rooms | join(', ') if b.rooms else '–' }}</td>
           <td>{{ b.comment or '' }}</td>
           <td class="text-right text-nowrap">
             <form method="POST" action="{{ url_for('HUTS.confirm_booking', hut_id=hut.id, booking_id=b.id) }}" class="d-inline">
@@ -70,7 +70,7 @@
                 {{ b.to_date.strftime('%d.%m.%Y') if b.to_date else '–' }}</td>
             <td>{{ b.name or '–' }}{% if b.event %} <span class="badge badge-light">Tour</span>{% endif %}</td>
             <td class="text-right">{{ b.places }}</td>
-            <td>{{ b.room or '–' }}</td>
+            <td>{{ b.rooms | join(', ') if b.rooms else '–' }}</td>
             <td class="text-right">
               <form method="POST" action="{{ url_for('HUTS.cancel_booking', hut_id=hut.id, booking_id=b.id) }}" class="d-inline"
                     onsubmit="return confirm('Buchung stornieren?');">

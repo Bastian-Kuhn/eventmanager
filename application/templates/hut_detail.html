@@ -5,7 +5,7 @@
   <td>{{ b.from_date.strftime('%d.%m.%Y') if b.from_date else '–' }} –
       {{ b.to_date.strftime('%d.%m.%Y') if b.to_date else '–' }}</td>
   <td class="text-right">{{ b.places }}</td>
-  <td>{{ b.room or '–' }}</td>
+  <td>{{ b.rooms | join(', ') if b.rooms else '–' }}</td>
   {% if show_status %}
   <td>
     {% if b.confirmed %}<span class="badge badge-success">Bestätigt</span>
@@ -76,14 +76,23 @@
       <label for="places">Plätze</label>
       <input type="number" min="1" class="form-control" id="places" name="places" value="1" required>
     </div>
-    <div class="form-group col-6 col-md-4">
-      <label for="room">Zimmer (optional)</label>
-      <select class="form-control" id="room" name="room">
-        <option value="">– beliebig –</option>
+    <div class="form-group col-12 col-md-4">
+      {% if hut.rooms %}
+      <fieldset>
+        <legend class="col-form-label pt-0">Zimmer (optional, mehrere möglich)</legend>
         {% for room in hut.rooms %}
-        {% if room.name %}<option value="{{ room.name }}">{{ room.name }}</option>{% endif %}
+        {% if room.name %}
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="rooms"
+                 id="room-{{ loop.index }}" value="{{ room.name }}">
+          <label class="form-check-label" for="room-{{ loop.index }}">
+            {{ room.name }} ({{ room.places }} Plätze)
+          </label>
+        </div>
+        {% endif %}
         {% endfor %}
-      </select>
+      </fieldset>
+      {% endif %}
     </div>
   </div>
   <div class="form-group">
@@ -125,7 +134,7 @@
       <tr>
         <td>{{ b.from_date.strftime('%d.%m.%Y') if b.from_date else '–' }} – {{ b.to_date.strftime('%d.%m.%Y') if b.to_date else '–' }}<br><small class="text-muted">{{ b.name }}</small></td>
         <td class="text-right">{{ b.places }}</td>
-        <td>{{ b.room or '–' }}</td>
+        <td>{{ b.rooms | join(', ') if b.rooms else '–' }}</td>
         <td class="text-right">
           <form method="POST" action="{{ url_for('HUTS.confirm_booking', hut_id=hut.id, booking_id=b.id) }}" class="d-inline">
             <button type="submit" class="btn btn-sm btn-success">Freigeben</button>

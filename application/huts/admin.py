@@ -60,7 +60,7 @@ class HutBookingView(CustomModelView):
     page_size = 100
     can_set_page_size = True
 
-    column_list = ('hut', 'from_date', 'to_date', 'places', 'room', 'name',
+    column_list = ('hut', 'from_date', 'to_date', 'places', 'rooms', 'name',
                    'confirmed', 'event')
     column_sortable_list = ('from_date', 'to_date', 'confirmed')
     column_filters = ('confirmed',)
@@ -69,14 +69,14 @@ class HutBookingView(CustomModelView):
         'from_date': 'Von',
         'to_date': 'Bis',
         'places': 'Plätze',
-        'room': 'Zimmer',
+        'rooms': 'Zimmer',
         'name': 'Bucher',
         'confirmed': 'Bestätigt',
         'event': 'Tour',
         'user': 'Mitglied',
         'comment': 'Kommentar',
     }
-    form_columns = ('hut', 'from_date', 'to_date', 'places', 'room', 'name',
+    form_columns = ('hut', 'from_date', 'to_date', 'places', 'rooms', 'name',
                     'user', 'event', 'comment', 'confirmed')
 
     def is_accessible(self):
