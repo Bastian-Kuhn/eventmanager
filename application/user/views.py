@@ -45,10 +45,16 @@ def page_user_profil():
         })
     past_events.sort(key=lambda item: item['event'].start_date or datetime.min, reverse=True)
 
+    # Eigene Hüttenbuchungen und -anfragen
+    from application.huts.models import HutBooking
+    my_hut_bookings = list(
+        HutBooking.objects(user=current_user).order_by('-from_date'))
+
     context = {
         'consent_form': consent_form,
         'password_form': password_form,
         'past_events': past_events,
+        'hut_bookings': my_hut_bookings,
     }
     return render_template('user_profile.html', **context)
 

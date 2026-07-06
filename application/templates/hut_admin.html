@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+
+{% block page_content %}
+<h1>Hütten-Freigaben</h1>
+<p class="text-muted">Buchungsanfragen deiner Hütten freigeben oder ablehnen.</p>
+
+{% set total_pending = groups | sum(attribute='pending', start=[]) | length %}
+{% if total_pending == 0 %}
+<div class="alert alert-info" role="alert">Aktuell keine offenen Anfragen.</div>
+{% endif %}
+
+{% for group in groups %}
+{% set hut = group.hut %}
+<section class="mb-4" aria-labelledby="hut-{{ hut.id }}">
+  <h2 class="h4" id="hut-{{ hut.id }}">
+    <a href="{{ url_for('HUTS.page_hut_detail', hut_id=hut.id) }}">{{ hut.name }}</a>
+    {% if group.pending %}<span class="badge badge-warning">{{ group.pending|length }} offen</span>{% endif %}
+  </h2>
+
+  {% if group.pending %}
+  <div class="table-responsive">
+    <table class="table table-sm">
+      <caption class="sr-only">Offene Anfragen für {{ hut.name }}</caption>
+      <thead>
+        <tr><th scope="col">Zeitraum</th><th scope="col">Bucher</th>
+            <th scope="col" class="text-right">Plätze</th><th scope="col">Zimmer</th>
+            <th scope="col">Kommentar</th><th scope="col"></th></tr>
+      </thead>
+      <tbody>
+        {% for b in group.pending %}
+        <tr>
+          <td>{{ b.from_date.strftime('%d.%m.%Y') if b.from_date else '–' }} –
+              {{ b.to_date.strftime('%d.%m.%Y') if b.to_date else '–' }}</td>
+          <td>{{ b.name or '–' }}</td>
+          <td class="text-right">{{ b.places }}</td>
+          <td>{{ b.room or '–' }}</td>
+          <td>{{ b.comment or '' }}</td>
+          <td class="text-right text-nowrap">
+            <form method="POST" action="{{ url_for('HUTS.confirm_booking', hut_id=hut.id, booking_id=b.id) }}" class="d-inline">
+              <input type="hidden" name="next" value="{{ url_for('HUTS.page_hut_admin') }}">
+              <button type="submit" class="btn btn-sm btn-success">Freigeben</button>
+            </form>
+            <form method="POST" action="{{ url_for('HUTS.cancel_booking', hut_id=hut.id, booking_id=b.id) }}" class="d-inline"
+                  onsubmit="return confirm('Anfrage ablehnen und entfernen?');">
+              <input type="hidden" name="next" value="{{ url_for('HUTS.page_hut_admin') }}">
+              <button type="submit" class="btn btn-sm btn-outline-danger">Ablehnen</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-muted"><small>Keine offenen Anfragen.</small></p>
+  {% endif %}
+
+  {% if group.confirmed %}
+  <details>
+    <summary>{{ group.confirmed|length }} bestätigte Buchung(en) anzeigen</summary>
+    <div class="table-responsive mt-2">
+      <table class="table table-sm">
+        <caption class="sr-only">Bestätigte Buchungen für {{ hut.name }}</caption>
+        <thead><tr><th scope="col">Zeitraum</th><th scope="col">Bucher</th>
+               <th scope="col" class="text-right">Plätze</th><th scope="col">Zimmer</th><th scope="col"></th></tr></thead>
+        <tbody>
+          {% for b in group.confirmed %}
+          <tr>
+            <td>{{ b.from_date.strftime('%d.%m.%Y') if b.from_date else '–' }} –
+                {{ b.to_date.strftime('%d.%m.%Y') if b.to_date else '–' }}</td>
+            <td>{{ b.name or '–' }}{% if b.event %} <span class="badge badge-light">Tour</span>{% endif %}</td>
+            <td class="text-right">{{ b.places }}</td>
+            <td>{{ b.room or '–' }}</td>
+            <td class="text-right">
+              <form method="POST" action="{{ url_for('HUTS.cancel_booking', hut_id=hut.id, booking_id=b.id) }}" class="d-inline"
+                    onsubmit="return confirm('Buchung stornieren?');">
+                <input type="hidden" name="next" value="{{ url_for('HUTS.page_hut_admin') }}">
+                <button type="submit" class="btn btn-sm btn-outline-danger">Stornieren</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </details>
+  {% endif %}
+</section>
+{% endfor %}
+{% endblock %}

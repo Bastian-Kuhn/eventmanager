@@ -132,4 +132,59 @@
     </section>
   </div>
 </div>
+
+<!-- Hüttenbuchungen -->
+<div class="row">
+  <div class="col-12">
+    <section aria-labelledby="hutbookings-heading">
+      <h2 class="h4" id="hutbookings-heading">Meine Hüttenbuchungen</h2>
+      {% if not hut_bookings %}
+      <p class="text-muted">Du hast noch keine Hüttenbuchungen. Zu den
+        <a href="{{ url_for('HUTS.page_huts') }}">Hütten</a>.</p>
+      {% else %}
+      <div class="table-responsive">
+        <table class="table table-striped align-middle">
+          <caption class="sr-only">Deine Hüttenbuchungen und -anfragen</caption>
+          <thead>
+            <tr>
+              <th scope="col">Hütte</th>
+              <th scope="col">Zeitraum</th>
+              <th scope="col" class="text-right">Plätze</th>
+              <th scope="col">Zimmer</th>
+              <th scope="col">Status</th>
+              <th scope="col"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for b in hut_bookings %}
+            <tr>
+              <th scope="row" class="font-weight-normal">
+                {% if b.hut %}<a href="{{ url_for('HUTS.page_hut_detail', hut_id=b.hut.id) }}">{{ b.hut.name }}</a>{% else %}–{% endif %}
+              </th>
+              <td>{{ b.from_date.strftime('%d.%m.%Y') if b.from_date else '–' }} –
+                  {{ b.to_date.strftime('%d.%m.%Y') if b.to_date else '–' }}</td>
+              <td class="text-right">{{ b.places }}</td>
+              <td>{{ b.room or '–' }}</td>
+              <td>
+                {% if b.confirmed %}<span class="badge badge-success">Bestätigt</span>
+                {% else %}<span class="badge badge-warning">Anfrage – wartet auf Freigabe</span>{% endif %}
+              </td>
+              <td class="text-right">
+                {% if b.hut %}
+                <form method="POST" action="{{ url_for('HUTS.cancel_booking', hut_id=b.hut.id, booking_id=b.id) }}" class="d-inline"
+                      onsubmit="return confirm('Buchung wirklich stornieren?');">
+                  <input type="hidden" name="next" value="{{ url_for('USER.page_user_profil') }}">
+                  <button type="submit" class="btn btn-sm btn-outline-danger">Stornieren</button>
+                </form>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+    </section>
+  </div>
+</div>
 {% endblock %}

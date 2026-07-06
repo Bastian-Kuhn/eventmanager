@@ -12,7 +12,7 @@ import base64
 from pprint import pformat
 from redis import Redis
 from flask import Flask, session, request, send_from_directory
-from flask_login import LoginManager
+from flask_login import LoginManager, current_user
 from flask_request_id_header.middleware import RequestID
 from flask_admin import Admin
 from flask_admin.menu import MenuLink
@@ -168,8 +168,8 @@ from application.views.members import MemberView
 from application.events.models import Event
 from application.events.admin import EventView
 
-from application.huts.models import Hut
-from application.huts.admin import HutView
+from application.huts.models import Hut, HutBooking
+from application.huts.admin import HutView, HutBookingView
 
 
 admin = Admin(app, name="Admin", index_view=IndexView())
@@ -193,9 +193,22 @@ app.jinja_env.globals.update(age=age)
 def inject_now():
     return {'now': datetime.utcnow()}
 
+@app.context_processor
+def inject_hut_management():
+    """Flag fuer die Nav: darf der User Huetten-Buchungen freigeben?"""
+    try:
+        if current_user.is_authenticated:
+            if current_user.has_right('guide'):
+                return {'manages_huts': True}
+            return {'manages_huts': Hut.objects(admins=current_user).count() > 0}
+    except Exception:  # pylint: disable=broad-except
+        pass
+    return {'manages_huts': False}
+
 #System
 admin.add_view(EventView(Event))
 admin.add_view(HutView(Hut, name="Hütten"))
+admin.add_view(HutBookingView(HutBooking, name="Hüttenbuchungen"))
 admin.add_view(MemberView(User, name="Mitglieder", endpoint="Members"))
 admin.add_view(UserView(User, category='System'))
 admin.add_view(ConfigModelView(Config, category='System'))

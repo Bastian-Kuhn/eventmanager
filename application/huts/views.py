@@ -1,9 +1,9 @@
 """
 Öffentliche Hütten-Seiten: Übersicht, Detailseite mit Selbst-Buchung durch
-Mitglieder (sofort bestätigt oder – je Hütte – Freigabe durch Hütten-Admin/Guide).
+Mitglieder (sofort bestätigt oder – je Hütte – Freigabe durch Hütten-Admin/Guide)
+sowie eine Freigabe-Übersicht für Hütten-Admins.
 """
 #pylint: disable=no-member
-import uuid
 from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, flash, abort
 from flask_login import current_user, login_required
@@ -21,6 +21,15 @@ def _parse_date(value):
         return datetime.strptime(value, "%Y-%m-%d").date()
     except ValueError:
         return None
+
+
+def _manageable_huts(user):
+    """Hütten, deren Buchungen der User freigeben darf."""
+    if not (user and user.is_authenticated):
+        return []
+    if user.has_right('guide'):
+        return list(Hut.objects.order_by('name'))
+    return list(Hut.objects(admins=user).order_by('name'))
 
 
 @HUTS.route('/huetten')
@@ -47,6 +56,21 @@ def page_huts():
     )
 
 
+@HUTS.route('/huetten/verwaltung')
+@login_required
+def page_hut_admin():
+    """Freigabe-Übersicht für Hütten-Admins/Guides über alle verwalteten Hütten."""
+    huts = _manageable_huts(current_user)
+    if not huts:
+        abort(403)
+    groups = []
+    for hut in huts:
+        pending = list(HutBooking.objects(hut=hut, confirmed=False).order_by('from_date'))
+        upcoming = list(HutBooking.objects(hut=hut, confirmed=True).order_by('from_date'))
+        groups.append({'hut': hut, 'pending': pending, 'confirmed': upcoming})
+    return render_template('hut_admin.html', groups=groups)
+
+
 @HUTS.route('/huetten/<hut_id>')
 def page_hut_detail(hut_id):
     """Detailseite einer Hütte inkl. Buchungsformular und Buchungsstatus."""
@@ -61,10 +85,9 @@ def page_hut_detail(hut_id):
     can_manage = hut.can_manage(current_user)
     my_bookings, pending = [], []
     if current_user.is_authenticated:
-        my_bookings = [b for b in hut.bookings
-                       if b.user and str(b.user.id) == str(current_user.id)]
+        my_bookings = list(HutBooking.objects(hut=hut, user=current_user).order_by('from_date'))
     if can_manage:
-        pending = [b for b in hut.bookings if not b.confirmed]
+        pending = list(HutBooking.objects(hut=hut, confirmed=False).order_by('from_date'))
 
     context = {
         'hut': hut,
@@ -114,8 +137,8 @@ def book_hut(hut_id):
         return redirect(back)
 
     confirmed = not hut.requires_approval
-    hut.bookings.append(HutBooking(
-        booking_id=uuid.uuid4().hex,
+    HutBooking(
+        hut=hut,
         from_date=from_date,
         to_date=to_date,
         places=places,
@@ -124,8 +147,7 @@ def book_hut(hut_id):
         name=f"{current_user.first_name} {current_user.last_name}",
         user=current_user,
         confirmed=confirmed,
-    ))
-    hut.save()
+    ).save()
 
     if confirmed:
         flash("Buchung bestätigt.", 'success')
@@ -135,41 +157,37 @@ def book_hut(hut_id):
     return redirect(url_for('HUTS.page_hut_detail', hut_id=hut_id))
 
 
+def _load_booking_or_404(hut_id, booking_id):
+    hut = Hut.objects(id=hut_id).first()
+    if not hut:
+        abort(404)
+    booking = HutBooking.objects(id=booking_id, hut=hut).first()
+    if not booking:
+        abort(404)
+    return hut, booking
+
+
 @HUTS.route('/huetten/<hut_id>/booking/<booking_id>/cancel', methods=['POST'])
 @login_required
 def cancel_booking(hut_id, booking_id):
     """Eigene Buchung stornieren (oder durch Hütten-Admin/Guide entfernen/ablehnen)."""
-    hut = Hut.objects(id=hut_id).first()
-    if not hut:
-        abort(404)
-    booking = hut.get_booking(booking_id)
-    if not booking:
-        abort(404)
-
+    hut, booking = _load_booking_or_404(hut_id, booking_id)
     is_own = booking.user and str(booking.user.id) == str(current_user.id)
     if not (is_own or hut.can_manage(current_user)):
         abort(403)
-
-    hut.bookings = [b for b in hut.bookings if b.booking_id != booking_id]
-    hut.save()
+    booking.delete()
     flash("Buchung storniert.", 'success')
-    return redirect(url_for('HUTS.page_hut_detail', hut_id=hut_id))
+    return redirect(request.form.get('next') or url_for('HUTS.page_hut_detail', hut_id=hut_id))
 
 
 @HUTS.route('/huetten/<hut_id>/booking/<booking_id>/confirm', methods=['POST'])
 @login_required
 def confirm_booking(hut_id, booking_id):
     """Hütten-Admin/Guide gibt eine wartende Buchung frei."""
-    hut = Hut.objects(id=hut_id).first()
-    if not hut:
-        abort(404)
+    hut, booking = _load_booking_or_404(hut_id, booking_id)
     if not hut.can_manage(current_user):
         abort(403)
-    booking = hut.get_booking(booking_id)
-    if not booking:
-        abort(404)
-
     booking.confirmed = True
-    hut.save()
+    booking.save()
     flash("Buchung freigegeben.", 'success')
-    return redirect(url_for('HUTS.page_hut_detail', hut_id=hut_id))
+    return redirect(request.form.get('next') or url_for('HUTS.page_hut_detail', hut_id=hut_id))

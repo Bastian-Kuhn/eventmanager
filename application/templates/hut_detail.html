@@ -14,12 +14,12 @@
   {% endif %}
   <td class="text-right">
     {% if show_confirm and not b.confirmed %}
-    <form method="POST" action="{{ url_for('HUTS.confirm_booking', hut_id=hut.id, booking_id=b.booking_id) }}" class="d-inline">
+    <form method="POST" action="{{ url_for('HUTS.confirm_booking', hut_id=hut.id, booking_id=b.id) }}" class="d-inline">
       <button type="submit" class="btn btn-sm btn-success">Freigeben</button>
     </form>
     {% endif %}
     {% if show_cancel %}
-    <form method="POST" action="{{ url_for('HUTS.cancel_booking', hut_id=hut.id, booking_id=b.booking_id) }}" class="d-inline"
+    <form method="POST" action="{{ url_for('HUTS.cancel_booking', hut_id=hut.id, booking_id=b.id) }}" class="d-inline"
           onsubmit="return confirm('Buchung wirklich stornieren?');">
       <button type="submit" class="btn btn-sm btn-outline-danger">Stornieren</button>
     </form>
@@ -127,10 +127,10 @@
         <td class="text-right">{{ b.places }}</td>
         <td>{{ b.room or '–' }}</td>
         <td class="text-right">
-          <form method="POST" action="{{ url_for('HUTS.confirm_booking', hut_id=hut.id, booking_id=b.booking_id) }}" class="d-inline">
+          <form method="POST" action="{{ url_for('HUTS.confirm_booking', hut_id=hut.id, booking_id=b.id) }}" class="d-inline">
             <button type="submit" class="btn btn-sm btn-success">Freigeben</button>
           </form>
-          <form method="POST" action="{{ url_for('HUTS.cancel_booking', hut_id=hut.id, booking_id=b.booking_id) }}" class="d-inline"
+          <form method="POST" action="{{ url_for('HUTS.cancel_booking', hut_id=hut.id, booking_id=b.id) }}" class="d-inline"
                 onsubmit="return confirm('Buchung ablehnen und entfernen?');">
             <button type="submit" class="btn btn-sm btn-outline-danger">Ablehnen</button>
           </form>
