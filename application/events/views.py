@@ -18,7 +18,7 @@ from markupsafe import Markup
 from mongoengine import Q
 from application.events.models import Event, EventParticipation,\
                              CustomField, CustomFieldDefintion, Ticket, OwnedTicket, EventCost, difficulties
-from application.huts.models import Hut
+from application.huts.models import Hut, sync_event_booking
 
 
 def hut_choices():
@@ -196,6 +196,8 @@ def save_event_form(event):
         event.tickets.append(ticket)
 
     event.save()
+    # Verknüpfte Hüttenbuchung (an-)legen/aktualisieren bzw. entfernen
+    sync_event_booking(event)
     return True
 #.
 #   . Event My Booking Page

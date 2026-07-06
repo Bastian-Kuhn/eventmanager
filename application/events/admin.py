@@ -6,6 +6,7 @@ Models for flask_admin
 #pylint: disable=too-few-public-methods
 from flask_login import current_user
 from application.views.default import CustomModelView
+from application.huts.models import remove_event_booking
 
 class EventView(CustomModelView):
     """
@@ -25,3 +26,7 @@ class EventView(CustomModelView):
 
     def is_accessible(self):
         return current_user.is_authenticated and current_user.has_right('guide')
+
+    def on_model_delete(self, model):
+        """Verknüpfte Hüttenbuchung mit dem Event mitentfernen."""
+        remove_event_booking(model)
