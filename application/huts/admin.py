@@ -16,14 +16,17 @@ class HutView(CustomModelView):
     page_size = 100
     can_set_page_size = True
 
-    column_list = ('name', 'region', 'managed', 'total_places', 'contact', 'phone')
+    column_list = ('name', 'region', 'managed', 'total_places', 'requires_approval',
+                   'contact', 'phone')
     column_sortable_list = ('name', 'region')
-    column_filters = ('name', 'region', 'managed')
+    column_filters = ('name', 'region', 'managed', 'requires_approval')
     column_labels = {
         'name': 'Name',
         'region': 'Region/Ort',
         'managed': 'Bewirtschaftet',
         'total_places': 'Schlafplätze',
+        'requires_approval': 'Freigabe nötig',
+        'admins': 'Hütten-Admins',
         'contact': 'Kontakt',
         'phone': 'Telefon',
         'link': 'Link',
@@ -35,8 +38,8 @@ class HutView(CustomModelView):
     column_formatters = {
         'total_places': lambda view, context, model, name: model.total_places(),
     }
-    form_columns = ('name', 'region', 'managed', 'contact', 'phone', 'link',
-                    'note', 'rooms', 'bookings')
+    form_columns = ('name', 'region', 'managed', 'requires_approval', 'admins',
+                    'contact', 'phone', 'link', 'note', 'rooms', 'bookings')
 
     def is_accessible(self):
         return current_user.is_authenticated and current_user.has_right('guide')

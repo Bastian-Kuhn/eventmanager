@@ -1,0 +1,147 @@
+{% extends 'base.html' %}
+
+{% macro booking_row(hut, b, show_status, show_cancel, show_confirm) %}
+<tr>
+  <td>{{ b.from_date.strftime('%d.%m.%Y') if b.from_date else '–' }} –
+      {{ b.to_date.strftime('%d.%m.%Y') if b.to_date else '–' }}</td>
+  <td class="text-right">{{ b.places }}</td>
+  <td>{{ b.room or '–' }}</td>
+  {% if show_status %}
+  <td>
+    {% if b.confirmed %}<span class="badge badge-success">Bestätigt</span>
+    {% else %}<span class="badge badge-warning">Wartet auf Freigabe</span>{% endif %}
+  </td>
+  {% endif %}
+  <td class="text-right">
+    {% if show_confirm and not b.confirmed %}
+    <form method="POST" action="{{ url_for('HUTS.confirm_booking', hut_id=hut.id, booking_id=b.booking_id) }}" class="d-inline">
+      <button type="submit" class="btn btn-sm btn-success">Freigeben</button>
+    </form>
+    {% endif %}
+    {% if show_cancel %}
+    <form method="POST" action="{{ url_for('HUTS.cancel_booking', hut_id=hut.id, booking_id=b.booking_id) }}" class="d-inline"
+          onsubmit="return confirm('Buchung wirklich stornieren?');">
+      <button type="submit" class="btn btn-sm btn-outline-danger">Stornieren</button>
+    </form>
+    {% endif %}
+  </td>
+</tr>
+{% endmacro %}
+
+{% block page_content %}
+<nav aria-label="Brotkrümel">
+  <a href="{{ url_for('HUTS.page_huts') }}">&larr; Alle Hütten</a>
+</nav>
+
+<h1>{{ hut.name }}</h1>
+<dl class="row">
+  {% if hut.region %}<dt class="col-sm-3">Region/Ort</dt><dd class="col-sm-9">{{ hut.region }}</dd>{% endif %}
+  <dt class="col-sm-3">Bewirtschaftet</dt><dd class="col-sm-9">{{ 'Ja' if hut.managed else 'Nein' }}</dd>
+  <dt class="col-sm-3">Schlafplätze</dt><dd class="col-sm-9">{{ total_places }}</dd>
+  {% if hut.contact or hut.phone %}
+  <dt class="col-sm-3">Kontakt</dt>
+  <dd class="col-sm-9">{{ hut.contact or '' }}{% if hut.phone %} · <a href="tel:{{ hut.phone }}">{{ hut.phone }}</a>{% endif %}</dd>
+  {% endif %}
+  {% if hut.link %}<dt class="col-sm-3">Web</dt><dd class="col-sm-9"><a href="{{ hut.link }}" target="_blank" rel="noopener">{{ hut.link }}</a></dd>{% endif %}
+  {% if hut.note %}<dt class="col-sm-3">Notiz</dt><dd class="col-sm-9">{{ hut.note }}</dd>{% endif %}
+</dl>
+
+{% if hut.rooms %}
+<h2 class="h5">Zimmer</h2>
+<ul>
+  {% for room in hut.rooms %}<li>{{ room.name or 'Zimmer' }}: {{ room.places }} Plätze</li>{% endfor %}
+</ul>
+{% endif %}
+
+<hr>
+<h2 class="h4">Buchen</h2>
+{% if hut.requires_approval %}
+<p class="text-muted"><small>Buchungen dieser Hütte müssen von der Hütten-Verwaltung freigegeben werden.</small></p>
+{% else %}
+<p class="text-muted"><small>Buchungen dieser Hütte werden sofort bestätigt.</small></p>
+{% endif %}
+
+{% if current_user.is_authenticated %}
+<form method="POST" action="{{ url_for('HUTS.book_hut', hut_id=hut.id) }}" class="mb-2">
+  <div class="form-row">
+    <div class="form-group col-6 col-md-3">
+      <label for="from_date">Von (Anreise)</label>
+      <input type="date" class="form-control" id="from_date" name="from_date" value="{{ from_date }}" required>
+    </div>
+    <div class="form-group col-6 col-md-3">
+      <label for="to_date">Bis (Abreise)</label>
+      <input type="date" class="form-control" id="to_date" name="to_date" value="{{ to_date }}" required>
+    </div>
+    <div class="form-group col-6 col-md-2">
+      <label for="places">Plätze</label>
+      <input type="number" min="1" class="form-control" id="places" name="places" value="1" required>
+    </div>
+    <div class="form-group col-6 col-md-4">
+      <label for="room">Zimmer (optional)</label>
+      <select class="form-control" id="room" name="room">
+        <option value="">– beliebig –</option>
+        {% for room in hut.rooms %}
+        {% if room.name %}<option value="{{ room.name }}">{{ room.name }}</option>{% endif %}
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+  <div class="form-group">
+    <label for="comment">Kommentar (optional)</label>
+    <input type="text" class="form-control" id="comment" name="comment">
+  </div>
+  <button type="submit" class="btn btn-primary">
+    {{ 'Anfragen' if hut.requires_approval else 'Buchen' }}
+  </button>
+</form>
+{% else %}
+<p><a href="{{ url_for('auth.login') }}">Bitte anmelden</a>, um zu buchen.</p>
+{% endif %}
+
+{% if my_bookings %}
+<hr>
+<h2 class="h4">Meine Buchungen</h2>
+<div class="table-responsive">
+  <table class="table table-sm">
+    <caption class="sr-only">Deine Buchungen für {{ hut.name }}</caption>
+    <thead><tr><th scope="col">Zeitraum</th><th scope="col" class="text-right">Plätze</th><th scope="col">Zimmer</th><th scope="col">Status</th><th scope="col"></th></tr></thead>
+    <tbody>
+      {% for b in my_bookings %}{{ booking_row(hut, b, true, true, false) }}{% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if can_manage %}
+<hr>
+<h2 class="h4">Freigaben <span class="badge badge-warning">{{ pending|length }}</span></h2>
+{% if pending %}
+<div class="table-responsive">
+  <table class="table table-sm">
+    <caption class="sr-only">Wartende Buchungen für {{ hut.name }}</caption>
+    <thead><tr><th scope="col">Zeitraum</th><th scope="col" class="text-right">Plätze</th><th scope="col">Zimmer</th><th scope="col"></th></tr></thead>
+    <tbody>
+      {% for b in pending %}
+      <tr>
+        <td>{{ b.from_date.strftime('%d.%m.%Y') if b.from_date else '–' }} – {{ b.to_date.strftime('%d.%m.%Y') if b.to_date else '–' }}<br><small class="text-muted">{{ b.name }}</small></td>
+        <td class="text-right">{{ b.places }}</td>
+        <td>{{ b.room or '–' }}</td>
+        <td class="text-right">
+          <form method="POST" action="{{ url_for('HUTS.confirm_booking', hut_id=hut.id, booking_id=b.booking_id) }}" class="d-inline">
+            <button type="submit" class="btn btn-sm btn-success">Freigeben</button>
+          </form>
+          <form method="POST" action="{{ url_for('HUTS.cancel_booking', hut_id=hut.id, booking_id=b.booking_id) }}" class="d-inline"
+                onsubmit="return confirm('Buchung ablehnen und entfernen?');">
+            <button type="submit" class="btn btn-sm btn-outline-danger">Ablehnen</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="text-muted">Keine wartenden Buchungen.</p>
+{% endif %}
+{% endif %}
+{% endblock %}

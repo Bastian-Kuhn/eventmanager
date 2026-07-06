@@ -49,9 +49,10 @@
       {% set hut = item.hut %}
       <tr>
         <th scope="row" class="font-weight-normal">
-          {% if hut.link %}
-          <a href="{{ hut.link }}" target="_blank" rel="noopener">{{ hut.name }}</a>
-          {% else %}{{ hut.name }}{% endif %}
+          <a href="{{ url_for('HUTS.page_hut_detail', hut_id=hut.id) }}">{{ hut.name }}</a>
+          {% if hut.requires_approval %}
+          <span class="badge badge-light" title="Buchung nur nach Freigabe">Freigabe nötig</span>
+          {% endif %}
           {% if hut.note %}<br><small class="text-muted">{{ hut.note }}</small>{% endif %}
         </th>
         <td>{{ hut.region or '–' }}</td>

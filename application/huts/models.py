@@ -5,6 +5,7 @@ Gesamtkapazität einer Hütte ergibt sich aus der Summe der Zimmerplätze
 (total_places), nicht aus einem eigenen Feld.
 """
 #pylint: disable=too-few-public-methods, no-member
+import uuid
 from datetime import datetime
 from application import db
 
@@ -25,6 +26,7 @@ class HutBooking(db.EmbeddedDocument):
     Belegung/Reservierung einer Hütte für einen Zeitraum. `to_date` ist der
     Abreisetag (nicht mehr belegt), Zeiträume gelten also halb-offen.
     """
+    booking_id = db.StringField()         # eindeutige id (fuer Storno/Freigabe)
     from_date = db.DateField()
     to_date = db.DateField()
     places = db.IntField(default=0)
@@ -33,6 +35,7 @@ class HutBooking(db.EmbeddedDocument):
     user = db.ReferenceField(document_type='User')      # optional
     event = db.ReferenceField(document_type='Event')    # optional: verknüpfte Tour
     comment = db.StringField()
+    confirmed = db.BooleanField(default=False)  # False = wartet auf Freigabe
     created = db.DateTimeField(default=datetime.now)
 
     meta = {'strict': False}
@@ -50,6 +53,11 @@ class Hut(db.Document):
     link = db.StringField()
     note = db.StringField()
 
+    # Selbstbuchung durch Mitglieder: bei True muss ein Hütten-Admin/Guide freigeben,
+    # sonst ist die Buchung sofort bestätigt.
+    requires_approval = db.BooleanField(default=False)
+    admins = db.ListField(field=db.ReferenceField(document_type='User'))
+
     rooms = db.ListField(field=db.EmbeddedDocumentField(document_type=HutRoom))
     bookings = db.ListField(field=db.EmbeddedDocumentField(document_type=HutBooking))
 
@@ -58,6 +66,21 @@ class Hut(db.Document):
     def total_places(self):
         """Gesamtkapazität = Summe der Zimmerplätze."""
         return sum((room.places or 0) for room in self.rooms)
+
+    def can_manage(self, user):
+        """Darf der User Buchungen dieser Hütte freigeben/verwalten?"""
+        if not (user and user.is_authenticated):
+            return False
+        if user.has_right('guide'):
+            return True
+        return any(str(getattr(admin, 'id', None)) == str(user.id) for admin in self.admins)
+
+    def get_booking(self, booking_id):
+        """Buchung per booking_id finden (oder None)."""
+        for booking in self.bookings:
+            if booking.booking_id and booking.booking_id == booking_id:
+                return booking
+        return None
 
     @staticmethod
     def _overlaps(a_start, a_end, b_start, b_end):
@@ -131,12 +154,14 @@ def sync_event_booking(event):
     # vorhandene Event-Buchung ersetzen (idempotent)
     hut.bookings = [b for b in hut.bookings if _booking_event_id(b) != event.id]
     hut.bookings.append(HutBooking(
+        booking_id=uuid.uuid4().hex,
         from_date=from_date,
         to_date=to_date,
         places=event.places or 0,
         name=event.event_name,
         event=event,
         comment="Automatisch aus Tour verknüpft",
+        confirmed=True,  # vom Guide angelegt -> direkt bestätigt
     ))
     hut.save()
 
