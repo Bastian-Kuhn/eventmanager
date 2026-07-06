@@ -25,7 +25,7 @@
       </div>
       {% if cell.blocked %}
       <div class="cal-occ"><span class="full">🔒 Gesperrt</span>
-        {% if cell.block_reason %}<div class="cal-names">{{ cell.block_reason }}</div>{% endif %}
+        {% if can_manage and cell.block_reason %}<div class="cal-names">{{ cell.block_reason }}</div>{% endif %}
       </div>
       {% else %}
       <div class="cal-occ" aria-label="{{ cell.used }} von {{ total_places }} belegt, {{ cell.free }} frei">

@@ -103,7 +103,7 @@
       </form>
       {% else %}
       <div class="alert alert-warning mt-3 mb-0" role="alert">
-        In diesem Zeitraum ausgebucht{% if block_reasons %} – gesperrt: {{ block_reasons | join('; ') }}{% endif %}.
+        In diesem Zeitraum ausgebucht{% if block_reasons and can_manage %} – gesperrt: {{ block_reasons | join('; ') }}{% endif %}.
       </div>
       {% endif %}
     {% else %}
