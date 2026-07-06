@@ -238,6 +238,40 @@ def book_hut(hut_id):
     return redirect(url_for('HUTS.page_hut_detail', hut_id=hut_id))
 
 
+@HUTS.route('/huetten/<hut_id>/block', methods=['POST'])
+@login_required
+def block_hut(hut_id):
+    """Hütten-Admin/Guide sperrt die Hütte für einen Zeitraum (nicht buchbar)."""
+    hut = Hut.objects(id=hut_id).first()
+    if not hut:
+        abort(404)
+    if not hut.can_manage(current_user):
+        abort(403)
+
+    from_date = _parse_date(request.form.get('from_date'))
+    to_date = _parse_date(request.form.get('to_date'))
+    comment = request.form.get('comment') or None
+    back = request.form.get('next') or url_for('HUTS.page_hut_admin')
+
+    if not (from_date and to_date and from_date < to_date):
+        flash("Bitte einen gültigen Zeitraum wählen (Ende nach Beginn).", 'danger')
+        return redirect(back)
+
+    # Sperre belegt die volle Kapazität -> keine weiteren Buchungen möglich
+    HutBooking(
+        hut=hut,
+        from_date=from_date,
+        to_date=to_date,
+        places=hut.total_places(),
+        name="Gesperrt",
+        comment=comment,
+        confirmed=True,
+        blocked=True,
+    ).save()
+    flash("Zeitraum gesperrt.", 'success')
+    return redirect(back)
+
+
 def _load_booking_or_404(hut_id, booking_id):
     hut = Hut.objects(id=hut_id).first()
     if not hut:

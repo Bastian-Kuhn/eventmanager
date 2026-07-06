@@ -55,6 +55,26 @@
   <p class="text-muted"><small>Keine offenen Anfragen.</small></p>
   {% endif %}
 
+  <form method="POST" action="{{ url_for('HUTS.block_hut', hut_id=hut.id) }}" class="form-row align-items-end mb-2">
+    <input type="hidden" name="next" value="{{ url_for('HUTS.page_hut_admin') }}">
+    <div class="form-group col-6 col-md-3 mb-1">
+      <label for="block-from-{{ hut.id }}">Sperren von</label>
+      <input type="date" class="form-control form-control-sm" id="block-from-{{ hut.id }}" name="from_date" required>
+    </div>
+    <div class="form-group col-6 col-md-3 mb-1">
+      <label for="block-to-{{ hut.id }}">bis (Ende)</label>
+      <input type="date" class="form-control form-control-sm" id="block-to-{{ hut.id }}" name="to_date" required>
+    </div>
+    <div class="form-group col-8 col-md-4 mb-1">
+      <label for="block-note-{{ hut.id }}">Grund (optional)</label>
+      <input type="text" class="form-control form-control-sm" id="block-note-{{ hut.id }}" name="comment"
+             placeholder="z.B. Wartung, Eigennutzung">
+    </div>
+    <div class="form-group col-4 col-md-2 mb-1">
+      <button type="submit" class="btn btn-sm btn-outline-dark btn-block">Sperren</button>
+    </div>
+  </form>
+
   {% if group.confirmed %}
   <details>
     <summary>{{ group.confirmed|length }} bestätigte Buchung(en) anzeigen</summary>
@@ -68,14 +88,17 @@
           <tr>
             <td>{{ b.from_date.strftime('%d.%m.%Y') if b.from_date else '–' }} –
                 {{ b.to_date.strftime('%d.%m.%Y') if b.to_date else '–' }}</td>
-            <td>{{ b.name or '–' }}{% if b.event %} <span class="badge badge-light">Tour</span>{% endif %}</td>
+            <td>
+              {% if b.blocked %}<span class="badge badge-dark">Gesperrt</span>
+              {% else %}{{ b.name or '–' }}{% if b.event %} <span class="badge badge-light">Tour</span>{% endif %}{% endif %}
+            </td>
             <td class="text-right">{{ b.places }}</td>
             <td>{{ b.rooms | join(', ') if b.rooms else '–' }}</td>
             <td class="text-right">
               <form method="POST" action="{{ url_for('HUTS.cancel_booking', hut_id=hut.id, booking_id=b.id) }}" class="d-inline"
-                    onsubmit="return confirm('Buchung stornieren?');">
+                    onsubmit="return confirm('{{ 'Sperre aufheben?' if b.blocked else 'Buchung stornieren?' }}');">
                 <input type="hidden" name="next" value="{{ url_for('HUTS.page_hut_admin') }}">
-                <button type="submit" class="btn btn-sm btn-outline-danger">Stornieren</button>
+                <button type="submit" class="btn btn-sm btn-outline-danger">{{ 'Sperre aufheben' if b.blocked else 'Stornieren' }}</button>
               </form>
             </td>
           </tr>

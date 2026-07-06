@@ -94,6 +94,7 @@ class HutBooking(db.Document):
     event = db.ReferenceField(document_type='Event')    # optional: verknüpfte Tour
     comment = db.StringField()
     confirmed = db.BooleanField(default=False)
+    blocked = db.BooleanField(default=False)  # Admin-Sperre (Hütte im Zeitraum nicht buchbar)
     created = db.DateTimeField(default=datetime.now)
 
     meta = {

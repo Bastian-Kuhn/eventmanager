@@ -61,9 +61,9 @@ class HutBookingView(CustomModelView):
     can_set_page_size = True
 
     column_list = ('hut', 'from_date', 'to_date', 'places', 'rooms', 'name',
-                   'confirmed', 'event')
+                   'confirmed', 'blocked', 'event')
     column_sortable_list = ('from_date', 'to_date', 'confirmed')
-    column_filters = ('confirmed',)
+    column_filters = ('confirmed', 'blocked')
     column_labels = {
         'hut': 'Hütte',
         'from_date': 'Von',
@@ -72,12 +72,13 @@ class HutBookingView(CustomModelView):
         'rooms': 'Zimmer',
         'name': 'Bucher',
         'confirmed': 'Bestätigt',
+        'blocked': 'Gesperrt',
         'event': 'Tour',
         'user': 'Mitglied',
         'comment': 'Kommentar',
     }
     form_columns = ('hut', 'from_date', 'to_date', 'places', 'rooms', 'name',
-                    'user', 'event', 'comment', 'confirmed')
+                    'user', 'event', 'comment', 'confirmed', 'blocked')
 
     def is_accessible(self):
         return current_user.is_authenticated and current_user.has_right('guide')
