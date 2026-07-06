@@ -92,14 +92,19 @@ def page_hut_detail(hut_id):
     range_active = bool(from_date and to_date and from_date < to_date)
 
     can_manage = hut.can_manage(current_user)
-    my_bookings, pending = [], []
+    my_bookings = []
     if current_user.is_authenticated:
         my_bookings = list(HutBooking.objects(hut=hut, user=current_user).order_by('from_date'))
-    if can_manage:
-        pending = list(HutBooking.objects(hut=hut, confirmed=False).order_by('from_date'))
 
     total = hut.total_places()
     free = hut.free_places(from_date, to_date) if range_active else None
+    # Sperr-Gründe, die den gewählten Zeitraum betreffen
+    block_reasons = []
+    if range_active:
+        for b in HutBooking.objects(hut=hut, blocked=True,
+                                    from_date__lt=to_date, to_date__gt=from_date):
+            block_reasons.append(b.comment or "Gesperrt")
+
     # Eingebetteter Kalender: Monat aus Query oder aus Anreisedatum bzw. heute.
     today = datetime.now().date()
     cal_year, cal_month = _month_from_args(today)
@@ -116,7 +121,10 @@ def page_hut_detail(hut_id):
         'range_active': range_active,
         'can_manage': can_manage,
         'my_bookings': my_bookings,
-        'pending': pending,
+        'block_reasons': block_reasons,
+        'sel_from': from_date,
+        'sel_to': to_date,
+        'pickable': True,
         'cal': _cal_context(hut, cal_year, cal_month, today, 'HUTS.page_hut_detail', cal_extra),
     }
     return render_template('hut_detail.html', **context)
@@ -141,7 +149,7 @@ def _occupancy_weeks(hut, year, month, today):
     first = date(year, month, 1)
     next_first = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
 
-    occ, entries = {}, {}
+    occ, entries, blocked = {}, {}, {}
     for booking in HutBooking.objects(hut=hut, from_date__lt=next_first, to_date__gt=first):
         if not (booking.from_date and booking.to_date):
             continue
@@ -152,6 +160,8 @@ def _occupancy_weeks(hut, year, month, today):
             occ[day] = occ.get(day, 0) + (booking.places or 0)
             entries.setdefault(day, []).append(
                 {'label': label, 'places': booking.places or 0, 'blocked': booking.blocked})
+            if booking.blocked:
+                blocked[day] = booking.comment or "Gesperrt"
             day += timedelta(days=1)
 
     weeks = []
@@ -163,12 +173,15 @@ def _occupancy_weeks(hut, year, month, today):
             level = 'free' if used == 0 else ('full' if ratio >= 1 else ('high' if ratio >= 0.75 else 'low'))
             row.append({
                 'date': day,
+                'iso': day.isoformat(),
                 'in_month': day.month == month,
                 'is_today': day == today,
                 'used': used,
                 'free': total - used,
                 'level': level,
                 'entries': entries.get(day, []),
+                'blocked': day in blocked,
+                'block_reason': blocked.get(day),
             })
         weeks.append(row)
     return weeks
@@ -202,6 +215,9 @@ def page_hut_calendar(hut_id):
         'total_places': hut.total_places(),
         'cal': _cal_context(hut, year, month, today, 'HUTS.page_hut_calendar'),
         'can_manage': hut.can_manage(current_user),
+        'sel_from': None,
+        'sel_to': None,
+        'pickable': False,
     }
     return render_template('hut_calendar.html', **context)
 

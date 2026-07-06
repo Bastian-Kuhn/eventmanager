@@ -39,7 +39,8 @@
   <!-- Verfügbarkeit & Buchung -->
   <div class="hp-card">
     <h2>Zeitraum wählen</h2>
-    <form method="GET" action="{{ url_for('HUTS.page_hut_detail', hut_id=hut.id) }}" class="form-row align-items-end">
+    <p class="hp-hint mt-n2 mb-2">Tipp: Anreise und Abreise direkt im Kalender unten anklicken.</p>
+    <form method="GET" id="hut-range-form" action="{{ url_for('HUTS.page_hut_detail', hut_id=hut.id) }}" class="form-row align-items-end">
       <div class="form-group col-6 col-md-4 mb-2">
         <label for="from_date">Von (Anreise)</label>
         <input type="date" class="form-control" id="from_date" name="from_date" value="{{ from_date }}" required>
@@ -101,7 +102,9 @@
         {% if hut.requires_approval %}<span class="hp-hint ml-2">Buchung wird nach Freigabe bestätigt.</span>{% endif %}
       </form>
       {% else %}
-      <div class="alert alert-warning mt-3 mb-0" role="alert">In diesem Zeitraum ausgebucht bzw. gesperrt.</div>
+      <div class="alert alert-warning mt-3 mb-0" role="alert">
+        In diesem Zeitraum ausgebucht{% if block_reasons %} – gesperrt: {{ block_reasons | join('; ') }}{% endif %}.
+      </div>
       {% endif %}
     {% else %}
     <p class="mt-3 mb-0"><a href="{{ url_for('auth.login') }}">Bitte anmelden</a>, um zu buchen.</p>
@@ -137,40 +140,28 @@
   {% endif %}
 
   {% if can_manage %}
-  <div class="hp-card">
-    <h2>Freigaben <span class="badge badge-warning">{{ pending|length }}</span></h2>
-    {% if pending %}
-    <div class="table-responsive">
-      <table class="table table-sm mb-0">
-        <caption class="sr-only">Wartende Buchungen für {{ hut.name }}</caption>
-        <thead><tr><th scope="col">Zeitraum</th><th scope="col" class="text-right">Plätze</th>
-               <th scope="col">Zimmer</th><th scope="col"></th></tr></thead>
-        <tbody>
-          {% for b in pending %}
-          <tr>
-            <td>{{ b.from_date.strftime('%d.%m.%Y') if b.from_date else '–' }} –
-                {{ b.to_date.strftime('%d.%m.%Y') if b.to_date else '–' }}<br><small class="hp-hint">{{ b.name }}</small></td>
-            <td class="text-right">{{ b.places }}</td>
-            <td>{{ b.rooms | join(', ') if b.rooms else '–' }}</td>
-            <td class="text-right text-nowrap">
-              <form method="POST" action="{{ url_for('HUTS.confirm_booking', hut_id=hut.id, booking_id=b.id) }}" class="d-inline">
-                <button type="submit" class="btn btn-sm btn-success">Freigeben</button>
-              </form>
-              <form method="POST" action="{{ url_for('HUTS.cancel_booking', hut_id=hut.id, booking_id=b.id) }}" class="d-inline"
-                    onsubmit="return confirm('Buchung ablehnen und entfernen?');">
-                <button type="submit" class="btn btn-sm btn-outline-danger">Ablehnen</button>
-              </form>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    {% else %}
-    <p class="hp-hint mb-0">Keine wartenden Buchungen. Freigaben aller Hütten:
-      <a href="{{ url_for('HUTS.page_hut_admin') }}">Übersicht</a>.</p>
-    {% endif %}
-  </div>
+  <p class="hp-hint">Buchungen freigeben: <a href="{{ url_for('HUTS.page_hut_admin') }}">Hütten-Freigaben</a>.</p>
   {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+(function(){
+  var form = document.getElementById('hut-range-form');
+  if(!form) return;
+  var from = document.getElementById('from_date'), to = document.getElementById('to_date');
+  document.querySelectorAll('.cal-pick[data-date]').forEach(function(el){
+    function pick(){
+      var d = el.getAttribute('data-date');
+      if(!from.value || (from.value && to.value)){ from.value = d; to.value = ''; }
+      else if(d > from.value){ to.value = d; form.submit(); }
+      else { from.value = d; to.value = ''; }
+    }
+    el.addEventListener('click', pick);
+    el.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); pick(); } });
+  });
+})();
+</script>
 {% endblock %}

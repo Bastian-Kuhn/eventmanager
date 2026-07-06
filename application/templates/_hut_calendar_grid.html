@@ -14,13 +14,20 @@
   <div role="row" style="display:contents">
     {% for cell in week %}
     {% set pct = ((cell.used / total_places * 100) if total_places else 0) | round(0, 'ceil') | int %}
-    <div class="cal-day {{ 'outside' if not cell.in_month }} {{ 'today' if cell.is_today }}" role="cell">
+    {% set selected = sel_from and sel_to and cell.date >= sel_from and cell.date < sel_to %}
+    <div class="cal-day {{ 'outside' if not cell.in_month }} {{ 'today' if cell.is_today }} {{ 'selected' if selected }} {{ 'cal-pick' if pickable and cell.in_month }}"
+         role="cell"{% if pickable and cell.in_month %} data-date="{{ cell.iso }}" tabindex="0"{% endif %}>
       <div class="cal-dnum">{{ cell.date.day }}</div>
       {% if cell.in_month and total_places %}
       <div class="cal-meter" aria-hidden="true">
         {% if cell.used %}<span class="cal-fill-{{ cell.level if cell.level != 'free' else 'low' }}"
               style="width: {{ [pct, 100] | min }}%"></span>{% endif %}
       </div>
+      {% if cell.blocked %}
+      <div class="cal-occ"><span class="full">🔒 Gesperrt</span>
+        {% if cell.block_reason %}<div class="cal-names">{{ cell.block_reason }}</div>{% endif %}
+      </div>
+      {% else %}
       <div class="cal-occ" aria-label="{{ cell.used }} von {{ total_places }} belegt, {{ cell.free }} frei">
         <strong>{{ cell.used }}</strong>/{{ total_places }} ·
         <span class="{{ 'full' if cell.free <= 0 }}">{{ cell.free if cell.free > 0 else 'voll' }}{% if cell.free > 0 %} frei{% endif %}</span>
@@ -30,6 +37,7 @@
         </div>
         {% endif %}
       </div>
+      {% endif %}
       {% endif %}
     </div>
     {% endfor %}
