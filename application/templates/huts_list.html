@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+
+{% block page_content %}
+<div class="row">
+  <div class="col-12">
+    <h1>Hütten</h1>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-12 col-lg-8">
+    <form method="GET" action="{{ url_for('HUTS.page_huts') }}" class="form-row align-items-end mb-3">
+      <div class="form-group col-6 col-md-4">
+        <label for="from_date">Von</label>
+        <input type="date" class="form-control" id="from_date" name="from_date" value="{{ from_date }}">
+      </div>
+      <div class="form-group col-6 col-md-4">
+        <label for="to_date">Bis (Abreise)</label>
+        <input type="date" class="form-control" id="to_date" name="to_date" value="{{ to_date }}">
+      </div>
+      <div class="form-group col-12 col-md-4">
+        <button type="submit" class="btn btn-primary">Freie Plätze anzeigen</button>
+        {% if range_active %}
+        <a href="{{ url_for('HUTS.page_huts') }}" class="btn btn-secondary" role="button">Zurücksetzen</a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if not huts %}
+<p class="text-muted">Es sind noch keine Hütten hinterlegt.</p>
+{% else %}
+<div class="table-responsive">
+  <table class="table table-striped align-middle">
+    <caption class="sr-only">Liste der Hütten mit Kapazität{% if range_active %} und freien Plätzen im gewählten Zeitraum{% endif %}</caption>
+    <thead>
+      <tr>
+        <th scope="col">Hütte</th>
+        <th scope="col">Region</th>
+        <th scope="col">Bewirtschaftet</th>
+        <th scope="col" class="text-right">Schlafplätze</th>
+        {% if range_active %}<th scope="col" class="text-right">Frei</th>{% endif %}
+        <th scope="col">Kontakt</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in huts %}
+      {% set hut = item.hut %}
+      <tr>
+        <th scope="row" class="font-weight-normal">
+          {% if hut.link %}
+          <a href="{{ hut.link }}" target="_blank" rel="noopener">{{ hut.name }}</a>
+          {% else %}{{ hut.name }}{% endif %}
+          {% if hut.note %}<br><small class="text-muted">{{ hut.note }}</small>{% endif %}
+        </th>
+        <td>{{ hut.region or '–' }}</td>
+        <td>{{ 'Ja' if hut.managed else 'Nein' }}</td>
+        <td class="text-right">{{ item.total_places }}</td>
+        {% if range_active %}
+        <td class="text-right">
+          <span class="badge {{ 'badge-success' if item.free_places > 0 else 'badge-danger' }}">
+            {{ item.free_places }}
+          </span>
+        </td>
+        {% endif %}
+        <td>
+          {{ hut.contact or '' }}
+          {% if hut.phone %}<br><a href="tel:{{ hut.phone }}">{{ hut.phone }}</a>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

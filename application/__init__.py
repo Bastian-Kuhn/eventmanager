@@ -168,6 +168,9 @@ from application.views.members import MemberView
 from application.events.models import Event
 from application.events.admin import EventView
 
+from application.huts.models import Hut
+from application.huts.admin import HutView
+
 
 admin = Admin(app, name="Admin", index_view=IndexView())
 
@@ -192,6 +195,7 @@ def inject_now():
 
 #System
 admin.add_view(EventView(Event))
+admin.add_view(HutView(Hut, name="Hütten"))
 admin.add_view(MemberView(User, name="Mitglieder", endpoint="Members"))
 admin.add_view(UserView(User, category='System'))
 admin.add_view(ConfigModelView(Config, category='System'))
@@ -200,7 +204,10 @@ admin.add_view(LogView(LogEntry, name="Log", category="System"))
 admin.add_link(MenuLink(name='Zum Frontend', category='', url="/"))
 admin.add_link(MenuLink(name='Logout', category='', url="/logout"))
 
+from application.huts.views import HUTS
+
 app.register_blueprint(AUTH)
 app.register_blueprint(USER)
 app.register_blueprint(EVENTS)
+app.register_blueprint(HUTS)
 from application.jobs import *
