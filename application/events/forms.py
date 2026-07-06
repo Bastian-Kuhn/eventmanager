@@ -55,6 +55,7 @@ class EventForm(FlaskForm):
     event_name = StringField("Touren Name", validators=[InputRequired()])
     event_teaser = StringField("Event Teaser", validators=[InputRequired()])
     event_category = SelectField("Kategorie", validators=[InputRequired()])
+    hut = SelectField("Hütte (Übernachtung)", validators=[Optional()])
     event_type = SelectField("Touren Typ", choices=event_types, validators=[InputRequired()])
     event_description = TextAreaField("Beschreibung")
     places = IntegerField("Plätze auf Tour", default=7, validators=[Optional()])

@@ -18,6 +18,12 @@ from markupsafe import Markup
 from mongoengine import Q
 from application.events.models import Event, EventParticipation,\
                              CustomField, CustomFieldDefintion, Ticket, OwnedTicket, EventCost, difficulties
+from application.huts.models import Hut
+
+
+def hut_choices():
+    """Auswahlliste fuer das Huetten-Feld im Event-Formular (leer = keine)."""
+    return [("", "– keine –")] + [(str(h.id), h.name) for h in Hut.objects.order_by('name')]
 from application.models.user import roles
 from application.auth.forms import LoginForm
 from application.auth.views import do_login
@@ -145,6 +151,10 @@ def save_event_form(event):
         book_end_datetime_str = f"{request.form['booking_until']} {request.form.get('booking_until_time', '00:00')}"
         event.booking_until = book_end_datetime_str
 
+
+    # Huetten-Referenz aufloesen (Formular liefert die id als String)
+    hut_id = request.form.get('hut')
+    event.hut = Hut.objects(id=hut_id).first() if hut_id else None
 
     event.custom_fields = []
     event.tickets = []
@@ -575,11 +585,14 @@ def page_admin():
     if request.form:
         form = EventForm(request.form)
         form.event_category.choices = categories
+        form.hut.choices = hut_choices()
     else:
         event = event_populate(event)
 
         form = EventForm(obj=event)
         form.event_category.choices = categories
+        form.hut.choices = hut_choices()
+        form.hut.data = str(event.hut.id) if event.hut else ""
         form = populate_event_form(form, event)
     if form.validate_on_submit():
         save_event_form(event)
@@ -1423,6 +1436,12 @@ def page_details():
       ('Tickets', format_ticket(event.tickets), 'table'),
     ]
 
+    if getattr(event, 'hut', None):
+        hut_label = event.hut.name
+        if event.hut.region:
+            hut_label = f"{event.hut.name} ({event.hut.region})"
+        detail_fields.append(("Hütte", hut_label, 'string'))
+
     if numbers['total_places']:
         detail_fields += [
             ("Freie Plätze insgesammt", numbers['total_places'], 'string'),
@@ -1613,10 +1632,13 @@ def page_create():
 
         form = EventForm(obj=event)
         form.event_category.choices = categories
+        form.hut.choices = hut_choices()
+        form.hut.data = str(event.hut.id) if event.hut else ""
         form = populate_event_form(form, event)
     else:
         form = EventForm(request.form)
         form.event_category.choices = categories
+        form.hut.choices = hut_choices()
 
     if form.validate_on_submit():
         new_event = Event()
