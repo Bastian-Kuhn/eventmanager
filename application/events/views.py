@@ -7,10 +7,12 @@ from datetime import datetime, timedelta
 from dateutil import relativedelta
 import uuid
 import io, csv
-from flask import request, render_template, \
+import nh3
+from flask import request, render_template, current_app, \
      flash, redirect, Blueprint, url_for, abort, make_response, jsonify
 from flask_login import current_user, login_required
 from wtforms import StringField, SelectField
+from wtforms.fields.core import UnboundField
 from wtforms.validators import InputRequired
 from markupsafe import Markup
 
@@ -35,6 +37,13 @@ from application.events.models import OwnedTicket
 from application.modules.email import send_email
 
 roles_dict = dict(roles)
+
+# Whitelist fuer save_event_form: die im EventForm deklarierten Felder plus
+# 'waitlist', das nur im Template existiert.
+EVENT_FORM_FIELDS = {
+    name for name in dir(EventForm)
+    if isinstance(getattr(EventForm, name), UnboundField)
+} | {'waitlist'}
 
 
 def age(date):
@@ -128,11 +137,20 @@ def save_event_form(event):
     """
     form_data = dict(request.form)
     for field, value in form_data.items():
+        # Nur deklarierte Formularfelder uebernehmen. Sonst kann ein Guide
+        # beliebige Attribute (z.B. participations) mitschicken und Daten
+        # zerstoeren - Event hat meta strict=False, das faellt sonst nicht auf.
+        if field not in EVENT_FORM_FIELDS:
+            continue
         # Set all default field which not here excluded
         if field in ['start_date', 'end_date', 'booking_from', 'booking_until']:
             continue
         if field in ['waitlist',]:
             value = bool(value)
+        if field == 'event_description':
+            # Wird im Template mit |safe ausgegeben und ist auch fuer anonyme
+            # Besucher sichtbar -> CKEditor-HTML serverseitig saeubern.
+            value = nh3.clean(value or '')
         setattr(event, field, value)
 
     if current_user not in event.event_owners and form_data.get('add_guide'):
@@ -204,6 +222,7 @@ def save_event_form(event):
 
 
 @EVENTS.route('/user/change_ticket', methods=['POST'])
+@login_required
 def ajax_mybooking():
     """
     Save Ajax Data for Ticket Changes
@@ -239,6 +258,7 @@ def ajax_mybooking():
         return {'msg': 'error', 'error': 'Ticket nicht gefunden oder keine Berechtigung'}, 403
 
 @EVENTS.route('/user/add_ticket', methods=['POST'])
+@login_required
 def ajax_add_ticket():
     """
     Add new ticket for a user (Guide only)
@@ -305,10 +325,12 @@ def ajax_add_ticket():
         
         return {'success': True, 'message': 'Ticket erfolgreich hinzugefügt'}
         
-    except Exception as e:
-        return {'success': False, 'message': str(e)}, 500
+    except Exception:  # pylint: disable=broad-except
+        current_app.logger.exception("add_ticket fehlgeschlagen")
+        return {'success': False, 'message': 'Ticket konnte nicht hinzugefügt werden'}, 500
 
 @EVENTS.route('/user/get_data/<event_id>', methods=['GET'])
+@login_required
 def ajax_ticketdata(event_id):
     """
     Get user data for autocomplete suggestions
@@ -346,6 +368,7 @@ def ajax_ticketdata(event_id):
     return jsonify([merged_data])
 
 @EVENTS.route('/user/booking')
+@login_required
 def page_mybooking():
     """
     Detail Page for Event
@@ -569,6 +592,7 @@ def event_populate(event):
     return event
 
 @EVENTS.route('/event/admin', methods=['GET', 'POST'])
+@login_required
 def page_admin():
     """
     Admin Page
@@ -616,6 +640,7 @@ def page_admin():
 
 
 @EVENTS.route('/event/change_participants', methods=['POST'])
+@login_required
 def change_participation():
     """
     Helper
@@ -655,6 +680,7 @@ def change_participation():
 
 
 @EVENTS.route('/event/manage_hidden_categories', methods=['POST'])
+@login_required
 def manage_hidden_categories():
     """
     Manage global hidden categories
@@ -695,11 +721,13 @@ def manage_hidden_categories():
         
         return jsonify({'success': True, 'hidden_categories': event.hidden_categories})
         
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+    except Exception:  # pylint: disable=broad-except
+        current_app.logger.exception("Kategorie-Aktion fehlgeschlagen")
+        return jsonify({'success': False, 'error': 'Aktion fehlgeschlagen'})
 
 
 @EVENTS.route('/event/get_hidden_categories', methods=['GET'])
+@login_required
 def get_hidden_categories():
     """
     Get global hidden categories
@@ -717,8 +745,9 @@ def get_hidden_categories():
         
         return jsonify({'success': True, 'hidden_categories': hidden_categories})
         
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+    except Exception:  # pylint: disable=broad-except
+        current_app.logger.exception("Kategorie-Aktion fehlgeschlagen")
+        return jsonify({'success': False, 'error': 'Aktion fehlgeschlagen'})
 
 
 def get_participants(event):
@@ -791,6 +820,7 @@ def get_participants(event):
 
 
 @EVENTS.route('/event/participants/export')
+@login_required
 def page_participants_export():
     """
     Export Participants
@@ -845,6 +875,7 @@ def page_participants_export():
 
 
 @EVENTS.route('/event/participants')
+@login_required
 def page_participants():
     """
     Participants Page
@@ -865,7 +896,12 @@ def page_participants():
 
     emails = []
     participants = get_participants(event)
+    is_guide = current_user.has_right('guide')
     for part in participants['confirmed']:
+        # Ohne data_optin darf die Adresse nicht an andere Teilnehmer raus -
+        # die Tabelle darunter blendet sie ebenfalls aus.
+        if not (is_guide or part['ticket_info'].get('data_optin')):
+            continue
         email = part['ticket_info']['email']
         if email and email not in emails:
             emails.append(email)
@@ -895,6 +931,7 @@ def page_participants():
 #   . Billing
 
 @EVENTS.route('/event/change_paidstatus', methods=['POST'])
+@login_required
 def change_paidstatus():
     """
     Helper to mark Tickets paid
@@ -930,6 +967,7 @@ def change_paidstatus():
     return response
 
 @EVENTS.route('/event/bulk_paidstatus', methods=['POST'])
+@login_required
 def bulk_paidstatus():
     """
     Alle Tickets eines Events auf bezahlt/unbezahlt setzen
@@ -1015,6 +1053,7 @@ def change_price():
     return jsonify({'success': False, 'message': 'Ticket not found'}), 404
 
 @EVENTS.route('/event/extra_tickets/<category>')
+@login_required
 def page_extra_tickets(category):
     """
     Extra Tickets Category Page for Guides
@@ -1053,6 +1092,7 @@ def page_extra_tickets(category):
     return render_template('event_extra_tickets.html', **context)
 
 @EVENTS.route('/event/extra_tickets_export/<category>')
+@login_required
 def page_extra_tickets_export(category):
     """
     Export Extra Tickets for specific category
@@ -1121,6 +1161,7 @@ def page_extra_tickets_export(category):
     return output
 
 @EVENTS.route('/event/billing')
+@login_required
 def page_billing():
     """
     Participants Page
@@ -1197,6 +1238,7 @@ def page_billing():
     return render_template('event_billing.html', **context)
 
 @EVENTS.route('/event/finance')
+@login_required
 def page_finance():
     """
     Finanzuebersicht: potenzielle Einnahmen vs. Ausgaben
@@ -1272,6 +1314,7 @@ def page_finance():
     return render_template('event_finance.html', **context)
 
 @EVENTS.route('/event/finance/add_cost', methods=['POST'])
+@login_required
 def add_cost():
     """
     Kostenposition zum Event hinzufuegen
@@ -1297,6 +1340,7 @@ def add_cost():
     return redirect(url_for('EVENTS.page_finance', event_id=event_id))
 
 @EVENTS.route('/event/finance/edit_cost', methods=['POST'])
+@login_required
 def edit_cost():
     """
     Kostenposition bearbeiten (inkl. Bezahlt-Status)
@@ -1328,6 +1372,7 @@ def edit_cost():
     return redirect(url_for('EVENTS.page_finance', event_id=event_id))
 
 @EVENTS.route('/event/finance/mark_person_paid', methods=['POST'])
+@login_required
 def mark_person_paid():
     """
     Alle Ausgaben einer Person als bezahlt/offen markieren
@@ -1349,6 +1394,7 @@ def mark_person_paid():
     return redirect(url_for('EVENTS.page_finance', event_id=event_id))
 
 @EVENTS.route('/event/finance/delete_cost', methods=['POST'])
+@login_required
 def delete_cost():
     """
     Kostenposition entfernen

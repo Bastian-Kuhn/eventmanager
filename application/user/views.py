@@ -143,11 +143,11 @@ def page_user_create():
     form = NewUserForm(request.form)
     if form.validate_on_submit():
         new_user = User()
-        for field, value in dict(request.form).items():
-            if field in ['password', 'password_repeat']:
-                continue
-            if field in ['media_optin', 'data_optin']:
-                value = bool(value)
+        # Whitelist statt request.form durchzuschleifen: sonst kann sich jeder
+        # bei der Registrierung z.B. role=guide mitschicken und eskalieren.
+        for field in ('first_name', 'last_name', 'email', 'phone', 'birthdate',
+                      'club_id', 'media_optin', 'data_optin'):
+            value = getattr(form, field).data
             if field == 'email':
                 value = value.lower()
             setattr(new_user, field, value)

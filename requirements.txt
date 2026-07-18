@@ -44,3 +44,4 @@ WTForms==3.1.1
 zipp==3.17.0
 Flask-Admin==2.0.2
 python-dateutil==2.8.2
+nh3==0.3.5

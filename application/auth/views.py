@@ -8,8 +8,10 @@ from flask import request, render_template, current_app, \
      flash, redirect, session, Blueprint, url_for
 from flask_login import current_user, login_user, logout_user, login_required
 from authlib.jose import jwt, JoseError
+from mongoengine.errors import ValidationError
+from bson.errors import InvalidId
 
-from application import login_manager
+from application import login_manager, limiter
 from application.models.user import User
 from application.auth.forms import LoginForm, RequestPasswordForm, ResetPasswordForm
 from application.modules.email import send_email
@@ -60,10 +62,17 @@ def do_login(login_form, context):
 def load_user(user_id):
     """
     Flask Login: Load User from Database
+
+    Muss None liefern (nicht werfen), sonst wird aus einem geloeschten User
+    oder einem manipulierten Cookie ein HTTP 500 statt eines sauberen Logouts.
     """
-    return User.objects.get(id=user_id)
+    try:
+        return User.objects(id=user_id).first()
+    except (ValidationError, InvalidId):
+        return None
 
 @AUTH.route('/login', methods=['GET', 'POST'])
+@limiter.limit("10/minute;100/hour", methods=['POST'])
 def login():
     """
     Login Route and Handling
@@ -96,6 +105,7 @@ def logout():
 
 
 @AUTH.route('/change-password', methods=['GET', 'POST'])
+@login_required
 def change_password():
     """
     Change Password Route
@@ -115,6 +125,7 @@ def change_password():
     return render_template('formular.html', form=form)
 
 @AUTH.route('/request-password', methods=['GET', 'POST'])
+@limiter.limit("5/hour", methods=['POST'])
 def request_password():
     """
     Password Request Page
@@ -134,9 +145,9 @@ def request_password():
     return render_template('formular.html', form=form)
 
 
-def get_userid(token): #pylint: disable=inconsistent-return-statements
+def get_token_data(token):
     """
-    Helper to read Userid from token
+    Helper to read the verified payload from a reset token
     """
     key = current_app.config['SECRET_KEY']
     try:
@@ -148,27 +159,33 @@ def get_userid(token): #pylint: disable=inconsistent-return-statements
 
     except JoseError as error:
         raise ValueError(error)
-    if data:
-        return data.get('userid')
+    return data or {}
 
 @AUTH.route('/reset-password/<token>', methods=['GET', 'POST'])
 def reset_password(token):
     """ Reset Password Route"""
     form = ResetPasswordForm(request.form)
     try:
-        user_id = get_userid(token)
+        token_data = get_token_data(token)
     except ValueError as error:
         flash(str(error), "danger")
         return redirect("/")
+    user_id = token_data.get('userid')
     if not user_id:
-        flash("Invalid Link", "danger")
+        flash("Ungültiger Link", "danger")
         return redirect("/")
 
     user_result = User.objects(id=user_id)
     if user_result:
         existing_user = user_result[0]
     else:
-        flash("User Uknown", "danger")
+        flash("Unbekannter Benutzer", "danger")
+        return redirect("/")
+
+    # Einmalverwendung: sobald das Passwort gesetzt wurde, passt der
+    # Fingerabdruck nicht mehr und der Link ist tot.
+    if token_data.get('pw') != existing_user.token_fingerprint():
+        flash("Dieser Link ist nicht mehr gültig. Bitte fordere einen neuen an.", "danger")
         return redirect("/")
 
     if form.validate_on_submit():

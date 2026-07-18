@@ -1,11 +1,19 @@
 {% extends "bootstrap/base.html" %}
 
+{% block html_attribs %} lang="de"{% endblock %}
+
 {% block title %}Tourenportal{% endblock %}
 
+{% block head %}
+  {{ super() }}
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+{% endblock %}
+
 {% block navbar %}
-<nav id="top-nav" class="navbar navbar-expand-lg sticky-top navbar-light" style="background-color: {{ config['style_nav_background_color'] }}">
-  <a class="navbar-brand" href="{{ config['homepage_link'] }}"> <img src="{{ config['style_brand_logo'] }}" height="60" alt=""></a>
-  <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+<a class="skip-link" href="#main">Zum Inhalt springen</a>
+<nav id="top-nav" class="navbar navbar-expand-lg sticky-top navbar-light" aria-label="Hauptnavigation" style="background-color: {{ config['style_nav_background_color'] }}">
+  <a class="navbar-brand" href="{{ config['homepage_link'] }}" aria-label="Zur Startseite"> <img src="{{ config['style_brand_logo'] }}" height="60" alt=""></a>
+  <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Navigation umschalten">
     <span class="navbar-toggler-icon"></span>
   </button>
 
@@ -59,17 +67,30 @@
 
 {% block scripts %}
     {{super()}}
+    <script>
+      // CSRF-Token fuer alle jQuery-Requests mitschicken, damit die
+      // handgebauten $.post/$.ajax-Aufrufe CSRFProtect passieren.
+      $.ajaxSetup({
+        beforeSend: function (xhr, settings) {
+          if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {
+            xhr.setRequestHeader('X-CSRFToken', $('meta[name="csrf-token"]').attr('content'));
+          }
+        }
+      });
+    </script>
     <script src="/static/js/main.js"></script>
 {% endblock %}
 
 
 
 {% block content %}
-<div class="main-container container-fluid">
+<main id="main" class="main-container container-fluid">
     <div class="content-wrapper">
     {% for catergory, message in get_flashed_messages(with_categories=true) %}
-    <div class="alert alert-{{ catergory }} alert-dismissable">
-        <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
+    <div class="alert alert-{{ catergory }} alert-dismissable" role="alert">
+        <button type="button" class="close" data-dismiss="alert" aria-label="Meldung schließen">
+          <span aria-hidden="true">&times;</span>
+        </button>
         {{ message }}
     </div>
     {% endfor %}
@@ -100,5 +121,5 @@
 
 </footer>
 
-</div>
+</main>
 {% endblock %}

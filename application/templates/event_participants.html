@@ -1,10 +1,13 @@
 {% extends 'base.html' %}
 {% import 'bootstrap/wtf.html' as wtf %}
 
+{% block title %}Teilnehmer – {{ event.event_name }} – Tourenportal{% endblock %}
+
 {% block page_content %}
 <div class="row">
     <div class="col-sm-12">
 
+    <nav aria-label="Tour-Bereiche">
     <ul class="nav nav-tabs">
       <li class="nav-item">
         <a class="nav-link" href="{{ url_for('EVENTS.page_details', event_id=event.id) }}">Übersicht</a>
@@ -12,7 +15,7 @@
     {% if current_user.is_authenticated %}
         {% if current_user.has_right('guide') or current_user.participate_event(event.id) %}
           <li class="nav-item">
-            <a class="nav-link active" href="{{ url_for('EVENTS.page_participants', event_id=event.id) }}">Teilnehmerliste</a>
+            <a class="nav-link active" aria-current="page" href="{{ url_for('EVENTS.page_participants', event_id=event.id) }}">Teilnehmerliste</a>
           </li>
           {% if current_user.has_right('guide') %}
             {% set ns = namespace(has_paid_tickets=false) %}
@@ -47,8 +50,11 @@
       {% endif %}
     {% endif %}
     </ul>
+    </nav>
     </div>
 </div>
+
+<div id="save-status" class="sr-only" role="status" aria-live="polite"></div>
 
 <div class="row">
     <h1>{{event.event_name}} ({{event.start_date.strftime("%d.%m.%Y") }})</h1>
@@ -67,13 +73,13 @@ Keine Teilnehmer für Export oder Mail bestätigt
 {% if extra_tickets %}
 <div class="row">
     <div class="col-sm-12">
-        <h3>Kategorien</h3>
+        <h2>Kategorien</h2>
         <div class="mb-3">
             <button type="button" id="showAllCategories" class="btn btn-sm btn-info" style="display: none;" title="Alle anzeigen">
-                <i class="fas fa-eye"></i> Alle anzeigen
+                <i class="fas fa-eye" aria-hidden="true"></i> Alle anzeigen
             </button>
             <button type="button" id="hideAllCategories" class="btn btn-sm btn-warning" title="Alle verstecken">
-                <i class="fas fa-eye-slash"></i> Alle verstecken
+                <i class="fas fa-eye-slash" aria-hidden="true"></i> Alle verstecken
             </button>
         </div>
         <ul class="list-group">
@@ -84,11 +90,11 @@ Keine Teilnehmer für Export oder Mail bestätigt
                 </a>
                 <div>
                     <span class="badge badge-primary badge-pill">{{ extra_tickets[ticket_group]|length }}</span>
-                    <button type="button" class="btn btn-sm btn-outline-secondary hide-category-btn" data-category="{{ ticket_group }}" title="Verstecken">
-                        <i class="fas fa-eye-slash"></i>
+                    <button type="button" class="btn btn-sm btn-outline-secondary hide-category-btn" data-category="{{ ticket_group }}" title="Verstecken" aria-label="Kategorie {{ ticket_group }} verstecken">
+                        <i class="fas fa-eye-slash" aria-hidden="true"></i>
                     </button>
-                    <button type="button" class="btn btn-sm btn-outline-success show-category-btn" data-category="{{ ticket_group }}" style="display: none;" title="Anzeigen">
-                        <i class="fas fa-eye"></i>
+                    <button type="button" class="btn btn-sm btn-outline-success show-category-btn" data-category="{{ ticket_group }}" style="display: none;" title="Anzeigen" aria-label="Kategorie {{ ticket_group }} anzeigen">
+                        <i class="fas fa-eye" aria-hidden="true"></i>
                     </button>
                 </div>
             </li>
@@ -109,6 +115,7 @@ Keine Teilnehmer für Export oder Mail bestätigt
     {% elif booking_type == 'unconfirmed' %}
         <h2>Unbestätigte Teilnehmer</h2>
     {% endif %}
+    <div class="table-responsive">
     <table class="table table-bordered">
       <thead>
         <tr>
@@ -160,7 +167,7 @@ Keine Teilnehmer für Export oder Mail bestätigt
             <table>
             {% for field in ticket.extra_questions %}
                 <tr>
-                 <th>{{ field[0] }}</th>
+                 <th scope="row">{{ field[0] }}</th>
                  <td>{{ field[1] }}</td>
                 </tr>
             {% endfor %}
@@ -168,16 +175,17 @@ Keine Teilnehmer für Export oder Mail bestätigt
           </td>
           <td>{{ ticket.ticket_info.comment}}</td>
           <td>
-            <input type="text" class="form-control guide-comment-input" 
-                   data-ticket-id="{{ ticket.id }}" 
-                   value="{{ ticket.ticket_info.guide_comment }}" 
-                   placeholder="Guide Kommentar..." 
+            <input type="text" class="form-control guide-comment-input"
+                   data-ticket-id="{{ ticket.id }}"
+                   value="{{ ticket.ticket_info.guide_comment }}"
+                   placeholder="Guide Kommentar..."
+                   aria-label="Guide Kommentar für {{ ticket.ticket_owner }}"
                    style="min-width: 150px;">
           </td>
           <td>{{ticket.booking_date.strftime('%d.%m.%Y %H:%M')}}</td>
           <td>
             {% if booking_type != 'confirmed' %}
-            <a href="#" class="job" data-job="confirm" data-ticket_id={{ ticket.id }}>Bestätigen</a></span>
+            <a href="#" class="job" data-job="confirm" data-ticket_id={{ ticket.id }}>Bestätigen</a>
             {% endif %}
             {% if booking_type != 'waitinglist' %}
             <a href="#" class="job" data-job="waitlist" data-ticket_id={{ ticket.id }}>Warteliste</a>
@@ -189,23 +197,25 @@ Keine Teilnehmer für Export oder Mail bestätigt
       {% endfor %}
       </tbody>
     </table>
+    </div>
 {% endfor %}
 </div>
 
 {% if current_user.has_right('guide') and extra_tickets %}
 <div class="row">
-<h1>Kategorien</h1>
+<h2>Kategorien</h2>
 </div>
 
 
 {% for ticket_group, members in extra_tickets.items()|sort %}
 <div class="row extra-ticket-table" data-category="{{ ticket_group }}">
-    <h2>{{ ticket_group }}</h2>
+    <h3>{{ ticket_group }}</h3>
 </div>
-    <table class="table table-bordered extra-ticket-table" data-category="{{ ticket_group }}">
+    <div class="table-responsive extra-ticket-table" data-category="{{ ticket_group }}">
+    <table class="table table-bordered">
       <thead>
         <tr>
-          <th scope="col">#</td>
+          <th scope="col">#</th>
             <th scope="col" style="width: 200px;">Teilnehmer</th>
           <th scope="col" style="width: 300px;">Teilnehmer Kommentar</th>
           <th scope="col" style="width: 300px;">Guide Kommentar</th>
@@ -222,10 +232,11 @@ Keine Teilnehmer für Export oder Mail bestätigt
          <td>{{ owner }}</td>
          <td>{{ comment }}</td>
          <td>
-            <input type="text" class="form-control guide-comment-input" 
-                   data-ticket-id="{{ ticket_id }}" 
-                   value="{{ guide_comment or '' }}" 
-                   placeholder="Guide Kommentar..." 
+            <input type="text" class="form-control guide-comment-input"
+                   data-ticket-id="{{ ticket_id }}"
+                   value="{{ guide_comment or '' }}"
+                   placeholder="Guide Kommentar..."
+                   aria-label="Guide Kommentar für {{ owner }}"
                    style="min-width: 150px;">
           </td>
          <td>{{ birthdate.strftime("%m/%Y") if birthdate else "" }}</td>
@@ -250,6 +261,7 @@ Keine Teilnehmer für Export oder Mail bestätigt
     {% endfor %}
       </tbody>
     </table>
+    </div>
 {% endfor %}
 {% endif %}
 
@@ -459,11 +471,13 @@ $(document).ready(function() {
             input.removeClass('saving');
             input.prop('disabled', false);
             if (res.success) {
+                $('#save-status').text('Guide-Kommentar gespeichert.');
                 input.css('background-color', '#d4edda');
                 setTimeout(function() {
                     input.css('background-color', '');
                 }, 1000);
             } else {
+                $('#save-status').text('Speichern des Guide-Kommentars fehlgeschlagen.');
                 input.css('background-color', '#f8d7da');
                 setTimeout(function() {
                     input.css('background-color', '');
@@ -472,6 +486,7 @@ $(document).ready(function() {
         }).fail(function() {
             input.removeClass('saving');
             input.prop('disabled', false);
+            $('#save-status').text('Speichern des Guide-Kommentars fehlgeschlagen.');
             input.css('background-color', '#f8d7da');
             setTimeout(function() {
                 input.css('background-color', '');

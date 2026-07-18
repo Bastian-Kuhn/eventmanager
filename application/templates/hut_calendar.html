@@ -1,5 +1,7 @@
 {% extends 'base.html' %}
 
+{% block title %}Belegungskalender {{ hut.name }} – Tourenportal{% endblock %}
+
 {% block styles %}{{ super() }}{% include '_hut_styles.html' %}{% endblock %}
 
 {% block page_content %}
@@ -12,6 +14,7 @@
   <p class="hp-hint">{{ hut.name }} · Gesamtkapazität {{ total_places }} Plätze
     (Anreisetag zählt, Abreisetag nicht).</p>
 
+  <h2 class="sr-only">Monatsübersicht</h2>
   {% include '_hut_calendar_grid.html' %}
 
   <div class="cal-legend">

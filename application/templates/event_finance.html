@@ -1,6 +1,8 @@
 {% extends 'base.html' %}
 {% import 'bootstrap/wtf.html' as wtf %}
 
+{% block title %}Finanzen – {{ event.event_name }} – Tourenportal{% endblock %}
+
 {% block page_content %}
 <style>
 @media (max-width: 767px) {
@@ -37,6 +39,7 @@
 <div class="row">
     <div class="col-sm-12">
 
+    <nav aria-label="Tour-Bereiche">
     <ul class="nav nav-tabs">
       <li class="nav-item">
         <a class="nav-link" href="{{ url_for('EVENTS.page_details', event_id=event.id) }}">Übersicht</a>
@@ -52,7 +55,7 @@
         <a class="nav-link" href="{{ url_for('EVENTS.page_billing', event_id=event.id) }}">Abrechnung</a>
       </li>
       <li class="nav-item">
-        <a class="nav-link active" href="{{ url_for('EVENTS.page_finance', event_id=event.id) }}">Finanzen</a>
+        <a class="nav-link active" aria-current="page" href="{{ url_for('EVENTS.page_finance', event_id=event.id) }}">Finanzen</a>
       </li>
       {% endif %}
     {% if current_user.has_right('guide') or current_user.participate_event(event.id) %}
@@ -71,6 +74,7 @@
       {% endif %}
     {% endif %}
     </ul>
+    </nav>
     </div>
 </div>
 
@@ -81,7 +85,7 @@
 <div class="row mt-3">
     <div class="col-md-6 mb-3">
         <div class="card h-100">
-            <div class="card-header"><h4 class="mb-0">Einnahmen</h4></div>
+            <div class="card-header"><h2 class="h4 mb-0">Einnahmen</h2></div>
             <div class="card-body">
                 <div class="table-responsive">
                 <table class="table table-bordered mb-0">
@@ -115,62 +119,69 @@
 
     <div class="col-md-6 mb-3">
         <div class="card h-100">
-            <div class="card-header"><h4 class="mb-0">Ausgaben</h4></div>
+            <div class="card-header"><h2 class="h4 mb-0">Ausgaben</h2></div>
             <div class="card-body">
                 <div class="table-responsive">
-                <table class="table table-bordered stack-table">
-                    <thead>
-                        <tr>
-                            <th scope="col">Name</th>
-                            <th scope="col">Person</th>
-                            <th scope="col">Datum</th>
-                            <th scope="col" class="text-end">Preis</th>
-                            <th scope="col">Bezahlt</th>
-                            <th scope="col"></th>
+                <table class="table table-bordered stack-table" role="table">
+                    <thead role="rowgroup">
+                        <tr role="row">
+                            <th scope="col" role="columnheader">Name</th>
+                            <th scope="col" role="columnheader">Person</th>
+                            <th scope="col" role="columnheader">Datum</th>
+                            <th scope="col" role="columnheader" class="text-end">Preis</th>
+                            <th scope="col" role="columnheader">Bezahlt</th>
+                            <th scope="col" role="columnheader"><span class="sr-only">Aktionen</span></th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody role="rowgroup">
                     {% for cost in costs %}
-                        <tr class="{{ 'table-success' if cost.is_paid else '' }}">
-                            <td data-label="Name">
+                        <tr class="{{ 'table-success' if cost.is_paid else '' }}" role="row">
+                            <td data-label="Name" role="cell">
                                 <input type="text" name="name" form="editcost_{{ loop.index0 }}"
+                                       aria-label="Name der Kostenposition {{ loop.index }}"
                                        class="form-control form-control-sm" value="{{ cost.name or '' }}">
                             </td>
-                            <td data-label="Person">
+                            <td data-label="Person" role="cell">
                                 <input type="text" name="person" form="editcost_{{ loop.index0 }}"
+                                       aria-label="Person der Kostenposition {{ loop.index }}"
                                        class="form-control form-control-sm" value="{{ cost.person or '' }}">
                             </td>
-                            <td data-label="Datum">
+                            <td data-label="Datum" role="cell">
                                 <input type="date" name="date" form="editcost_{{ loop.index0 }}"
+                                       aria-label="Datum der Kostenposition {{ loop.index }}"
                                        class="form-control form-control-sm"
                                        value="{{ cost.date.strftime('%Y-%m-%d') if cost.date else '' }}">
                             </td>
-                            <td data-label="Preis">
+                            <td data-label="Preis" role="cell">
                                 <input type="number" step="0.01" name="price" form="editcost_{{ loop.index0 }}"
+                                       aria-label="Preis der Kostenposition {{ loop.index }} in Euro"
                                        class="form-control form-control-sm" value="{{ cost.price or 0 }}">
                             </td>
-                            <td data-label="Bezahlt">
+                            <td data-label="Bezahlt" role="cell">
                                 <input type="checkbox" name="is_paid" value="y" form="editcost_{{ loop.index0 }}"
+                                       aria-label="Kostenposition {{ loop.index }} bezahlt"
                                        class="form-check-input" {{ 'checked' if cost.is_paid else '' }}>
                             </td>
-                            <td data-label="Aktionen">
+                            <td data-label="Aktionen" role="cell">
                                 <div class="d-flex flex-wrap gap-1">
                                     <button type="submit" form="editcost_{{ loop.index0 }}"
+                                            aria-label="Kostenposition {{ loop.index }} speichern"
                                             class="btn btn-sm btn-outline-primary" title="Speichern">
-                                        <i class="fas fa-save"></i></button>
+                                        <i class="fas fa-save" aria-hidden="true"></i></button>
                                     <button type="submit" form="delcost_{{ loop.index0 }}"
+                                            aria-label="Kostenposition {{ loop.index }} löschen"
                                             class="btn btn-sm btn-outline-danger" title="Löschen">
-                                        <i class="fas fa-trash"></i></button>
+                                        <i class="fas fa-trash" aria-hidden="true"></i></button>
                                 </div>
                             </td>
                         </tr>
                     {% else %}
-                        <tr><td colspan="6" class="text-muted">Noch keine Kosten erfasst.</td></tr>
+                        <tr role="row"><td colspan="6" class="text-muted" role="cell">Noch keine Kosten erfasst.</td></tr>
                     {% endfor %}
-                        <tr class="table-active">
-                            <td colspan="3"><strong>Gesamtausgaben</strong></td>
-                            <td class="text-end"><strong>{{ expenses }}€</strong></td>
-                            <td colspan="2"></td>
+                        <tr class="table-active" role="row">
+                            <td colspan="3" role="cell"><strong>Gesamtausgaben</strong></td>
+                            <td class="text-end" role="cell"><strong>{{ expenses }}€</strong></td>
+                            <td colspan="2" role="cell"></td>
                         </tr>
                     </tbody>
                 </table>
@@ -179,10 +190,12 @@
                 {# Formulare ausserhalb der Tabelle, per HTML5 form-Attribut verknuepft #}
                 {% for cost in costs %}
                 <form method="post" action="{{ url_for('EVENTS.edit_cost') }}" id="editcost_{{ loop.index0 }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="event_id" value="{{ event.id }}">
                     <input type="hidden" name="index" value="{{ loop.index0 }}">
                 </form>
                 <form method="post" action="{{ url_for('EVENTS.delete_cost') }}" id="delcost_{{ loop.index0 }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="event_id" value="{{ event.id }}">
                     <input type="hidden" name="index" value="{{ loop.index0 }}">
                 </form>
@@ -195,23 +208,24 @@
 
                 <form method="post" action="{{ url_for('EVENTS.add_cost') }}"
                       class="d-flex flex-wrap gap-2 align-items-end mt-2">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="event_id" value="{{ event.id }}">
                     <div class="flex-grow-1">
-                        <label class="form-label mb-0">Name</label>
-                        <input type="text" name="name" class="form-control form-control-sm" required>
+                        <label class="form-label mb-0" for="addcost-name">Name</label>
+                        <input type="text" name="name" id="addcost-name" class="form-control form-control-sm" required>
                     </div>
                     <div class="flex-grow-1">
-                        <label class="form-label mb-0">Person</label>
-                        <input type="text" name="person" class="form-control form-control-sm">
+                        <label class="form-label mb-0" for="addcost-person">Person</label>
+                        <input type="text" name="person" id="addcost-person" class="form-control form-control-sm">
                     </div>
                     <div>
-                        <label class="form-label mb-0">Preis €</label>
-                        <input type="number" step="0.01" name="price" class="form-control form-control-sm"
+                        <label class="form-label mb-0" for="addcost-price">Preis €</label>
+                        <input type="number" step="0.01" name="price" id="addcost-price" class="form-control form-control-sm"
                                style="max-width: 110px;" required>
                     </div>
                     <div>
-                        <label class="form-label mb-0">Datum</label>
-                        <input type="date" name="date" class="form-control form-control-sm">
+                        <label class="form-label mb-0" for="addcost-date">Datum</label>
+                        <input type="date" name="date" id="addcost-date" class="form-control form-control-sm">
                     </div>
                     <div>
                         <button type="submit" class="btn btn-sm btn-primary">Hinzufügen</button>
@@ -226,30 +240,31 @@
 <div class="row mb-3">
     <div class="col-12">
         <div class="card">
-            <div class="card-header"><h4 class="mb-0">Ausgaben pro Person</h4></div>
+            <div class="card-header"><h2 class="h4 mb-0">Ausgaben pro Person</h2></div>
             <div class="card-body">
                 <div class="table-responsive">
-                <table class="table table-bordered stack-table">
-                    <thead>
-                        <tr>
-                            <th scope="col">Person</th>
-                            <th scope="col" class="text-end">Anzahl</th>
-                            <th scope="col" class="text-end">Gesamt</th>
-                            <th scope="col" class="text-end">Bezahlt</th>
-                            <th scope="col" class="text-end">Offen</th>
-                            <th scope="col">Aktion</th>
+                <table class="table table-bordered stack-table" role="table">
+                    <thead role="rowgroup">
+                        <tr role="row">
+                            <th scope="col" role="columnheader">Person</th>
+                            <th scope="col" role="columnheader" class="text-end">Anzahl</th>
+                            <th scope="col" role="columnheader" class="text-end">Gesamt</th>
+                            <th scope="col" role="columnheader" class="text-end">Bezahlt</th>
+                            <th scope="col" role="columnheader" class="text-end">Offen</th>
+                            <th scope="col" role="columnheader">Aktion</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody role="rowgroup">
                     {% for person, info in persons.items() %}
-                        <tr class="{{ 'table-success' if info.all_paid else '' }}">
-                            <td data-label="Person">{{ person if person else "(keine Person)" }}</td>
-                            <td data-label="Anzahl" class="text-end">{{ info.count }}</td>
-                            <td data-label="Gesamt" class="text-end">{{ info.total }}€</td>
-                            <td data-label="Bezahlt" class="text-end">{{ info.paid }}€</td>
-                            <td data-label="Offen" class="text-end">{{ info.open }}€</td>
-                            <td data-label="Aktion">
+                        <tr class="{{ 'table-success' if info.all_paid else '' }}" role="row">
+                            <td data-label="Person" role="cell">{{ person if person else "(keine Person)" }}</td>
+                            <td data-label="Anzahl" class="text-end" role="cell">{{ info.count }}</td>
+                            <td data-label="Gesamt" class="text-end" role="cell">{{ info.total }}€</td>
+                            <td data-label="Bezahlt" class="text-end" role="cell">{{ info.paid }}€</td>
+                            <td data-label="Offen" class="text-end" role="cell">{{ info.open }}€</td>
+                            <td data-label="Aktion" role="cell">
                                 <form method="post" action="{{ url_for('EVENTS.mark_person_paid') }}" style="margin:0;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <input type="hidden" name="event_id" value="{{ event.id }}">
                                     <input type="hidden" name="person" value="{{ person }}">
                                     {% if info.all_paid %}

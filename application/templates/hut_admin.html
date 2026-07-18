@@ -24,7 +24,7 @@
       <thead>
         <tr><th scope="col">Zeitraum</th><th scope="col">Bucher</th>
             <th scope="col" class="text-right">Plätze</th><th scope="col">Zimmer</th>
-            <th scope="col">Kommentar</th><th scope="col"></th></tr>
+            <th scope="col">Kommentar</th><th scope="col"><span class="sr-only">Aktionen</span></th></tr>
       </thead>
       <tbody>
         {% for b in group.pending %}
@@ -37,11 +37,13 @@
           <td>{{ b.comment or '' }}</td>
           <td class="text-right text-nowrap">
             <form method="POST" action="{{ url_for('HUTS.confirm_booking', hut_id=hut.id, booking_id=b.id) }}" class="d-inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <input type="hidden" name="next" value="{{ url_for('HUTS.page_hut_admin') }}">
               <button type="submit" class="btn btn-sm btn-success">Freigeben</button>
             </form>
             <form method="POST" action="{{ url_for('HUTS.cancel_booking', hut_id=hut.id, booking_id=b.id) }}" class="d-inline"
                   onsubmit="return confirm('Anfrage ablehnen und entfernen?');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <input type="hidden" name="next" value="{{ url_for('HUTS.page_hut_admin') }}">
               <button type="submit" class="btn btn-sm btn-outline-danger">Ablehnen</button>
             </form>
@@ -56,6 +58,7 @@
   {% endif %}
 
   <form method="POST" action="{{ url_for('HUTS.block_hut', hut_id=hut.id) }}" class="form-row align-items-end mb-2">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="next" value="{{ url_for('HUTS.page_hut_admin') }}">
     <div class="form-group col-6 col-md-3 mb-1">
       <label for="block-from-{{ hut.id }}">Sperren von</label>
@@ -82,7 +85,7 @@
       <table class="table table-sm">
         <caption class="sr-only">Bestätigte Buchungen für {{ hut.name }}</caption>
         <thead><tr><th scope="col">Zeitraum</th><th scope="col">Bucher</th>
-               <th scope="col" class="text-right">Plätze</th><th scope="col">Zimmer</th><th scope="col"></th></tr></thead>
+               <th scope="col" class="text-right">Plätze</th><th scope="col">Zimmer</th><th scope="col"><span class="sr-only">Aktionen</span></th></tr></thead>
         <tbody>
           {% for b in group.confirmed %}
           <tr>
@@ -97,6 +100,7 @@
             <td class="text-right">
               <form method="POST" action="{{ url_for('HUTS.cancel_booking', hut_id=hut.id, booking_id=b.id) }}" class="d-inline"
                     onsubmit="return confirm('{{ 'Sperre aufheben?' if b.blocked else 'Buchung stornieren?' }}');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="next" value="{{ url_for('HUTS.page_hut_admin') }}">
                 <button type="submit" class="btn btn-sm btn-outline-danger">{{ 'Sperre aufheben' if b.blocked else 'Stornieren' }}</button>
               </form>

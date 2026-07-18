@@ -2,7 +2,7 @@
    total_places, can_manage. #}
 <div class="cal-head">
   <a class="cal-nav" aria-label="Vorheriger Monat" href="{{ cal.prev_url }}">&larr;</a>
-  <h3 class="cal-title" aria-live="polite">{{ cal.month_name }} {{ cal.year }}</h3>
+  <h3 class="cal-title">{{ cal.month_name }} {{ cal.year }}</h3>
   <a class="cal-nav" aria-label="Nächster Monat" href="{{ cal.next_url }}">&rarr;</a>
 </div>
 
@@ -16,7 +16,8 @@
     {% set pct = ((cell.used / total_places * 100) if total_places else 0) | round(0, 'ceil') | int %}
     {% set selected = sel_from and sel_to and cell.date >= sel_from and cell.date < sel_to %}
     <div class="cal-day {{ 'outside' if not cell.in_month }} {{ 'today' if cell.is_today }} {{ 'selected' if selected }} {{ 'cal-pick' if pickable and cell.in_month }}"
-         role="cell"{% if pickable and cell.in_month %} data-date="{{ cell.iso }}" tabindex="0"{% endif %}>
+         role="cell"{% if pickable and cell.in_month %} data-date="{{ cell.iso }}" tabindex="0"
+         aria-label="{{ cell.date.strftime('%d.%m.%Y') }}{% if selected %}, ausgewählt{% endif %}{% if cell.blocked %}, gesperrt{% elif total_places %}, {{ cell.used }} von {{ total_places }} belegt, {% if cell.free > 0 %}{{ cell.free }} frei{% else %}voll{% endif %}{% endif %}"{% endif %}>
       <div class="cal-dnum">{{ cell.date.day }}</div>
       {% if cell.in_month and total_places %}
       <div class="cal-meter" aria-hidden="true">
@@ -28,7 +29,7 @@
         {% if can_manage and cell.block_reason %}<div class="cal-names">{{ cell.block_reason }}</div>{% endif %}
       </div>
       {% else %}
-      <div class="cal-occ" aria-label="{{ cell.used }} von {{ total_places }} belegt, {{ cell.free }} frei">
+      <div class="cal-occ">
         <strong>{{ cell.used }}</strong>/{{ total_places }} ·
         <span class="{{ 'full' if cell.free <= 0 }}">{{ cell.free if cell.free > 0 else 'voll' }}{% if cell.free > 0 %} frei{% endif %}</span>
         {% if can_manage and cell.entries %}

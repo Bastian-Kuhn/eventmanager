@@ -1,3 +1,6 @@
+<!DOCTYPE html>
+<html lang="de">
+<body>
 Neue Anmeldung auf deinem Event {{ event.event_name }} <br><br>
 Angemeldet hat: {{user.first_name}} {{user.last_name}} {{ user.email }}<br><br>
 
@@ -9,8 +12,8 @@ Angemeldet hat: {{user.first_name}} {{user.last_name}} {{ user.email }}<br><br>
 <h2>Tickets</h2>
 <table>
     <tr>
-        <th>Ticket Art</th>
-        <th>Name auf Ticket</th>
+        <th scope="col">Ticket Art</th>
+        <th scope="col">Name auf Ticket</th>
     </tr>
     {% for ticket in tickets %}
     <tr>
@@ -24,8 +27,8 @@ Angemeldet hat: {{user.first_name}} {{user.last_name}} {{ user.email }}<br><br>
 
 <table>
     <tr>
-        <th>Frage</th>
-        <th>Antwort</th>
+        <th scope="col">Frage</th>
+        <th scope="col">Antwort</th>
     </tr>
     {% for field in fields %}
     <tr>
@@ -34,3 +37,5 @@ Angemeldet hat: {{user.first_name}} {{user.last_name}} {{ user.email }}<br><br>
     </tr>
     {% endfor %}
 </table>
+</body>
+</html>

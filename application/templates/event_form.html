@@ -1,11 +1,14 @@
 {% extends 'base.html' %}
 {% import 'bootstrap/wtf.html' as wtf %}
 
+{% block title %}{% if event %}Bearbeiten – {{ event.event_name }}{% else %}Neues Event{% endif %} – Tourenportal{% endblock %}
+
 {% block page_content %}
 {% if event %}
 <div class="row">
     <div class="col-sm-12">
 
+    <nav aria-label="Tour-Bereiche">
     <ul class="nav nav-tabs">
 
       <li class="nav-item">
@@ -34,7 +37,7 @@
 
       {% if current_user.has_right('guide') %}
       <li class="nav-item">
-        <a class="nav-link active" href="{{ url_for('EVENTS.page_admin', event_id=event.id) }}">Bearbeiten</a>
+        <a class="nav-link active" aria-current="page" href="{{ url_for('EVENTS.page_admin', event_id=event.id) }}">Bearbeiten</a>
       </li>
 
       <li class="nav-item">
@@ -43,6 +46,7 @@
       {% endif %}
      {% endif %}
     </ul>
+    </nav>
     </div>
 </div>
 
@@ -122,7 +126,7 @@
 
  </div>
  <div class="row">
-       <legend class="col-form-label col-sm-2 pt-0"></legend>
+       <div class="col-sm-2"></div>
         <div class="col-sm-3">
          {{ wtf.form_field(form.places) }}
         </div>
@@ -151,7 +155,7 @@
 </div>
 </fieldset>
 <div id="add_field_row" class="row">
- <button type="button" id="add_field" class="btn pull-right glyphicon glyphicon-plus">Weitere Frage</button>
+ <button type="button" id="add_field" class="btn pull-right">Weitere Frage</button>
 </div>
 <hr>
  <h2>Tickets</h2>
@@ -193,8 +197,8 @@
 
         <div class="col-sm-2">
          <div class="form-group form-check">
-             <center>{{ field.form.is_extra_ticket.label(class_="form-check-label") }}</center>
-             <center>{{ field.form.is_extra_ticket(class_="form-check-input") }}</center>
+             <div class="text-center">{{ field.form.is_extra_ticket.label(class_="form-check-label") }}</div>
+             <div class="text-center">{{ field.form.is_extra_ticket(class_="form-check-input") }}</div>
          </div>
         </div>
 
@@ -204,7 +208,7 @@
 </div>
 </fieldset>
 <div id="add_ticket_row" class="row">
- <button type="button" id="add_ticket" class="btn pull-right glyphicon glyphicon-plus">Weiteres Ticket</button>
+ <button type="button" id="add_ticket" class="btn pull-right">Weiteres Ticket</button>
 </div>
 
 <hr>

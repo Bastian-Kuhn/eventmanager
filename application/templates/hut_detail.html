@@ -1,5 +1,7 @@
 {% extends 'base.html' %}
 
+{% block title %}{{ hut.name }} – Tourenportal{% endblock %}
+
 {% block styles %}{{ super() }}{% include '_hut_styles.html' %}{% endblock %}
 
 {% macro booking_row(hut, b) %}
@@ -13,6 +15,7 @@
   <td class="text-right">
     <form method="POST" action="{{ url_for('HUTS.cancel_booking', hut_id=hut.id, booking_id=b.id) }}" class="d-inline"
           onsubmit="return confirm('Buchung wirklich stornieren?');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button type="submit" class="btn btn-sm btn-outline-danger">Stornieren</button>
     </form>
   </td>
@@ -32,7 +35,7 @@
     <span class="hp-chip">{{ 'Bewirtschaftet' if hut.managed else 'Selbstversorger' }}</span>
     {% if hut.requires_approval %}<span class="hp-chip">✋ Freigabe nötig</span>{% endif %}
     {% if hut.phone %}<span class="hp-chip">📞 <a href="tel:{{ hut.phone }}">{{ hut.phone }}</a></span>{% endif %}
-    {% if hut.link %}<span class="hp-chip">🔗 <a href="{{ hut.link }}" target="_blank" rel="noopener">Website</a></span>{% endif %}
+    {% if hut.link %}<span class="hp-chip">🔗 <a href="{{ hut.link }}" target="_blank" rel="noopener">Website<span class="sr-only"> (öffnet in neuem Fenster)</span></a></span>{% endif %}
   </div>
   {% if hut.note %}<p class="hp-hint">{{ hut.note }}</p>{% endif %}
 
@@ -71,6 +74,7 @@
     {% if current_user.is_authenticated %}
       {% if free_places > 0 %}
       <form method="POST" action="{{ url_for('HUTS.book_hut', hut_id=hut.id) }}" class="mt-3">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="from_date" value="{{ from_date }}">
         <input type="hidden" name="to_date" value="{{ to_date }}">
         <div class="form-row">
@@ -132,7 +136,7 @@
       <table class="table table-sm mb-0">
         <caption class="sr-only">Deine Buchungen für {{ hut.name }}</caption>
         <thead><tr><th scope="col">Zeitraum</th><th scope="col" class="text-right">Plätze</th>
-               <th scope="col">Zimmer</th><th scope="col">Status</th><th scope="col"></th></tr></thead>
+               <th scope="col">Zimmer</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Aktionen</span></th></tr></thead>
         <tbody>{% for b in my_bookings %}{{ booking_row(hut, b) }}{% endfor %}</tbody>
       </table>
     </div>

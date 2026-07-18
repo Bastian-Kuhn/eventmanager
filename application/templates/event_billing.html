@@ -1,6 +1,8 @@
 {% extends 'base.html' %}
 {% import 'bootstrap/wtf.html' as wtf %}
 
+{% block title %}Abrechnung – {{ event.event_name }} – Tourenportal{% endblock %}
+
 {% block page_content %}
 <style>
 /* Tabellen auf Mobile als gestapelte Karten statt breiter Tabelle */
@@ -40,6 +42,7 @@
 <div class="row">
     <div class="col-sm-12">
 
+    <nav aria-label="Tour-Bereiche">
     <ul class="nav nav-tabs">
       <li class="nav-item">
         <a class="nav-link" href="{{ url_for('EVENTS.page_details', event_id=event.id) }}">Übersicht</a>
@@ -53,7 +56,7 @@
       {% if current_user.has_right('guide') %}
 
       <li class="nav-item">
-        <a class="nav-link active" href="{{ url_for('EVENTS.page_billing', event_id=event.id) }}">Abrechnung</a>
+        <a class="nav-link active" aria-current="page" href="{{ url_for('EVENTS.page_billing', event_id=event.id) }}">Abrechnung</a>
       </li>
       <li class="nav-item">
         <a class="nav-link" href="{{ url_for('EVENTS.page_finance', event_id=event.id) }}">Finanzen</a>
@@ -75,6 +78,7 @@
       {% endif %}
     {% endif %}
     </ul>
+    </nav>
     </div>
 </div>
 
@@ -127,6 +131,7 @@
                     <span class="flex-grow-1">{{ ticket_def.name }}</span>
                     <input type="number" step="0.01" class="form-control form-control-sm bulk-price-input"
                            data-ticket-name="{{ ticket_def.name }}"
+                           aria-label="Preis für {{ ticket_def.name }}"
                            value="{{ ticket_def.price or 0 }}" style="max-width: 120px;">
                     <a href="#" class="bulk-price btn btn-sm btn-outline-primary"
                        data-ticket-name="{{ ticket_def.name }}">Übernehmen</a>
@@ -148,7 +153,6 @@
             {{owner}}
           </a>
           </span>
-          </h2>
         </div>
 
         <div class="card-body">
@@ -161,91 +165,95 @@
               {% elif booking_status == 'paid' %}
                   <h3>Bezahlt</h3>
               {% elif booking_status == 'transfer' %}
-                  <h3 class="text-warning">Überweisung ausstehend</h3>
+                  <h3>Überweisung ausstehend <span class="badge badge-secondary">Vorgemerkt</span></h3>
               {% elif booking_status == 'free' %}
                   <h3>Frei</h3>
               {% endif %}
               <div class="table-responsive">
               {% if booking_status == 'transfer' %}
-              <table class="table table-bordered billing-table table-warning">
-              {% elif booking_status != 'unpaid' %}
-              <table class="table table-bordered billing-table" style="opacity: 0.6; color: #666;">
+              <table class="table table-bordered billing-table table-warning" role="table">
               {% else %}
-              <table class="table table-bordered billing-table">
+              <table class="table table-bordered billing-table" role="table">
               {% endif %}
-                <thead>
-                  <tr>
-                    <th scope="col">Teilnehmer</th>
-                    <th scope="col">Was</th>
-                    <th scope="col">Vereinsrolle</th>
-                    <th scope="col">Alter</th>
-                    <th scope="col">Preis Euro</th>
-                    <th scope="col">Optionen</th>
+                <thead role="rowgroup">
+                  <tr role="row">
+                    <th scope="col" role="columnheader">Teilnehmer</th>
+                    <th scope="col" role="columnheader">Was</th>
+                    <th scope="col" role="columnheader">Vereinsrolle</th>
+                    <th scope="col" role="columnheader">Alter</th>
+                    <th scope="col" role="columnheader">Preis Euro</th>
+                    <th scope="col" role="columnheader">Optionen</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody role="rowgroup">
                 {% for ticket in tickets_by_status[booking_status] %}
                   {% if ticket.price != 0 %}
-                  <tr>
-                   <td data-label="Teilnehmer">{{ ticket.ticket_owner }}</td>
-                   <td data-label="Was">{{ ticket.ticket_info.name }}</td>
-                    <td data-label="Vereinsrolle">{{ ticket.ticket_info.role }}</td>
-                    <td data-label="Alter">{{ age(ticket.ticket_info.birthdate) }}</td>
-                    <td data-label="Preis">
-                      <span class="editable-price"
+                  <tr role="row">
+                   <td data-label="Teilnehmer" role="cell">{{ ticket.ticket_owner }}</td>
+                   <td data-label="Was" role="cell">{{ ticket.ticket_info.name }}</td>
+                    <td data-label="Vereinsrolle" role="cell">{{ ticket.ticket_info.role }}</td>
+                    <td data-label="Alter" role="cell">{{ age(ticket.ticket_info.birthdate) }}</td>
+                    <td data-label="Preis" role="cell">
+                      <button type="button" class="editable-price btn btn-link p-0"
                             data-ticket-id="{{ ticket.id }}"
                             data-original-price="{{ ticket.price }}"
-                            style="cursor: pointer; text-decoration: underline;"
+                            aria-label="Preis von {{ ticket.price }}€ für {{ ticket.ticket_owner }} bearbeiten"
                             title="Preis bearbeiten (klicken)">
                         {{ ticket.price }}€
-                      </span>
+                      </button>
                     </td>
-                    <td data-label="Optionen">
+                    <td data-label="Optionen" role="cell">
                       <div class="d-flex flex-wrap gap-1">
                       {% if booking_status != 'paid' %}
-                      <a href="#" class="job btn btn-sm btn-outline-success"
+                      <a href="#" class="job btn btn-sm btn-outline-success" role="button"
                          data-job="paid"
                          data-ticket_id={{ ticket.id }}
+                         aria-label="Ticket von {{ ticket.ticket_owner }} als bezahlt markieren"
                          title="Als bezahlt markieren">
-                        <i class="fas fa-check"></i>
+                        <i class="fas fa-check" aria-hidden="true"></i>
                       </a>
                       {% endif %}
                       {% if booking_status != 'unpaid' %}
-                      <a href="#" class="job btn btn-sm btn-outline-warning"
+                      <a href="#" class="job btn btn-sm btn-outline-warning" role="button"
                          data-job="unpaid"
                          data-ticket_id={{ ticket.id }}
+                         aria-label="Ticket von {{ ticket.ticket_owner }} als unbezahlt markieren"
                          title="Als unbezahlt markieren">
-                        <i class="fas fa-times"></i>
+                        <i class="fas fa-times" aria-hidden="true"></i>
                       </a>
                       {% endif %}
                       {% if booking_status != 'transfer' %}
-                      <a href="#" class="job btn btn-sm btn-outline-info"
+                      <a href="#" class="job btn btn-sm btn-outline-info" role="button"
                          data-job="transfer"
                          data-ticket_id={{ ticket.id }}
+                         aria-label="Überweisung für {{ ticket.ticket_owner }} vormerken"
                          title="Überweisung vormerken">
-                        <i class="fas fa-university"></i>
+                        <i class="fas fa-university" aria-hidden="true"></i>
                       </a>
                       {% else %}
-                      <a href="#" class="job btn btn-sm btn-outline-info"
+                      <a href="#" class="job btn btn-sm btn-outline-info" role="button"
                          data-job="untransfer"
                          data-ticket_id={{ ticket.id }}
+                         aria-label="Überweisung für {{ ticket.ticket_owner }} aufheben"
                          title="Überweisung aufheben">
-                        <i class="fas fa-undo"></i>
+                        <i class="fas fa-undo" aria-hidden="true"></i>
                       </a>
                       {% endif %}
                       {% if booking_status != 'free' %}
-                      <a href="#" class="job btn btn-sm btn-outline-secondary"
+                      <a href="#" class="job btn btn-sm btn-outline-secondary" role="button"
                          data-job="free"
                          data-ticket_id={{ ticket.id }}
+                         aria-label="Ticket von {{ ticket.ticket_owner }} als frei markieren"
                          title="Als frei markieren">
-                        <i class="fas fa-gift"></i>
+                        <i class="fas fa-gift" aria-hidden="true"></i>
                       </a>
                       {% else %}
-                      <a href="#" class="job btn btn-sm btn-outline-secondary"
+                      <a href="#" class="job btn btn-sm btn-outline-secondary" role="button"
                          data-job="unfree"
                          data-ticket_id={{ ticket.id }}
+                         aria-label="Frei-Markierung für {{ ticket.ticket_owner }} aufheben"
                          title="Frei aufheben">
-                        <i class="fas fa-undo"></i>
+                        <i class="fas fa-undo" aria-hidden="true"></i>
                       </a>
                       {% endif %}
                       </div>
@@ -259,7 +267,7 @@
               {% endif %}
               {% endfor %}
         </div>
-    </ div>
+    </div>
 {% endfor %}
 
 {% endblock %}

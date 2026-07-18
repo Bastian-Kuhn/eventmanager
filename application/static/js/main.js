@@ -10,6 +10,9 @@ $( document ).ready(function() {
 
        $('#custom_fields').append('<div class="fieldref" id="custom_fields-'+new_id+'">'+new_element+'</div>');
 
+       // Fokus auf das erste neue Eingabefeld setzen (Barrierefreiheit)
+       $('#custom_fields-'+new_id).find('input, select, textarea').first().trigger('focus');
+
     });
 
     var tickets = $('#tickets-0');
@@ -22,6 +25,9 @@ $( document ).ready(function() {
         var new_element = ticket_template.replace(/tickets-0/g, 'tickets-'+new_id);
 
        $('#tickets').append('<div class="ticketref" id="tickets-'+new_id+'">'+new_element+'</div>');
+
+       // Fokus auf das erste neue Eingabefeld setzen (Barrierefreiheit)
+       $('#tickets-'+new_id).find('input, select, textarea').first().trigger('focus');
 
     });
 });

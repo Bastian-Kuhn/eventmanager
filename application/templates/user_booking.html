@@ -1,6 +1,8 @@
 {% extends 'base.html' %}
 {% import 'bootstrap/wtf.html' as wtf %}
 
+{% block title %}{% if is_viewing_other_user %}Buchung von {{ target_user.first_name }} {{ target_user.last_name }}{% else %}Meine Buchung{% endif %} – {{ event.event_name }} – Tourenportal{% endblock %}
+
 {% block page_content %}
 <style>
 /* Tabs auf Mobile horizontal scrollbar statt umbrechen */
@@ -26,6 +28,7 @@
 <div class="row">
     <div class="col-sm-12">
 
+    <nav aria-label="Tour-Bereiche">
     <ul class="nav nav-tabs">
       <li class="nav-item">
         <a class="nav-link" href="{{ url_for('EVENTS.page_details', event_id=event.id) }}">Übersicht</a>
@@ -46,7 +49,7 @@
       {% endif %}
     {% if current_user.has_right('guide') or current_user.participate_event(event.id) %}
       <li class="nav-item">
-        <a class="nav-link active" href="{{ url_for('EVENTS.page_mybooking', event_id=event.id) }}">
+        <a class="nav-link active" aria-current="page" href="{{ url_for('EVENTS.page_mybooking', event_id=event.id) }}">
           {% if is_viewing_other_user %}Buchung von {{ target_user.first_name }} {{ target_user.last_name }}{% else %}Meine Buchung{% endif %}
         </a>
       </li>
@@ -62,6 +65,7 @@
       {% endif %}
     {% endif %}
     </ul>
+    </nav>
     </div>
 </div>
 
@@ -87,7 +91,7 @@
 <div class="row">
     <div class="col-sm-12">
         <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#addNewTicket">
-            <i class="fas fa-plus"></i> Neues Ticket für {{ target_user.first_name }} {{ target_user.last_name }} hinzufügen
+            <i class="fas fa-plus" aria-hidden="true"></i> Neues Ticket für {{ target_user.first_name }} {{ target_user.last_name }} hinzufügen
         </button>
     </div>
 </div>
@@ -108,36 +112,36 @@
 <div class="row">
     <div class="col-sm-12">
     <div class="table-responsive">
-<table class="table table-hover stack-table">
+<table class="table table-hover stack-table" role="table">
   <caption class="sr-only">Liste der gebuchten Tickets dieser Buchung</caption>
-  <thead>
-    <tr>
-      <th scope="col"><span class="sr-only">Bearbeiten</span></th>
-      <th scope="col">Name</th>
-      <th scope="col">E-Mail</th>
-      <th scope="col">Handy</th>
-      <th scope="col">Alter</th>
-      <th scope="col">Kommentar</th>
-      <th scope="col">Guide</th>
-      <th scope="col">Teilnahme Bestätigt?</th>
-      <th scope="col">Auf Warteliste?</th>
-      <th scope="col">Buchungszeit</th>
-      <th scope="col">Preis</th>
-      <th scope="col">Bezahlt</th>
+  <thead role="rowgroup">
+    <tr role="row">
+      <th scope="col" role="columnheader"><span class="sr-only">Bearbeiten</span></th>
+      <th scope="col" role="columnheader">Name</th>
+      <th scope="col" role="columnheader">E-Mail</th>
+      <th scope="col" role="columnheader">Handy</th>
+      <th scope="col" role="columnheader">Alter</th>
+      <th scope="col" role="columnheader">Kommentar</th>
+      <th scope="col" role="columnheader">Guide</th>
+      <th scope="col" role="columnheader">Teilnahme Bestätigt?</th>
+      <th scope="col" role="columnheader">Auf Warteliste?</th>
+      <th scope="col" role="columnheader">Buchungszeit</th>
+      <th scope="col" role="columnheader">Preis</th>
+      <th scope="col" role="columnheader">Bezahlt</th>
       {% if current_user.has_right('guide') %}
-      <th scope="col">Aktionen</th>
+      <th scope="col" role="columnheader">Aktionen</th>
       {% endif %}
     </tr>
   </thead>
-  <tbody>
+  <tbody role="rowgroup">
 
   {% for ticket_name, tickets in tickets_by_name.items() %}
-  <tr>
-      <th scope="colgroup" colspan="{% if current_user.has_right('guide') %}11{% else %}10{% endif %}">{{ticket_name}}</th>
+  <tr role="row">
+      <th scope="colgroup" role="rowheader" colspan="{% if current_user.has_right('guide') %}11{% else %}10{% endif %}">{{ticket_name}}</th>
   </tr>
     {% for ticket in tickets %}
-      <tr>
-        <td data-label="Bearbeiten">
+      <tr role="row">
+        <td role="cell" data-label="Bearbeiten">
           {% if current_user.has_right('guide') or target_user == current_user %}
           <a role="button"
                data-ticket-id="{{ ticket.ticket_id }}"
@@ -152,13 +156,13 @@
           <span class="text-muted">-</span>
           {% endif %}
         </td>
-        <td data-label="Name"><span id="user_name_{{ticket.ticket_id}}">{{ticket.name_on_ticket}}</span></td>
-        <td data-label="E-Mail"><span id="user_email_{{ticket.ticket_id}}">{{ticket.email_on_ticket}}</span></td>
-        <td data-label="Handy"><span id="user_phone_{{ticket.ticket_id}}">{{ticket.phone_on_ticket}}</span></td>
-        <td data-label="Alter"><span id="user_age{{ticket.ticket_id}}">{{age(ticket.birthdate_on_ticket)}}</span></td>
-        <td data-label="Kommentar"><span id="user_comment{{ticket.ticket_id}}">{{ticket.comment_on_ticket}}</span></td>
-        <td data-label="Guide"><span id="user_guide{{ticket.ticket_id}}">{{ticket.guide or "-"}}</span></td>
-        <td data-label="Teilnahme bestätigt?">
+        <td role="cell" data-label="Name"><span id="user_name_{{ticket.ticket_id}}">{{ticket.name_on_ticket}}</span></td>
+        <td role="cell" data-label="E-Mail"><span id="user_email_{{ticket.ticket_id}}">{{ticket.email_on_ticket}}</span></td>
+        <td role="cell" data-label="Handy"><span id="user_phone_{{ticket.ticket_id}}">{{ticket.phone_on_ticket}}</span></td>
+        <td role="cell" data-label="Alter"><span id="user_age{{ticket.ticket_id}}">{{age(ticket.birthdate_on_ticket)}}</span></td>
+        <td role="cell" data-label="Kommentar"><span id="user_comment{{ticket.ticket_id}}">{{ticket.comment_on_ticket}}</span></td>
+        <td role="cell" data-label="Guide"><span id="user_guide{{ticket.ticket_id}}">{{ticket.guide or "-"}}</span></td>
+        <td role="cell" data-label="Teilnahme bestätigt?">
           {% if not ticket.is_extra_ticket %}
             {% if ticket.confirmed %}
               <span class="badge badge-success">{{translate_bool(ticket.confirmed)}}</span>
@@ -169,7 +173,7 @@
             <span class="text-muted">-</span>
           {% endif %}
         </td>
-        <td data-label="Auf Warteliste?">
+        <td role="cell" data-label="Auf Warteliste?">
           {% if not ticket.is_extra_ticket %}
             {% if ticket.waitinglist %}
               <span class="badge badge-danger">{{translate_bool(ticket.waitinglist)}}</span>
@@ -180,8 +184,8 @@
             <span class="text-muted">-</span>
           {% endif %}
         </td>
-        <td data-label="Buchungszeit">{{ticket.booking_date.strftime('%d.%m.%Y %H:%M')}}</td>
-        <td data-label="Preis">
+        <td role="cell" data-label="Buchungszeit">{{ticket.booking_date.strftime('%d.%m.%Y %H:%M')}}</td>
+        <td role="cell" data-label="Preis">
         {% if current_user.has_right('guide') %}
           <button type="button" class="editable-price btn btn-link p-0"
                 data-ticket-id="{{ ticket.ticket_id }}"
@@ -194,7 +198,7 @@
           {{ ticket.price }}€
         {% endif %}
         </td>
-        <td data-label="Bezahlt">
+        <td role="cell" data-label="Bezahlt">
           {% if ticket.is_paid %}
           <span class="badge badge-success">Ja</span>
           {% else %}
@@ -202,7 +206,7 @@
           {% endif %}
          </td>
          {% if current_user.has_right('guide') %}
-         <td data-label="Aktionen">
+         <td role="cell" data-label="Aktionen">
             <div class="d-flex flex-wrap gap-1">
             {% if not ticket.is_paid %}
             <a href="#" role="button" class="job btn btn-sm btn-outline-success"
@@ -237,12 +241,12 @@
     </div>
 </div>
 
-<div class="modal" tabindex="-1" role="dialog" id="editName">
+<div class="modal" tabindex="-1" role="dialog" id="editName" aria-labelledby="editNameTitle">
   <div class="modal-dialog modal-dialog-centered" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Teilnehmer anpassen</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+        <h5 class="modal-title" id="editNameTitle">Teilnehmer anpassen</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Schließen">
           <span aria-hidden="true">&times;</span>
         </button>
       </div>
@@ -251,10 +255,10 @@
       <!-- Hidden dummy fields to confuse Firefox autofill -->
       <input type="text" style="display: none;">
       <input type="password" style="display: none;">
-      <div class="position-relative">
+      <div>
         <label for="new_name">Name des Teilnehmers</label>
-        <input id="new_name" name="new_name" class="form-control" placeholder="Name des Teilnehmers" autocomplete="nope">
-        <div id="suggestions" class="list-group position-absolute w-100" role="listbox" aria-label="Namensvorschläge" style="z-index: 1050; display: none; max-height: 200px; overflow-y: auto;"></div>
+        <input id="new_name" name="new_name" class="form-control" placeholder="Name des Teilnehmers" autocomplete="nope" list="suggestions">
+        <datalist id="suggestions"></datalist>
       </div>
       <label for="new_phone" class="mt-2">Handynummer</label>
       <input id="new_phone" name="new_phone" class="form-control" placeholder="Handynummer" autocomplete="new-password">
@@ -279,17 +283,18 @@
 
 <!-- Modal for adding new ticket (Guide only) -->
 {% if current_user.has_right('guide') %}
-<div class="modal" tabindex="-1" role="dialog" id="addNewTicket">
+<div class="modal" tabindex="-1" role="dialog" id="addNewTicket" aria-labelledby="addNewTicketTitle">
   <div class="modal-dialog modal-dialog-centered" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Neues Ticket für {{ target_user.first_name }} {{ target_user.last_name }} hinzufügen</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+        <h5 class="modal-title" id="addNewTicketTitle">Neues Ticket für {{ target_user.first_name }} {{ target_user.last_name }} hinzufügen</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Schließen">
           <span aria-hidden="true">&times;</span>
         </button>
       </div>
       <div class="modal-body">
       <form id="add_ticket_form" method="POST" autocomplete="off">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group">
           <label for="ticket_type">Ticket-Typ</label>
           <select id="ticket_type" name="ticket_type" class="form-control" required>
@@ -299,10 +304,10 @@
             {% endfor %}
           </select>
         </div>
-        <div class="position-relative">
+        <div>
           <label for="add_new_name">Name des Teilnehmers</label>
-          <input id="add_new_name" name="new_name" class="form-control" placeholder="Name des Teilnehmers" autocomplete="nope" required>
-          <div id="add_suggestions" class="list-group position-absolute w-100" role="listbox" aria-label="Namensvorschläge" style="z-index: 1050; display: none; max-height: 200px; overflow-y: auto;"></div>
+          <input id="add_new_name" name="new_name" class="form-control" placeholder="Name des Teilnehmers" autocomplete="nope" required list="add_suggestions">
+          <datalist id="add_suggestions"></datalist>
         </div>
         <label for="add_new_phone" class="mt-2">Handynummer</label>
         <input id="add_new_phone" name="new_phone" class="form-control" placeholder="Handynummer" autocomplete="new-password">
@@ -335,18 +340,25 @@
     $(document).ready(function() {
         var modal = $('#editName');
         var addModal = $('#addNewTicket');
-        var suggestionsDiv = $('#suggestions');
-        var addSuggestionsDiv = $('#add_suggestions');
+        var suggestionsList = $('#suggestions');
+        var addSuggestionsList = $('#add_suggestions');
         var nameInput = $('#new_name');
         var addNameInput = $('#add_new_name');
 
-        // Handle name input for suggestions (both modals)
-        function handleNameInput(input, suggDiv) {
+        // Namensvorschläge über native <datalist> (barrierefrei, Tastatur inklusive)
+        function handleNameInput(input, dataList) {
             input.on('input', function() {
-                var query = $(this).val().toLowerCase();
-                
+                var value = $(this).val();
+
+                // Wurde ein Vorschlag übernommen, restliche Felder ausfüllen
+                var persons = dataList.data('persons') || {};
+                if (persons[value]) {
+                    fillFormWithPersonData(persons[value], input);
+                    return;
+                }
+
+                var query = value.toLowerCase();
                 if (query.length < 2) {
-                    suggDiv.hide();
                     return;
                 }
 
@@ -358,54 +370,33 @@
                     if (targetUserId) {
                         requestData.target_user_id = targetUserId;
                     }
-                    
+
                     $.get('/user/get_data/' + eventId, requestData)
                         .done(function(data) {
-                            displaySuggestions(data, suggDiv, input);
+                            updateSuggestions(data, dataList);
                         })
                         .fail(function() {
                             console.error('Failed to load user data from API');
-                            suggDiv.hide();
                         });
                 }
             });
         }
 
-        handleNameInput(nameInput, suggestionsDiv);
-        handleNameInput(addNameInput, addSuggestionsDiv);
+        handleNameInput(nameInput, suggestionsList);
+        handleNameInput(addNameInput, addSuggestionsList);
 
-        // Hide suggestions when clicking outside
-        $(document).on('click', function(e) {
-            if (!$(e.target).closest('#new_name, #suggestions, #add_new_name, #add_suggestions').length) {
-                suggestionsDiv.hide();
-                addSuggestionsDiv.hide();
-            }
-        });
-
-        // Display suggestions (updated to handle both modals)
-        function displaySuggestions(suggestions, suggDiv, targetInput) {
-            suggDiv.empty();
-            
-            if (suggestions.length === 0) {
-                suggDiv.hide();
-                return;
-            }
+        // Datalist mit Vorschlägen befüllen
+        function updateSuggestions(suggestions, dataList) {
+            dataList.empty();
+            var persons = {};
 
             suggestions.forEach(function(person) {
-                var suggestionItem = $('<a href="#" class="list-group-item list-group-item-action">')
-                    .text(person.name)
-                    .data('person', person);
-                
-                suggestionItem.on('click', function(e) {
-                    e.preventDefault();
-                    fillFormWithPersonData($(this).data('person'), targetInput);
-                    suggDiv.hide();
-                });
-
-                suggDiv.append(suggestionItem);
+                persons[person.name] = person;
+                // .attr() statt String-Konkatenation: Namen sind Benutzereingaben
+                dataList.append($('<option>').attr('value', person.name));
             });
 
-            suggDiv.show();
+            dataList.data('persons', persons);
         }
 
         // Fill form with selected person data (updated for both modals)
@@ -432,9 +423,9 @@
             $('#new_birthdate').val(birthdate);
             $('#new_comment').val(comment);
             $('#ticket_id').val(ticket_id);
-            // Hide suggestions when modal opens
-            suggestionsDiv.hide();
-            addSuggestionsDiv.hide();
+            // Alte Vorschläge beim Öffnen des Modals verwerfen
+            suggestionsList.empty().removeData('persons');
+            addSuggestionsList.empty().removeData('persons');
         });
 
         // Handle add ticket form submission

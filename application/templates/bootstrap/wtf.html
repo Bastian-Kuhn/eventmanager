@@ -91,8 +91,9 @@ the necessary fix for required=False attributes, but will also not set the requi
   <div class="form-group {{ group_css }} {%- if form_type == "horizontal" %} row{% endif -%}
                          {%- if field.flags.required %} required{% endif -%}
   ">
-      {% if field.errors %} 
+      {% if field.errors %}
        {% set css_error=' is-invalid' %}
+       {% set kwargs = dict(kwargs, **{'aria-invalid': 'true', 'aria-describedby': field.id ~ '-error'}) %}
       {% else %}
        {% set css_error='' %}
       {% endif %}
@@ -115,11 +116,11 @@ the necessary fix for required=False attributes, but will also not set the requi
           {% endif %}
         </div>
         {%- if field.errors %}
-          {%- for error in field.errors %}
-            {% call _hz_form_wrap(horizontal_columns, form_type, required=required) %}
-              <div class="invalid-feedback">{{error}}</div>
-            {% endcall %}
-          {%- endfor %}
+          {% call _hz_form_wrap(horizontal_columns, form_type, required=required) %}
+            <div class="invalid-feedback" id="{{field.id}}-error">
+              {%- for error in field.errors %}{{error}}{% if not loop.last %}<br>{% endif %}{%- endfor %}
+            </div>
+          {% endcall %}
         {%- elif field.description -%}
           {% call _hz_form_wrap(horizontal_columns, form_type, required=required) %}
             <small class="form-text text-muted">{{field.description|safe}}</small>
@@ -134,10 +135,10 @@ the necessary fix for required=False attributes, but will also not set the requi
         {% endif %}
 
         {%- if field.errors %}
-          {%- for error in field.errors %}
-            <div class="invalid-feedback">{{error}}</div>
-          {%- endfor %}
-        {%- elif field.descrition -%}
+          <div class="invalid-feedback" id="{{field.id}}-error">
+            {%- for error in field.errors %}{{error}}{% if not loop.last %}<br>{% endif %}{%- endfor %}
+          </div>
+        {%- elif field.description -%}
           <small class="form-text text-muted">{{field.description|safe}}</small>
         {%- endif %}
       {%- endif %}

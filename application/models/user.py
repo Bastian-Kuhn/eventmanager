@@ -123,10 +123,19 @@ class User(db.Document, UserMixin):
         key = current_app.config['SECRET_KEY']
         data = {
             'userid': str(self.id),
+            # Bindet das Token an den aktuellen Passwort-Hash: nach dem Setzen
+            # eines neuen Passworts ist der Link nicht mehr einloesbar.
+            'pw': self.token_fingerprint(),
             'exp' : dt.timestamp(),
             'iat': datetime.utcnow(),
         }
         return jwt.encode(header=header, payload=data, key=key).decode('utf-8')
+
+    def token_fingerprint(self):
+        """
+        Kurzer Fingerabdruck des Passwort-Hashes fuer Einmal-Token
+        """
+        return (self.pwdhash or '')[-16:]
 
 
     def is_admin(self):

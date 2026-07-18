@@ -1,5 +1,8 @@
 {% extends 'base.html' %}
 {% import 'bootstrap/wtf.html' as wtf %}
+
+{% block title %}Tourenliste Export – Tourenportal{% endblock %}
+
 {% block page_content %}
 <div id="filter" style="background-color: #e9ecef; border-radius: .3rem; padding: 5px; margin: 5px;">
  <b>Filter:</b>
@@ -32,14 +35,24 @@
 </div>
 <br>
    {% set weekdays = ["Mo.", "Di.", "Mi.", "Do.", "Fr.", "Sa.", "So."] %}
+   <div class="table-responsive">
    <table class="table table-bordered">
+    <caption class="sr-only">Tourenliste mit Datum, Kategorie und Tourbeschreibung</caption>
+    <thead>
+     <tr>
+       <th scope="col">Datum</th>
+       <th scope="col">Kategorie</th>
+       <th scope="col">Tour</th>
+     </tr>
+    </thead>
+    <tbody>
     {% for event in events %}
     <tr>
       <td>
         {{ weekdays[event.start_date.weekday()] }}
         {{ event.start_date.strftime("%d.%m.%Y") }}
       </td>
-      <td style="background-color: {{ event_categories_detailed.get(event.event_category, {'color': "red"})['color'] }};">
+      <td style="border-left: 6px solid {{ event_categories_detailed.get(event.event_category, {'color': "red"})['color'] }};">
         {{ event_categories[event.event_category] }}
         <br>
         <br>
@@ -80,5 +93,7 @@
       </td>
     </tr>
    {% endfor %}
+    </tbody>
   </table>
+  </div>
 {% endblock %}

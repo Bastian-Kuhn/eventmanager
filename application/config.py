@@ -21,8 +21,11 @@ class BaseConfig():
 
     # Must be STABLE and identical across all gunicorn workers/restarts, otherwise
     # session- and "Angemeldet bleiben"-Cookies (mit SECRET_KEY signiert) werden von
-    # anderen Workern verworfen und der User fliegt raus. In prod per Env setzen.
-    SECRET_KEY = os.environ.get("SECRET_KEY") or "NICHTGEHEIMN"
+    # anderen Workern verworfen und der User fliegt raus. In prod per Env setzen -
+    # application/__init__.py bricht den Start ab, wenn SECRET_KEY dort fehlt.
+    # Der Zufalls-Fallback gilt nur fuer den Standalone-Dev-Betrieb (ein Prozess);
+    # ein fester Default waere im Repo lesbar und damit faelschbare Sessions/Tokens.
+    SECRET_KEY = os.environ.get("SECRET_KEY") or secrets.token_urlsafe(48)
 
     # If true, only Useres with the flag Admin can login on the website
     ADMIN_LOGIN_ONLY = False
@@ -48,6 +51,13 @@ class BaseConfig():
     # SameSite=Lax, damit die Cookies bei normaler Navigation erhalten bleiben.
     SESSION_COOKIE_SAMESITE = "Lax"
     REMEMBER_COOKIE_SAMESITE = "Lax"
+    SESSION_COOKIE_HTTPONLY = True
+    REMEMBER_COOKIE_HTTPONLY = True
+    # Wird in application/__init__.py fuer prod/prod_compose auf True gezogen.
+    # Lokal muss es False bleiben, sonst schickt der Browser die Cookies ueber
+    # http://localhost nicht mit und ein Login ist unmoeglich.
+    SESSION_COOKIE_SECURE = False
+    REMEMBER_COOKIE_SECURE = False
     SECURITY_MSG_LOGIN_MESSAGE = False
 
     BOOTSTRAP_SERVE_LOCAL = True
@@ -81,7 +91,6 @@ class DockerBaseConfig(BaseConfig):
     """"
     Specific configuration for Docker Env
     """
-    #SECRET_KEY = secrets.token_urlsafe(48)
     APPLY_HEADERS = False
     TEMPLATE_AUTO_RELOAD = False
     REDIS_URL = "redis://172.17.0.1:6379"
@@ -115,6 +124,9 @@ class ProductionConfig(BaseConfig):
     # zwingend die Env-Variable SECRET_KEY setzen.
     ENVIRONMENT = "Prod"
     SESSION_COOKIE_SECURE = True
+    REMEMBER_COOKIE_SECURE = True
+    SESSION_COOKIE_HTTPONLY = True
+    REMEMBER_COOKIE_HTTPONLY = True
     ENABLE_SENTRY = True
     SWAGGER_ENABLED = False
     DEBUG = False # And should be False

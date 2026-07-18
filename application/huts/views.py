@@ -6,6 +6,7 @@ sowie eine Freigabe-Übersicht für Hütten-Admins.
 #pylint: disable=no-member
 import calendar as _calendar
 from datetime import datetime, date, timedelta
+from urllib.parse import urlparse
 from flask import Blueprint, render_template, request, redirect, url_for, flash, abort
 from flask_login import current_user, login_required
 
@@ -16,6 +17,19 @@ HUTS = Blueprint('HUTS', __name__)
 MONTH_NAMES_DE = ["", "Januar", "Februar", "März", "April", "Mai", "Juni", "Juli",
                   "August", "September", "Oktober", "November", "Dezember"]
 WEEKDAYS_DE = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
+
+
+def _safe_next(fallback):
+    """
+    'next' aus dem Formular nur uebernehmen, wenn es ein seiteninterner Pfad ist -
+    sonst kann ein Angreifer nach der Aktion auf eine fremde Domain umleiten.
+    """
+    target = request.form.get('next')
+    if target and target.startswith('/') and not target.startswith('//'):
+        parsed = urlparse(target)
+        if not parsed.netloc and not parsed.scheme:
+            return target
+    return fallback
 
 
 def _parse_date(value):
@@ -289,7 +303,7 @@ def block_hut(hut_id):
     from_date = _parse_date(request.form.get('from_date'))
     to_date = _parse_date(request.form.get('to_date'))
     comment = request.form.get('comment') or None
-    back = request.form.get('next') or url_for('HUTS.page_hut_admin')
+    back = _safe_next(url_for('HUTS.page_hut_admin'))
 
     if not (from_date and to_date and from_date < to_date):
         flash("Bitte einen gültigen Zeitraum wählen (Ende nach Beginn).", 'danger')
@@ -330,7 +344,7 @@ def cancel_booking(hut_id, booking_id):
         abort(403)
     booking.delete()
     flash("Buchung storniert.", 'success')
-    return redirect(request.form.get('next') or url_for('HUTS.page_hut_detail', hut_id=hut_id))
+    return redirect(_safe_next(url_for('HUTS.page_hut_detail', hut_id=hut_id)))
 
 
 @HUTS.route('/huetten/<hut_id>/booking/<booking_id>/confirm', methods=['POST'])
@@ -343,4 +357,4 @@ def confirm_booking(hut_id, booking_id):
     booking.confirmed = True
     booking.save()
     flash("Buchung freigegeben.", 'success')
-    return redirect(request.form.get('next') or url_for('HUTS.page_hut_detail', hut_id=hut_id))
+    return redirect(_safe_next(url_for('HUTS.page_hut_detail', hut_id=hut_id)))

@@ -13,4 +13,4 @@ services:
       # Stabiler, geheimer Key - identisch ueber alle Worker und Restarts, sonst
       # funktioniert "Angemeldet bleiben" nicht. Auf dem Host setzen (z.B. .env):
       #   SECRET_KEY=$(python3 -c 'import secrets;print(secrets.token_urlsafe(48))')
-      SECRET_KEY: ${SECRET_KEY:-}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY muss auf dem Host gesetzt sein}

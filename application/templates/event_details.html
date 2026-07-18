@@ -1,6 +1,8 @@
 {% extends 'base.html' %}
 {% import 'bootstrap/wtf.html' as wtf %}
 
+{% block title %}{{ event.event_name }} – Tourenportal{% endblock %}
+
 {% block page_content %}
 <style>
 /* Tabs auf Mobile horizontal scrollbar statt umbrechen */
@@ -11,9 +13,10 @@
 <div class="row">
     <div class="col-sm-12">
 
+    <nav aria-label="Tour-Bereiche">
     <ul class="nav nav-tabs">
       <li class="nav-item">
-        <a class="nav-link active" href="{{ url_for('EVENTS.page_details', event_id=event.id) }}">Übersicht</a>
+        <a class="nav-link active" aria-current="page" href="{{ url_for('EVENTS.page_details', event_id=event.id) }}">Übersicht</a>
       </li>
     {% if current_user.is_authenticated %}
        {% if current_user.has_right('guide') or current_user.participate_event(event.id) %}
@@ -47,6 +50,7 @@
       {% endif %}
     {% endif %}
     </ul>
+    </nav>
     </div>
 </div>
 
@@ -169,7 +173,6 @@
       </div>
     </div>
 
-    </p>
  {% endif %}
 
 {% else %}

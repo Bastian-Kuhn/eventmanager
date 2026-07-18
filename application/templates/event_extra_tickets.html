@@ -1,6 +1,8 @@
 {% extends 'base.html' %}
 {% import 'bootstrap/wtf.html' as wtf %}
 
+{% block title %}{{ category }} – {{ event.event_name }} – Tourenportal{% endblock %}
+
 {% block head %}
 {{super()}}
 <style>
@@ -31,6 +33,7 @@
 <div class="row">
     <div class="col-sm-12">
 
+    <nav aria-label="Tour-Bereiche">
     <ul class="nav nav-tabs">
       <li class="nav-item">
         <a class="nav-link" href="{{ url_for('EVENTS.page_details', event_id=event.id) }}">Übersicht</a>
@@ -65,8 +68,11 @@
       {% endif %}
     {% endif %}
     </ul>
+    </nav>
     </div>
 </div>
+
+<div id="save-status" class="sr-only" role="status" aria-live="polite"></div>
 
 <div class="row">
     <h1>{{event.event_name}} - {{ category }} ({{event.start_date.strftime("%d.%m.%Y") }})</h1>
@@ -83,6 +89,7 @@
 
 <div class="row">
     <h2>{{ category }}</h2>
+    <div class="table-responsive">
     <table class="table table-bordered">
       <thead>
         <tr>
@@ -104,17 +111,19 @@
          <td>{{ owner }}</td>
          <td>{{ comment }}</td>
          <td>
-            <input type="text" class="form-control guide-comment-input" 
-                   data-ticket-id="{{ ticket_id }}" 
-                   value="{{ guide_comment or '' }}" 
-                   placeholder="Guide Kommentar..." 
+            <input type="text" class="form-control guide-comment-input"
+                   data-ticket-id="{{ ticket_id }}"
+                   value="{{ guide_comment or '' }}"
+                   placeholder="Guide Kommentar..."
+                   aria-label="Guide Kommentar für {{ owner }}"
                    style="min-width: 150px;">
           </td>
          <td>
-            <input type="text" class="form-control guide-input" 
-                   data-ticket-id="{{ ticket_id }}" 
-                   value="{{ guide or '' }}" 
-                   placeholder="Guide..." 
+            <input type="text" class="form-control guide-input"
+                   data-ticket-id="{{ ticket_id }}"
+                   value="{{ guide or '' }}"
+                   placeholder="Guide..."
+                   aria-label="Guide für {{ owner }}"
                    list="guide-datalist"
                    style="min-width: 100px;">
           </td>
@@ -140,6 +149,7 @@
     {% endfor %}
       </tbody>
     </table>
+    </div>
 </div>
 
 <!-- Gruppierte Teilnehmerliste nach Guide -->
@@ -176,7 +186,8 @@ $(document).ready(function() {
         var datalist = $('#guide-datalist');
         datalist.empty();
         guides.forEach(function(guide) {
-            datalist.append('<option value="' + guide + '">');
+            // .attr() statt String-Konkatenation: Namen sind Benutzereingaben
+            datalist.append($('<option>').attr('value', guide));
         });
     }
     
@@ -207,32 +218,33 @@ $(document).ready(function() {
             }
         });
         
-        // Build the HTML
-        var html = '';
+        // Bewusst per .text()/DOM-API aufbauen statt HTML zu konkatenieren:
+        // Guide- und Teilnehmernamen sind frei waehlbare Benutzereingaben.
+        var container = $('#guide-groups').empty();
         var sortedGuides = Object.keys(guideGroups).sort();
-        
+        var rendered = 0;
+
         sortedGuides.forEach(function(guide) {
-            if (guideGroups[guide].length > 0) {
-                html += '<div class="mb-3">';
-                html += '<h5 style="color: #007bff; border-bottom: 1px solid #dee2e6; padding-bottom: 5px;">';
-                html += guide + ' (' + guideGroups[guide].length + ')';
-                html += '</h5>';
-                html += '<ul class="list-unstyled" style="margin-left: 15px;">';
-                
-                guideGroups[guide].forEach(function(participant) {
-                    html += '<li style="padding: 2px 0;">• ' + participant + '</li>';
-                });
-                
-                html += '</ul>';
-                html += '</div>';
+            if (guideGroups[guide].length === 0) {
+                return;
             }
+            rendered++;
+            var block = $('<div>').addClass('mb-3');
+            $('<h5>')
+                .css({color: '#0056b3', borderBottom: '1px solid #dee2e6', paddingBottom: '5px'})
+                .text(guide + ' (' + guideGroups[guide].length + ')')
+                .appendTo(block);
+            var list = $('<ul>').addClass('list-unstyled').css('margin-left', '15px');
+            guideGroups[guide].forEach(function(participant) {
+                $('<li>').css('padding', '2px 0').text('• ' + participant).appendTo(list);
+            });
+            list.appendTo(block);
+            block.appendTo(container);
         });
-        
-        if (html === '') {
-            html = '<p class="text-muted">Keine Teilnehmer vorhanden.</p>';
+
+        if (rendered === 0) {
+            $('<p>').addClass('text-muted').text('Keine Teilnehmer vorhanden.').appendTo(container);
         }
-        
-        $('#guide-groups').html(html);
     }
     
     // Initialize autocomplete on page load
@@ -294,11 +306,13 @@ $(document).ready(function() {
             input.removeClass('saving');
             input.prop('disabled', false);
             if (res.success) {
+                $('#save-status').text('Guide-Kommentar gespeichert.');
                 input.css('background-color', '#d4edda');
                 setTimeout(function() {
                     input.css('background-color', '');
                 }, 1000);
             } else {
+                $('#save-status').text('Speichern des Guide-Kommentars fehlgeschlagen.');
                 input.css('background-color', '#f8d7da');
                 setTimeout(function() {
                     input.css('background-color', '');
@@ -307,13 +321,14 @@ $(document).ready(function() {
         }).fail(function() {
             input.removeClass('saving');
             input.prop('disabled', false);
+            $('#save-status').text('Speichern des Guide-Kommentars fehlgeschlagen.');
             input.css('background-color', '#f8d7da');
             setTimeout(function() {
                 input.css('background-color', '');
             }, 1000);
         });
     });
-    
+
     // Enter key saves the comment
     $('.guide-comment-input').on('keypress', function(e) {
         if (e.which === 13) {
@@ -341,6 +356,7 @@ $(document).ready(function() {
             input.removeClass('saving');
             input.prop('disabled', false);
             if (res.success) {
+                $('#save-status').text('Guide gespeichert.');
                 input.css('background-color', '#d4edda');
                 // Update row color based on new guide value
                 var row = input.closest('tr');
@@ -359,6 +375,7 @@ $(document).ready(function() {
                     input.css('background-color', '');
                 }, 1000);
             } else {
+                $('#save-status').text('Speichern des Guides fehlgeschlagen.');
                 input.css('background-color', '#f8d7da');
                 setTimeout(function() {
                     input.css('background-color', '');
@@ -367,13 +384,14 @@ $(document).ready(function() {
         }).fail(function() {
             input.removeClass('saving');
             input.prop('disabled', false);
+            $('#save-status').text('Speichern des Guides fehlgeschlagen.');
             input.css('background-color', '#f8d7da');
             setTimeout(function() {
                 input.css('background-color', '');
             }, 1000);
         });
     });
-    
+
     // Enter key saves the guide
     $('.guide-input').on('keypress', function(e) {
         if (e.which === 13) {

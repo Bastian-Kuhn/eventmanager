@@ -1,5 +1,7 @@
 {% extends 'base.html' %}
 
+{% block title %}Mein Profil – Tourenportal{% endblock %}
+
 {% block page_content %}
 <div class="row">
   <div class="col-12">
@@ -97,6 +99,7 @@
                 {% if item.editable %}
                 <form method="POST" action="{{ url_for('USER.page_user_event_optin') }}"
                       class="form-inline">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                   <input type="hidden" name="event_id" value="{{ event.id }}">
                   <label class="sr-only" for="optin-{{ event.id }}">
                     Medien-Einwilligung für {{ event.event_name }}
@@ -152,7 +155,7 @@
               <th scope="col" class="text-right">Plätze</th>
               <th scope="col">Zimmer</th>
               <th scope="col">Status</th>
-              <th scope="col"></th>
+              <th scope="col"><span class="sr-only">Aktionen</span></th>
             </tr>
           </thead>
           <tbody>
@@ -173,6 +176,7 @@
                 {% if b.hut %}
                 <form method="POST" action="{{ url_for('HUTS.cancel_booking', hut_id=b.hut.id, booking_id=b.id) }}" class="d-inline"
                       onsubmit="return confirm('Buchung wirklich stornieren?');">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                   <input type="hidden" name="next" value="{{ url_for('USER.page_user_profil') }}">
                   <button type="submit" class="btn btn-sm btn-outline-danger">Stornieren</button>
                 </form>

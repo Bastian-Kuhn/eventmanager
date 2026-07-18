@@ -20,10 +20,21 @@ from flask_bootstrap import Bootstrap
 from flask_mongoengine import MongoEngine
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from flask_wtf.csrf import CSRFProtect
 import application.modules.log as logging
 
 
 app = Flask(__name__)
+
+# 'compose' ist die lokale Dev-Variante (docker-compose.local.yml), nur 'prod'
+# und 'prod_compose' sind echte Produktion.
+IS_PRODUCTION = os.environ.get('config') in ("prod", "prod_compose")
+
+if IS_PRODUCTION and not os.environ.get('SECRET_KEY'):
+    raise RuntimeError(
+        "SECRET_KEY muss in Produktion als Env-Variable gesetzt sein "
+        "(sonst sind Session-Cookies und Passwort-Reset-Token faelschbar)."
+    )
 if os.environ.get('config') == "prod":
     print(" * Loading PROD Config")
     app.config.from_object('application.config.ProductionConfig')
@@ -34,6 +45,12 @@ else:
     print(" * Loading Fallback Baseconfig")
     app.config.from_object('application.config.BaseConfig')
     app.jinja_env.auto_reload = True
+
+if IS_PRODUCTION:
+    # Cookies nur ueber HTTPS ausliefern. Nicht in der Config-Klasse, weil
+    # ComposeProdConfig auch vom lokalen 'compose'-Stack (HTTP) genutzt wird.
+    app.config['SESSION_COOKIE_SECURE'] = True
+    app.config['REMEMBER_COOKIE_SECURE'] = True
 
 RequestID(app)
 
@@ -142,6 +159,11 @@ limiter = Limiter(app, storage_uri=app.config['REDIS_URL'])
 limiter.request_filter(lambda: request.method.upper() == 'OPTIONS')
 
 bootstrap = Bootstrap(app)
+
+# Schuetzt ALLE POST-Routen, auch die handgebauten ohne FlaskForm.
+# Templates senden das Token als hidden field, jQuery-Aufrufe per
+# X-CSRFToken-Header (siehe $.ajaxSetup in base.html).
+csrf = CSRFProtect(app)
 
 login_manager = LoginManager()
 login_manager.init_app(app)
