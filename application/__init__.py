@@ -197,10 +197,8 @@ def inject_now():
 def inject_hut_management():
     """Flag fuer die Nav: darf der User Huetten-Buchungen freigeben?"""
     try:
-        if current_user.is_authenticated:
-            if current_user.has_right('guide'):
-                return {'manages_huts': True}
-            return {'manages_huts': Hut.objects(admins=current_user).count() > 0}
+        from application.huts.views import can_manage_huts
+        return {'manages_huts': can_manage_huts(current_user)}
     except Exception:  # pylint: disable=broad-except
         pass
     return {'manages_huts': False}

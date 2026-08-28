@@ -28,6 +28,18 @@ def _parse_date(value):
         return None
 
 
+def can_manage_huts(user):
+    """
+    Darf der User grundsaetzlich Huetten-Buchungen freigeben? Bewusst getrennt
+    von `_manageable_huts`: "noch keine Huette angelegt" ist kein fehlendes Recht.
+    """
+    if not (user and user.is_authenticated):
+        return False
+    if user.has_right('guide'):
+        return True
+    return Hut.objects(admins=user).count() > 0
+
+
 def _manageable_huts(user):
     """Hütten, deren Buchungen der User freigeben darf."""
     if not (user and user.is_authenticated):
@@ -69,9 +81,9 @@ def page_huts():
 @login_required
 def page_hut_admin():
     """Freigabe-Übersicht für Hütten-Admins/Guides über alle verwalteten Hütten."""
-    huts = _manageable_huts(current_user)
-    if not huts:
+    if not can_manage_huts(current_user):
         abort(403)
+    huts = _manageable_huts(current_user)
     groups = []
     for hut in huts:
         pending = list(HutBooking.objects(hut=hut, confirmed=False).order_by('from_date'))

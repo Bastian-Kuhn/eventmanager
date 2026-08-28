@@ -5,7 +5,12 @@
 <p class="text-muted">Buchungsanfragen deiner Hütten freigeben oder ablehnen.</p>
 
 {% set total_pending = groups | sum(attribute='pending', start=[]) | length %}
-{% if total_pending == 0 %}
+{% if not groups %}
+<div class="alert alert-info" role="alert">
+  Dir ist noch keine Hütte zugeordnet. Hütten werden im
+  <a href="{{ url_for('hut.index_view') }}">Admin-Bereich unter „Hütten"</a> angelegt.
+</div>
+{% elif total_pending == 0 %}
 <div class="alert alert-info" role="alert">Aktuell keine offenen Anfragen.</div>
 {% endif %}
 
