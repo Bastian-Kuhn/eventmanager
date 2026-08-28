@@ -18,7 +18,7 @@ from markupsafe import Markup
 from mongoengine import Q
 from application.events.models import Event, EventParticipation,\
                              CustomField, CustomFieldDefintion, Ticket, OwnedTicket, EventCost, difficulties
-from application.huts.models import Hut, sync_event_booking
+from application.huts.models import Hut, sync_event_booking, remove_event_booking
 
 
 def hut_choices():
@@ -611,6 +611,32 @@ def page_admin():
 
     context['event'] = event
     return render_template('event_form.html', **context)
+#.
+#   . Event Delete
+@EVENTS.route('/event/delete', methods=['POST'])
+@login_required
+def page_delete():
+    """
+    Event endgueltig loeschen (inkl. Anmeldungen und Huettenbuchung)
+    """
+    if not current_user.has_right('guide'):
+        abort(403)
+
+    event = Event.objects.get(id=request.form['event_id'])
+    event_name = event.event_name
+
+    # Rueckreferenzen auf den Usern entfernen, sonst zeigen sie auf ein
+    # geloeschtes Event und das Dereferenzieren knallt spaeter.
+    User.objects(Q(event_registrations=event) | Q(favorites=event)).update(
+        pull__event_registrations=event,
+        pull__favorites=event,
+    )
+    remove_event_booking(event)
+    event.delete()
+
+    flash(f"Event \"{event_name}\" wurde gelöscht", 'info')
+    return redirect(url_for('EVENTS.page_list'))
+
 #.
 #   . Event Participation list  Page
 

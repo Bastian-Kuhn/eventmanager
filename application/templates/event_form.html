@@ -213,6 +213,24 @@
 
 </form>
 
+{% if event %}
+<section class="card border-danger mt-4" aria-labelledby="delete_event_heading">
+ <div class="card-body">
+  <h2 id="delete_event_heading" class="card-title h5 text-danger">Event löschen</h2>
+  <p id="delete_event_hint" class="card-text">
+   Löscht die Tour endgültig – inklusive aller
+   {{ event.participations|length }} Anmeldungen und der verknüpften Hüttenbuchung.
+   Das kann nicht rückgängig gemacht werden.
+  </p>
+  <form method="POST" action="{{ url_for('EVENTS.page_delete') }}"
+        onsubmit='return confirm("Event " + {{ event.event_name|tojson }} + " wirklich endgültig löschen? Alle Anmeldungen gehen verloren.");'>
+   <input type="hidden" name="event_id" value="{{ event.id }}">
+   <button type="submit" class="btn btn-danger" aria-describedby="delete_event_hint">Event löschen</button>
+  </form>
+ </div>
+</section>
+{% endif %}
+
  <script src="/static/js/ckeditor/ckeditor.js"></script>
 <script>
     CKEDITOR.config.simpleImageBase64allowed = true;
