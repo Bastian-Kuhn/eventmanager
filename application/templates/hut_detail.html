@@ -28,9 +28,10 @@
   <h1 class="h3 mb-1">{{ hut.name }}</h1>
   <div class="hp-chips">
     {% if hut.region %}<span class="hp-chip">📍 {{ hut.region }}</span>{% endif %}
-    <span class="hp-chip">🛏 {{ total_places }} Plätze</span>
+    <span class="hp-chip">🛏 {{ total_places }} Plätze{% if not total_places %} hinterlegt{% endif %}</span>
     <span class="hp-chip">{{ 'Bewirtschaftet' if hut.managed else 'Selbstversorger' }}</span>
     {% if hut.requires_approval %}<span class="hp-chip">✋ Freigabe nötig</span>{% endif %}
+    {% if not hut.allow_self_booking %}<span class="hp-chip">🔒 Nur über die Verwaltung</span>{% endif %}
     {% if hut.phone %}<span class="hp-chip">📞 <a href="tel:{{ hut.phone }}">{{ hut.phone }}</a></span>{% endif %}
     {% if hut.link %}<span class="hp-chip">🔗 <a href="{{ hut.link }}" target="_blank" rel="noopener">Website</a></span>{% endif %}
   </div>
@@ -39,7 +40,6 @@
   <!-- Verfügbarkeit & Buchung -->
   <div class="hp-card">
     <h2>Zeitraum wählen</h2>
-    <p class="hp-hint mt-n2 mb-2">Tipp: Anreise und Abreise direkt im Kalender unten anklicken.</p>
     <form method="GET" id="hut-range-form" action="{{ url_for('HUTS.page_hut_detail', hut_id=hut.id) }}" class="form-row align-items-end">
       <div class="form-group col-6 col-md-4 mb-2">
         <label for="from_date">Von (Anreise)</label>
@@ -49,14 +49,19 @@
         <label for="to_date">Bis (Abreise)</label>
         <input type="date" class="form-control" id="to_date" name="to_date" value="{{ to_date }}" required>
       </div>
-      <div class="form-group col-12 col-md-4 mb-2">
-        <button type="submit" class="btn btn-primary btn-block">Verfügbarkeit prüfen</button>
+      <div class="form-group col-12 col-md-4 mb-2 d-flex" style="gap:.5rem;">
+        <button type="submit" class="btn btn-primary flex-fill">Verfügbarkeit prüfen</button>
+        {% if from_date or to_date %}
+        <a href="{{ url_for('HUTS.page_hut_detail', hut_id=hut.id) }}" class="btn btn-outline-secondary" role="button">Zurücksetzen</a>
+        {% endif %}
       </div>
     </form>
+    <p class="hp-hint mb-0" id="pick-status" role="status" aria-live="polite">
+      Tipp: Anreise- und Abreisetag direkt im Kalender unten anklicken.</p>
 
     {% if range_active %}
-    {% set booked = total_places - free_places %}
-    {% set pct = ((booked / total_places * 100) if total_places else 0) | round(0, 'ceil') | int %}
+    {% if total_places %}
+    {% set pct = (((total_places - free_places) / total_places * 100)) | round(0, 'ceil') | int %}
     <div class="hp-avail mt-2">
       <div>
         <div class="hp-avail-num {{ 'ok' if free_places > 0 else 'none' }}">{{ free_places if free_places > 0 else 0 }}</div>
@@ -67,16 +72,27 @@
               style="width: {{ [pct, 100] | min }}%"></span>
       </div>
     </div>
+    {% else %}
+    <div class="hp-avail mt-2">
+      <div>
+        <div class="hp-avail-num">{{ booked_places }}</div>
+        <div class="hp-avail-sub">Plätze im Zeitraum belegt</div>
+      </div>
+    </div>
+    <p class="hp-hint mb-0">Für diese Hütte sind noch keine Zimmer hinterlegt –
+      die Gesamtkapazität ist daher unbekannt.</p>
+    {% endif %}
 
     {% if current_user.is_authenticated %}
-      {% if free_places > 0 %}
+      {% if can_book %}
       <form method="POST" action="{{ url_for('HUTS.book_hut', hut_id=hut.id) }}" class="mt-3">
         <input type="hidden" name="from_date" value="{{ from_date }}">
         <input type="hidden" name="to_date" value="{{ to_date }}">
         <div class="form-row">
           <div class="form-group col-6 col-md-3 mb-2">
             <label for="places">Plätze</label>
-            <input type="number" min="1" max="{{ free_places }}" class="form-control" id="places" name="places" value="1" required>
+            <input type="number" min="1" {% if total_places %}max="{{ free_places }}"{% endif %}
+                   class="form-control" id="places" name="places" value="1" required>
           </div>
           {% if hut.rooms %}
           <div class="form-group col-12 col-md-9 mb-2">
@@ -103,14 +119,18 @@
       </form>
       {% else %}
       <div class="alert alert-warning mt-3 mb-0" role="alert">
-        In diesem Zeitraum ausgebucht{% if block_reasons and can_manage %} – gesperrt: {{ block_reasons | join('; ') }}{% endif %}.
+        {{ book_hint }}{% if block_reasons and can_manage %} Grund: {{ block_reasons | join('; ') }}.{% endif %}
       </div>
       {% endif %}
     {% else %}
     <p class="mt-3 mb-0"><a href="{{ url_for('auth.login') }}">Bitte anmelden</a>, um zu buchen.</p>
     {% endif %}
     {% else %}
+    {% if book_hint %}
+    <div class="alert alert-info mt-2 mb-0" role="alert">{{ book_hint }}</div>
+    {% else %}
     <p class="hp-hint mt-2 mb-0">Wähle einen Zeitraum, um freie Plätze zu sehen und zu buchen.</p>
+    {% endif %}
     {% endif %}
   </div>
 
@@ -118,11 +138,13 @@
   <div class="hp-card">
     <h2>Belegung</h2>
     {% include '_hut_calendar_grid.html' %}
+    {% if total_places %}
     <div class="cal-legend">
-      <span><span class="dot" style="background:var(--lvl-low)"></span>wenig</span>
+      <span><span class="dot" style="background:var(--lvl-low)"></span>wenig belegt</span>
       <span><span class="dot" style="background:var(--lvl-high)"></span>hoch (≥75%)</span>
       <span><span class="dot" style="background:var(--lvl-full)"></span>voll</span>
     </div>
+    {% endif %}
   </div>
 
   {% if my_bookings %}
@@ -148,20 +170,72 @@
 {% block scripts %}
 {{ super() }}
 <script>
+// Zeitraum im Kalender waehlen: erster Klick = Anreise, zweiter = Abreise. Die
+// Auswahl wird sofort markiert (ohne auf das Neuladen zu warten); derselbe Tag
+// zweimal = eine Nacht, rueckwaerts gewaehlt wird getauscht.
 (function(){
   var form = document.getElementById('hut-range-form');
   if(!form) return;
-  var from = document.getElementById('from_date'), to = document.getElementById('to_date');
-  document.querySelectorAll('.cal-pick[data-date]').forEach(function(el){
-    function pick(){
-      var d = el.getAttribute('data-date');
-      if(!from.value || (from.value && to.value)){ from.value = d; to.value = ''; }
-      else if(d > from.value){ to.value = d; form.submit(); }
-      else { from.value = d; to.value = ''; }
+  var from = document.getElementById('from_date'),
+      to = document.getElementById('to_date'),
+      status = document.getElementById('pick-status'),
+      cells = Array.prototype.slice.call(document.querySelectorAll('.cal-pick[data-date]'));
+  if(!cells.length) return;
+
+  function de(iso){ var p = iso.split('-'); return p[2] + '.' + p[1] + '.' + p[0]; }
+  function nextDay(iso){
+    var d = new Date(iso + 'T00:00:00');
+    d.setDate(d.getDate() + 1);
+    return d.getFullYear() + '-' + ('0'+(d.getMonth()+1)).slice(-2) + '-' + ('0'+d.getDate()).slice(-2);
+  }
+
+  function paint(){
+    cells.forEach(function(el){
+      var d = el.getAttribute('data-date'),
+          start = from.value && d === from.value,
+          inRange = from.value && to.value && d >= from.value && d < to.value;
+      el.classList.toggle('selected', !!(start || inRange));
+      el.classList.toggle('range-start', !!start);
+      el.classList.toggle('range-end', !!(to.value && d === to.value));
+      el.setAttribute('aria-selected', (start || inRange) ? 'true' : 'false');
+    });
+    if(!status) return;
+    if(from.value && to.value){
+      status.textContent = 'Zeitraum ' + de(from.value) + ' bis ' + de(to.value) + ' gewählt.';
+    } else if(from.value){
+      status.textContent = 'Anreise ' + de(from.value)
+        + ' gewählt – jetzt den Abreisetag anklicken (derselbe Tag = eine Nacht).';
+    } else {
+      status.textContent = 'Tipp: Anreise- und Abreisetag direkt im Kalender unten anklicken.';
     }
-    el.addEventListener('click', pick);
-    el.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); pick(); } });
+  }
+
+  function pick(el){
+    var d = el.getAttribute('data-date');
+    if(!from.value || to.value){         // neue Auswahl beginnen
+      from.value = d; to.value = '';
+      paint();
+      return;
+    }
+    if(d === from.value){ to.value = nextDay(d); }
+    else if(d > from.value){ to.value = d; }
+    else { to.value = from.value; from.value = d; }
+    paint();
+    form.submit();
+  }
+
+  var STEP = {ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7};
+  cells.forEach(function(el, index){
+    el.addEventListener('click', function(){ pick(el); });
+    el.addEventListener('keydown', function(e){
+      if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); pick(el); return; }
+      if(STEP[e.key] !== undefined && cells[index + STEP[e.key]]){
+        e.preventDefault();
+        cells[index + STEP[e.key]].focus();
+      }
+    });
   });
+  paint();
 })();
 </script>
 {% endblock %}

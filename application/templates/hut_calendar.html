@@ -9,15 +9,19 @@
   </nav>
 
   <h1 class="h3">Belegungskalender</h1>
-  <p class="hp-hint">{{ hut.name }} · Gesamtkapazität {{ total_places }} Plätze
+  <p class="hp-hint">{{ hut.name }} ·
+    {% if total_places %}Gesamtkapazität {{ total_places }} Plätze{% else %}
+    keine Zimmer hinterlegt, Gesamtkapazität unbekannt{% endif %}
     (Anreisetag zählt, Abreisetag nicht).</p>
 
   {% include '_hut_calendar_grid.html' %}
 
   <div class="cal-legend">
+    {% if total_places %}
     <span><span class="dot" style="background:var(--lvl-low)"></span>wenig belegt</span>
     <span><span class="dot" style="background:var(--lvl-high)"></span>hoch (≥75%)</span>
     <span><span class="dot" style="background:var(--lvl-full)"></span>voll</span>
+    {% endif %}
     {% if can_manage %}<span class="hp-hint">Namen sind nur für die Hütten-Verwaltung sichtbar.</span>{% endif %}
   </div>
 </div>

@@ -39,6 +39,9 @@ class Hut(db.Document):
     # Selbstbuchung durch Mitglieder: bei True muss ein Hütten-Admin/Guide freigeben,
     # sonst ist die Buchung sofort bestätigt.
     requires_approval = db.BooleanField(default=False)
+    # False = Mitglieder können nicht selbst buchen; nur Hütten-Admins/Guides tragen
+    # Buchungen ein (Touren-Buchungen entstehen weiterhin automatisch).
+    allow_self_booking = db.BooleanField(default=True)
     admins = db.ListField(field=db.ReferenceField(document_type='User'))
 
     rooms = db.ListField(field=db.EmbeddedDocumentField(document_type=HutRoom))
@@ -60,6 +63,20 @@ class Hut(db.Document):
     def free_places(self, from_date, to_date):
         """Freie Plätze im Zeitraum (kann bei Überbuchung negativ sein)."""
         return self.total_places() - self.booked_places(from_date, to_date)
+
+    def has_capacity(self):
+        """
+        True, wenn Plätze hinterlegt sind. Ohne Zimmer ist die Kapazität schlicht
+        unbekannt – dann darf die Hütte nicht als "ausgebucht" gelten.
+        """
+        return self.total_places() > 0
+
+    def blocks(self, from_date, to_date):
+        """Admin-Sperren, die den Zeitraum überschneiden."""
+        if not (from_date and to_date):
+            return []
+        return list(HutBooking.objects(hut=self, blocked=True,
+                                       from_date__lt=to_date, to_date__gt=from_date))
 
     def get_booking(self, booking_id):
         """Buchung dieser Hütte per id (oder None)."""

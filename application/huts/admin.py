@@ -19,15 +19,16 @@ class HutView(CustomModelView):
     can_set_page_size = True
 
     column_list = ('name', 'region', 'managed', 'total_places', 'requires_approval',
-                   'contact', 'phone')
+                   'allow_self_booking', 'contact', 'phone')
     column_sortable_list = ('name', 'region')
-    column_filters = ('name', 'region', 'managed', 'requires_approval')
+    column_filters = ('name', 'region', 'managed', 'requires_approval', 'allow_self_booking')
     column_labels = {
         'name': 'Name',
         'region': 'Region/Ort',
         'managed': 'Bewirtschaftet',
         'total_places': 'Schlafplätze',
         'requires_approval': 'Freigabe nötig',
+        'allow_self_booking': 'Selbstbuchung erlaubt',
         'admins': 'Hütten-Admins',
         'contact': 'Kontakt',
         'phone': 'Telefon',
@@ -39,8 +40,15 @@ class HutView(CustomModelView):
     column_formatters = {
         'total_places': lambda view, context, model, name: model.total_places(),
     }
-    form_columns = ('name', 'region', 'managed', 'requires_approval', 'admins',
-                    'contact', 'phone', 'link', 'note', 'rooms')
+    form_columns = ('name', 'region', 'managed', 'requires_approval', 'allow_self_booking',
+                    'admins', 'contact', 'phone', 'link', 'note', 'rooms')
+    column_descriptions = {
+        'allow_self_booking': "Aus: Mitglieder können nicht selbst buchen, nur die "
+                              "Hütten-Verwaltung trägt Buchungen ein. Touren-Buchungen "
+                              "entstehen weiterhin automatisch.",
+        'requires_approval': "An: jede Buchung muss von der Hütten-Verwaltung "
+                             "freigegeben werden.",
+    }
 
     def is_accessible(self):
         return current_user.is_authenticated and current_user.has_right('guide')

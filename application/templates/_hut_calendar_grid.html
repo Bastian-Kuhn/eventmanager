@@ -6,7 +6,7 @@
   <a class="cal-nav" aria-label="Nächster Monat" href="{{ cal.next_url }}">&rarr;</a>
 </div>
 
-<div class="cal-grid" role="table" aria-label="Belegung {{ cal.month_name }} {{ cal.year }}">
+<div class="cal-grid" role="grid" aria-label="Belegung {{ cal.month_name }} {{ cal.year }}">
   <div role="row" style="display:contents">
     {% for wd in cal.weekdays %}<div class="cal-wd" role="columnheader">{{ wd }}</div>{% endfor %}
   </div>
@@ -16,8 +16,10 @@
     {% set pct = ((cell.used / total_places * 100) if total_places else 0) | round(0, 'ceil') | int %}
     {% set selected = sel_from and sel_to and cell.date >= sel_from and cell.date < sel_to %}
     <div class="cal-day {{ 'outside' if not cell.in_month }} {{ 'today' if cell.is_today }} {{ 'selected' if selected }} {{ 'cal-pick' if pickable and cell.in_month }}"
-         role="cell"{% if pickable and cell.in_month %} data-date="{{ cell.iso }}" tabindex="0"{% endif %}>
-      <div class="cal-dnum">{{ cell.date.day }}</div>
+         role="gridcell"{% if pickable and cell.in_month %} data-date="{{ cell.iso }}" tabindex="0"
+         aria-selected="{{ 'true' if selected else 'false' }}"
+         aria-label="{{ cell.date.strftime('%d.%m.%Y') }}{% if cell.blocked %}, gesperrt{% elif total_places %}, {{ cell.free }} von {{ total_places }} Plätzen frei{% elif cell.used %}, {{ cell.used }} Plätze belegt{% else %}, keine Belegung{% endif %} – zum Wählen klicken"{% endif %}>
+      <div class="cal-dnum" aria-hidden="{{ 'true' if pickable and cell.in_month else 'false' }}">{{ cell.date.day }}</div>
       {# Ohne Zimmer hat die Huette keine bekannte Kapazitaet -- Buchungen werden
          trotzdem angezeigt, sonst waere die Belegung unsichtbar. #}
       {% if cell.in_month and (total_places or cell.used or cell.blocked) %}

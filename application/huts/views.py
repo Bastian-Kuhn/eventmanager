@@ -92,6 +92,25 @@ def page_hut_admin():
     return render_template('hut_admin.html', groups=groups)
 
 
+def _booking_state(hut, user, range_active, is_blocked, free):
+    """
+    (darf buchen?, Hinweistext) fuer das Buchungsformular auf der Detailseite.
+    Reihenfolge der Gruende ist bewusst: gesperrt schlaegt ausgebucht, und wer die
+    Huette verwaltet, darf trotz abgeschalteter Selbstbuchung eintragen.
+    """
+    if not (user and user.is_authenticated):
+        return False, None
+    if not (hut.allow_self_booking or hut.can_manage(user)):
+        return False, "Diese Hütte wird nur über die Hütten-Verwaltung belegt."
+    if not range_active:
+        return False, None
+    if is_blocked:
+        return False, "Die Hütte ist in diesem Zeitraum gesperrt."
+    if hut.has_capacity() and free <= 0:
+        return False, "In diesem Zeitraum ausgebucht."
+    return True, None
+
+
 @HUTS.route('/huetten/<hut_id>')
 def page_hut_detail(hut_id):
     """Detailseite einer Hütte inkl. Buchungsformular und Buchungsstatus."""
@@ -110,12 +129,11 @@ def page_hut_detail(hut_id):
 
     total = hut.total_places()
     free = hut.free_places(from_date, to_date) if range_active else None
+    booked = hut.booked_places(from_date, to_date) if range_active else None
     # Sperr-Gründe, die den gewählten Zeitraum betreffen
-    block_reasons = []
-    if range_active:
-        for b in HutBooking.objects(hut=hut, blocked=True,
-                                    from_date__lt=to_date, to_date__gt=from_date):
-            block_reasons.append(b.comment or "Gesperrt")
+    block_reasons = [b.comment or "Gesperrt" for b in hut.blocks(from_date, to_date)]
+    can_book, book_hint = _booking_state(hut, current_user, range_active,
+                                         bool(block_reasons), free)
 
     # Eingebetteter Kalender: Monat aus Query oder aus Anreisedatum bzw. heute.
     today = datetime.now().date()
@@ -134,6 +152,9 @@ def page_hut_detail(hut_id):
         'can_manage': can_manage,
         'my_bookings': my_bookings,
         'block_reasons': block_reasons,
+        'booked_places': booked,
+        'can_book': can_book,
+        'book_hint': book_hint,
         'sel_from': from_date,
         'sel_to': to_date,
         'pickable': True,
@@ -255,17 +276,26 @@ def book_hut(hut_id):
                    from_date=request.form.get('from_date', ''),
                    to_date=request.form.get('to_date', ''))
 
+    if not (hut.allow_self_booking or hut.can_manage(current_user)):
+        flash("Diese Hütte wird nur über die Hütten-Verwaltung belegt.", 'danger')
+        return redirect(back)
     if not (from_date and to_date and from_date < to_date):
         flash("Bitte einen gültigen Zeitraum wählen (Abreise nach Anreise).", 'danger')
         return redirect(back)
     if places < 1:
         flash("Bitte die Anzahl der Plätze angeben.", 'danger')
         return redirect(back)
-
-    free = hut.free_places(from_date, to_date)
-    if places > free:
-        flash(f"Nicht genügend freie Plätze: im Zeitraum sind nur noch {free} frei.", 'danger')
+    if hut.blocks(from_date, to_date):
+        flash("Die Hütte ist in diesem Zeitraum gesperrt.", 'danger')
         return redirect(back)
+
+    # Ohne hinterlegte Zimmer ist die Kapazität unbekannt -> keine Platzprüfung,
+    # sonst gälte jede solche Hütte als dauerhaft ausgebucht.
+    if hut.has_capacity():
+        free = hut.free_places(from_date, to_date)
+        if places > free:
+            flash(f"Nicht genügend freie Plätze: im Zeitraum sind nur noch {free} frei.", 'danger')
+            return redirect(back)
 
     confirmed = not hut.requires_approval
     HutBooking(

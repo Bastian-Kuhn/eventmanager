@@ -53,6 +53,9 @@
           {% if hut.requires_approval %}
           <span class="badge badge-light" title="Buchung nur nach Freigabe">Freigabe nötig</span>
           {% endif %}
+          {% if not hut.allow_self_booking %}
+          <span class="badge badge-light" title="Buchung nur durch die Hütten-Verwaltung">Nur über die Verwaltung</span>
+          {% endif %}
           {% if hut.note %}<br><small class="text-muted">{{ hut.note }}</small>{% endif %}
         </th>
         <td>{{ hut.region or '–' }}</td>
@@ -60,9 +63,13 @@
         <td class="text-right">{{ item.total_places }}</td>
         {% if range_active %}
         <td class="text-right">
+          {% if item.total_places %}
           <span class="badge {{ 'badge-success' if item.free_places > 0 else 'badge-danger' }}">
             {{ item.free_places }}
           </span>
+          {% else %}
+          <span class="text-muted" title="Keine Zimmer hinterlegt">unbekannt</span>
+          {% endif %}
         </td>
         {% endif %}
         <td>
