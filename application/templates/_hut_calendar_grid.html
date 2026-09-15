@@ -18,19 +18,27 @@
     <div class="cal-day {{ 'outside' if not cell.in_month }} {{ 'today' if cell.is_today }} {{ 'selected' if selected }} {{ 'cal-pick' if pickable and cell.in_month }}"
          role="cell"{% if pickable and cell.in_month %} data-date="{{ cell.iso }}" tabindex="0"{% endif %}>
       <div class="cal-dnum">{{ cell.date.day }}</div>
-      {% if cell.in_month and total_places %}
+      {# Ohne Zimmer hat die Huette keine bekannte Kapazitaet -- Buchungen werden
+         trotzdem angezeigt, sonst waere die Belegung unsichtbar. #}
+      {% if cell.in_month and (total_places or cell.used or cell.blocked) %}
+      {% if total_places %}
       <div class="cal-meter" aria-hidden="true">
         {% if cell.used %}<span class="cal-fill-{{ cell.level if cell.level != 'free' else 'low' }}"
               style="width: {{ [pct, 100] | min }}%"></span>{% endif %}
       </div>
+      {% endif %}
       {% if cell.blocked %}
       <div class="cal-occ"><span class="full">🔒 Gesperrt</span>
         {% if can_manage and cell.block_reason %}<div class="cal-names">{{ cell.block_reason }}</div>{% endif %}
       </div>
       {% else %}
-      <div class="cal-occ" aria-label="{{ cell.used }} von {{ total_places }} belegt, {{ cell.free }} frei">
+      <div class="cal-occ" aria-label="{{ cell.used }} Plätze belegt{% if total_places %} von {{ total_places }}, {{ cell.free }} frei{% endif %}">
+        {% if total_places %}
         <strong>{{ cell.used }}</strong>/{{ total_places }} ·
         <span class="{{ 'full' if cell.free <= 0 }}">{{ cell.free if cell.free > 0 else 'voll' }}{% if cell.free > 0 %} frei{% endif %}</span>
+        {% else %}
+        <strong>{{ cell.used }}</strong> belegt
+        {% endif %}
         {% if can_manage and cell.entries %}
         <div class="cal-names">
           {% for e in cell.entries %}<div>{{ e.label }} ({{ e.places }})</div>{% endfor %}

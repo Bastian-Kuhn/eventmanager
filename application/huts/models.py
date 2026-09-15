@@ -9,7 +9,7 @@ gleichzeitigem Speichern Buchungen überschreiben.
 Gesamtkapazität einer Hütte ergibt sich aus der Summe der Zimmerplätze (total_places).
 """
 #pylint: disable=too-few-public-methods, no-member
-from datetime import datetime
+from datetime import datetime, timedelta
 from application import db
 
 
@@ -107,34 +107,73 @@ class HutBooking(db.Document):
 
 
 def _as_date(value):
-    """DateTime/Date -> date (oder None)."""
-    if value is None:
+    """DateTime/Date oder 'YYYY-MM-DD…'-String -> date (oder None)."""
+    if not value:
         return None
+    if isinstance(value, str):
+        # save_event_form setzt Datum und Zeit erst beim Speichern zusammen; im
+        # Event-Objekt steht danach noch der Roh-String.
+        try:
+            return datetime.strptime(value[:10], "%Y-%m-%d").date()
+        except ValueError:
+            return None
     return value.date() if hasattr(value, 'date') else value
 
 
 def sync_event_booking(event):
     """
     Hält die mit einer Tour verknüpfte Hüttenbuchung konsistent: höchstens **eine**
-    Buchung pro Event. Ist der Tour eine Hütte + Start/Ende zugeordnet, wird eine
-    (bestätigte) Buchung über den Tour-Zeitraum mit `event.places` Plätzen angelegt;
-    sonst wird eine evtl. vorhandene entfernt. Idempotent.
+    Buchung pro Event. Ist der Tour eine Hütte + Startdatum zugeordnet, wird eine
+    Buchung über den Tour-Zeitraum mit `event.places` Plätzen angelegt bzw.
+    aktualisiert; sonst wird eine evtl. vorhandene entfernt. Idempotent.
+
+    Wie bei einer Selbstbuchung ist die Buchung nur sofort bestätigt, wenn die Hütte
+    keine Freigabe verlangt. Eine bereits erteilte Freigabe bleibt erhalten, solange
+    sich an Hütte, Zeitraum, Plätzen und Zimmern nichts ändert.
     """
-    HutBooking.objects(event=event).delete()
+    bookings = list(HutBooking.objects(event=event).order_by('created'))
+    booking = bookings[0] if bookings else None
+    for duplicate in bookings[1:]:
+        duplicate.delete()
 
     from_date = _as_date(event.start_date)
     to_date = _as_date(event.end_date)
-    if event.hut and from_date and to_date:
-        HutBooking(
-            hut=event.hut,
-            from_date=from_date,
-            to_date=to_date,
-            places=event.places or 0,
-            name=event.event_name,
-            event=event,
-            comment="Automatisch aus Tour verknüpft",
-            confirmed=True,  # vom Guide angelegt -> direkt bestätigt
-        ).save()
+    if not (event.hut and from_date):
+        if booking:
+            booking.delete()
+        return
+
+    # Mindestens eine Nacht: bei leerem Zeitraum (Ende = Beginn) wäre die Buchung
+    # sonst nirgends als Belegung sichtbar, weil Zeiträume halb-offen gelten.
+    if not to_date or to_date <= from_date:
+        to_date = from_date + timedelta(days=1)
+
+    rooms = [room for room in (event.hut_rooms or []) if room]
+    try:
+        places = int(event.places or 0)
+    except (TypeError, ValueError):
+        places = 0
+
+    if booking is None:
+        booking = HutBooking(event=event)
+        changed = True
+    else:
+        changed = (booking.hut != event.hut
+                   or booking.from_date != from_date
+                   or booking.to_date != to_date
+                   or (booking.places or 0) != places
+                   or list(booking.rooms or []) != rooms)
+
+    booking.hut = event.hut
+    booking.from_date = from_date
+    booking.to_date = to_date
+    booking.places = places
+    booking.rooms = rooms
+    booking.name = event.event_name
+    booking.comment = "Automatisch aus Tour verknüpft"
+    if changed:
+        booking.confirmed = not event.hut.requires_approval
+    booking.save()
 
 
 def remove_event_booking(event):

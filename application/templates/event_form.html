@@ -80,6 +80,29 @@
  <div class="form-row">
  {{ wtf.form_field(form.hut, group_css='col-md-6') }}
  </div>
+ {% for hut in huts %}{% if hut.rooms %}
+ <div class="form-row hut-rooms" data-hut="{{ hut.id }}">
+  <div class="form-group col-md-12">
+   <fieldset>
+    <legend class="col-form-label pt-0" style="font-size:1rem;">Zimmer in {{ hut.name }}</legend>
+    <p class="text-muted small mb-2" id="hut-rooms-hint-{{ hut.id }}">
+     Keine Auswahl = alle Zimmer der Hütte.</p>
+    <div class="d-flex flex-wrap" style="gap:.25rem 1rem;">
+     {% for room in hut.rooms %}
+     <div class="form-check">
+      <input class="form-check-input" type="checkbox" name="hut_rooms"
+             id="hut-{{ hut.id }}-room-{{ loop.index }}" value="{{ room.name }}"
+             aria-describedby="hut-rooms-hint-{{ hut.id }}"
+             {{ 'checked' if room.name in selected_rooms }}>
+      <label class="form-check-label" for="hut-{{ hut.id }}-room-{{ loop.index }}">
+       {{ room.name }}{% if room.places %} ({{ room.places }} Plätze){% endif %}</label>
+     </div>
+     {% endfor %}
+    </div>
+   </fieldset>
+  </div>
+ </div>
+ {% endif %}{% endfor %}
  <div class="form-row">
  {{ wtf.form_field(form.booking_from, group_css='col-md-3') }}
  {{ wtf.form_field(form.booking_from_time, group_css='col-md-3') }}
@@ -237,5 +260,27 @@
     CKEDITOR.replace('event_description', {
             height: 800,
         });
+</script>
+<script>
+// Nur die Zimmer der aktuell gewaehlten Huette zeigen (ohne JS sind alle sichtbar,
+// serverseitig wird ohnehin auf die gewaehlte Huette gefiltert).
+(function(){
+  var select = document.getElementById('hut');
+  var blocks = document.querySelectorAll('.hut-rooms');
+  if(!select || !blocks.length) return;
+  function sync(){
+    blocks.forEach(function(block){
+      var active = block.getAttribute('data-hut') === select.value;
+      block.hidden = !active;
+      if(!active){
+        block.querySelectorAll('input[name="hut_rooms"]').forEach(function(box){
+          box.checked = false;
+        });
+      }
+    });
+  }
+  select.addEventListener('change', sync);
+  sync();
+})();
 </script>
 {% endblock %}

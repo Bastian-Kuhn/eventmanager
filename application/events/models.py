@@ -124,6 +124,7 @@ class Event(db.Document):
     start_date = db.DateTimeField()
     end_date = db.DateTimeField()
     hut = db.ReferenceField(document_type='Hut')  # optionale Übernachtungs-Hütte
+    hut_rooms = db.ListField(field=db.StringField())  # gewählte Zimmer, leer = alle
     tour_link = db.StringField()
     difficulty = db.StringField(choices=difficulties)
     shape = db.StringField(choices=difficulties)

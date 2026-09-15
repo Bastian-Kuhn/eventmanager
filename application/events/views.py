@@ -24,6 +24,17 @@ from application.huts.models import Hut, sync_event_booking, remove_event_bookin
 def hut_choices():
     """Auswahlliste fuer das Huetten-Feld im Event-Formular (leer = keine)."""
     return [("", "– keine –")] + [(str(h.id), h.name) for h in Hut.objects.order_by('name')]
+
+
+def hut_rooms_map():
+    """
+    Zimmer je Huette fuer die Zimmerauswahl im Event-Formular. Das Formular zeigt
+    immer nur die Zimmer der gewaehlten Huette, gespeichert wird serverseitig
+    ebenfalls nur passend zur Huette gefiltert.
+    """
+    return [{'id': str(hut.id), 'name': hut.name,
+             'rooms': [room for room in hut.rooms if room.name]}
+            for hut in Hut.objects.order_by('name')]
 from application.models.user import roles
 from application.auth.forms import LoginForm
 from application.auth.views import do_login
@@ -155,6 +166,10 @@ def save_event_form(event):
     # Huetten-Referenz aufloesen (Formular liefert die id als String)
     hut_id = request.form.get('hut')
     event.hut = Hut.objects(id=hut_id).first() if hut_id else None
+
+    # Zimmerauswahl: nur Zimmer der gewaehlten Huette, leere Auswahl = alle Zimmer
+    valid_rooms = {r.name for r in event.hut.rooms if r.name} if event.hut else set()
+    event.hut_rooms = [r for r in request.form.getlist('hut_rooms') if r in valid_rooms]
 
     event.custom_fields = []
     event.tickets = []
@@ -606,7 +621,10 @@ def page_admin():
         flash("Bitte behebe die angezeigten Fehler in den Feldern", 'danger')
 
     context = {
-        'form': form
+        'form': form,
+        'huts': hut_rooms_map(),
+        'selected_rooms': request.form.getlist('hut_rooms') if request.form
+                          else list(event.hut_rooms or []),
     }
 
     context['event'] = event
@@ -1646,6 +1664,7 @@ def page_create():
         abort(403)
 
     event_id = request.args.get('event_id')
+    event = None
     try:
         extra_categories = [(x.name.lower(), x.name) for x in Config.objects(enabled=True)[0].event_categories_full]
     except:
@@ -1678,7 +1697,10 @@ def page_create():
         flash(f"Bitte behebe die angezeigten Fehler in den Feldern({form.errors})", 'danger')
 
     context = {
-        'form': form
+        'form': form,
+        'huts': hut_rooms_map(),
+        'selected_rooms': request.form.getlist('hut_rooms') if request.form
+                          else list(getattr(event, 'hut_rooms', None) or []),
     }
 
     return render_template('event_form.html', **context)
