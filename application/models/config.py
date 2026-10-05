@@ -28,6 +28,9 @@ class Config(db.Document): #pylint: disable=too-few-public-methods
     mail_subject_prefix = db.StringField()
     mail_password = db.StringField()
 
+    # HTML der Foto-/Video-Einwilligung, leer = Standardtext (DAV Kampenwand)
+    media_consent_text = db.StringField()
+
     enabled = db.BooleanField()
 
     meta = {

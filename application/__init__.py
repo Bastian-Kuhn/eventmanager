@@ -2,6 +2,7 @@
 # pylint: disable=invalid-name
 # pylint: disable=wrong-import-position
 import os
+import time
 import locale
 locale.setlocale(locale.LC_TIME, 'de_DE.UTF-8')
 
@@ -94,23 +95,46 @@ except ImportError:
 from application.models.config import Config
 from application.views.config import ConfigModelView
 
-@app.before_request
-def prepare_config():
+# Config + Logo (GridFS) nicht bei jedem Request neu laden und kodieren - am
+# Buchungsstichtag laufen hunderte Requests gleichzeitig. Aenderungen im Admin
+# greifen damit nach spaetestens CONFIG_CACHE_SECONDS.
+CONFIG_CACHE_SECONDS = 60
+_config_cache = {'expires': 0, 'values': {}}
+
+def load_runtime_config():
+    """Liest die Laufzeit-Config aus dem Config-Doc"""
     try:
         user_config = Config.objects(enabled=True)[0]
-        app.config['style_nav_background_color'] = user_config.nav_background_color
-        app.config['homepage_link'] = user_config.homepage_link
-        app.config['style_brand_logo'] = "data:image/png;base64,"+base64.b64encode(user_config.logo_image.read()).decode('utf-8')
-        app.config['MAIL_SENDER'] = user_config.mail_sender
-        app.config['MAIL_SERVER'] = user_config.mail_server
-        app.config['MAIL_USE_TLS'] = False
-        app.config['MAIL_USERNAME'] = user_config.mail_username
-        app.config['MAIL_PORT'] = 465
-        app.config['MAIL_USE_SSL'] = True
-        app.config['MAIL_SUBJECT_PREFIX'] = user_config.mail_subject_prefix
-        app.config['MAIL_PASSWORD'] = user_config.mail_password
     except:
-        app.config['style_nav_background_color'] = 'grey'
+        return {'style_nav_background_color': 'grey'}
+    values = {
+        'style_nav_background_color': user_config.nav_background_color,
+        'homepage_link': user_config.homepage_link,
+        'media_consent_text': user_config.media_consent_text,
+        'MAIL_SENDER': user_config.mail_sender,
+        'MAIL_SERVER': user_config.mail_server,
+        'MAIL_USE_TLS': False,
+        'MAIL_USERNAME': user_config.mail_username,
+        'MAIL_PORT': 465,
+        'MAIL_USE_SSL': True,
+        'MAIL_SUBJECT_PREFIX': user_config.mail_subject_prefix,
+        'MAIL_PASSWORD': user_config.mail_password,
+    }
+    try:
+        values['style_brand_logo'] = "data:image/png;base64,"+base64.b64encode(user_config.logo_image.read()).decode('utf-8')
+    except:
+        pass  # kein Logo hinterlegt
+    return values
+
+@app.before_request
+def prepare_config():
+    if request.endpoint == 'static':
+        return
+    now = time.monotonic()
+    if _config_cache['expires'] < now:
+        _config_cache['values'] = load_runtime_config()
+        _config_cache['expires'] = now + CONFIG_CACHE_SECONDS
+    app.config.update(_config_cache['values'])
 
 from application.models.log import LogEntry
 from application.views.log import LogView

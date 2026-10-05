@@ -127,7 +127,7 @@
           Du hast dich bereits für dieses Event Angemeldet. Stelle sicher das du wirklich noch zusätzliche Plätze buchen willst.
         </div>
         {% endif %}
-        <form method="POST">
+        <form method="POST" id="event-register-form">
             {{ regform.hidden_tag() }}
             {{ wtf.form_errors(regform, hiddens='only') }}
 
@@ -187,4 +187,24 @@
 </div>
 {% endif %}
 </div>
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+<script>
+  // Doppelte Buchung durch erneutes Klicken verhindern, waehrend die Anfrage laeuft
+  (function () {
+    var form = document.getElementById('event-register-form');
+    if (!form) { return; }
+    form.addEventListener('submit', function () {
+      var button = form.querySelector('[type=submit]');
+      if (!button) { return; }
+      // erst nach dem Absenden sperren, sonst fehlt der Button im Formular-Payload
+      setTimeout(function () {
+        button.disabled = true;
+        button.value = 'Anmeldung wird gesendet …';
+      }, 0);
+      form.setAttribute('aria-busy', 'true');
+    });
+  })();
+</script>
 {% endblock %}

@@ -1,9 +1,13 @@
 {#
   Wiederverwendbarer Einwilligungstext (Foto/Video) fuer Registrierung, Profil und Buchung.
   Wird am Ort der Einwilligung sichtbar angezeigt (rechtssicher, kein PDF).
+  Text ist im Admin (Config) pflegbar, ohne Eintrag gilt der DAV-Standardtext.
 #}
 <div class="media-consent card border mb-2">
   <div class="card-body p-3" style="max-height: 240px; overflow-y: auto;">
+    {% if config.get('media_consent_text') %}
+    {{ config['media_consent_text']|safe }}
+    {% else %}
     <p class="mb-2"><strong>Einverständniserklärung für Anfertigung und Veröffentlichung von
       Foto- und Videoaufnahmen</strong></p>
     <p>durch die DAV Sektion Kampenwand als Veranlasser der Veröffentlichung der Aufnahmen.</p>
@@ -19,5 +23,6 @@
       erkennbar bin, leite ich keine Rechte (z.&nbsp;B. Entgelt) ab.</p>
     <p class="mb-0">Diese Einverständniserklärung kann ich gegenüber dem Veranlasser bei Vorliegen
       eines wichtigen Grundes mit Wirkung für die Zukunft widerrufen (z.&nbsp;B. in meinem Profil).</p>
+    {% endif %}
   </div>
 </div>

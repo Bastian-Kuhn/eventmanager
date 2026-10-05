@@ -26,7 +26,7 @@
           {% if current_user.has_right('guide') %}
           <li class="nav-item"><a class="nav-link" href="{{ url_for('EVENTS.page_create') }}">Tour erstellen</a></li>
           {% endif %}
-          {% if manages_huts %}
+          {% if manages_huts and hut_count %}
           <li class="nav-item"><a class="nav-link" href="{{ url_for('HUTS.page_hut_admin') }}">Hütten-Freigaben</a></li>
           {% endif %}
           {% if current_user.is_admin() %}

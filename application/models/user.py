@@ -65,25 +65,29 @@ class User(db.Document, UserMixin):
 
     def add_event(self, event):
         """
-        Add Event to User
+        Add Event to User. Atomar per $addToSet, damit parallele Buchungen
+        sich nicht gegenseitig die Rueckreferenz ueberschreiben.
         """
-        if event not in self.event_registrations:
-            self.event_registrations.append(event)
-            self.save()
+        User.objects(id=self.id).update_one(add_to_set__event_registrations=event)
+
+    def _reference_ids(self, field_name):
+        """
+        IDs einer ListField(ReferenceField) als Strings, ohne die referenzierten
+        Documents zu laden (Zugriff ueber das Attribut dereferenziert alle).
+        """
+        return {str(getattr(ref, 'id', ref)) for ref in self._data.get(field_name) or []}
 
     def participate_event(self, event_id):
         """
         Check if user is part of event
         """
-        if str(event_id) in [ str(x.id) for x in self.event_registrations]:
-            return True
-        return False
+        return str(event_id) in self._reference_ids('event_registrations')
 
     def is_favorite(self, event_id):
         """
         Check if event is favored by user
         """
-        return str(event_id) in [str(x.id) for x in self.favorites]
+        return str(event_id) in self._reference_ids('favorites')
 
     def toggle_favorite(self, event):
         """

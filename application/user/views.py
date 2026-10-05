@@ -5,6 +5,7 @@ Frontend User
 from datetime import datetime
 from application import limiter
 from application.models.user import User
+from application.events.models import with_event_lock
 
 from flask import request, render_template, current_app, \
      flash, redirect, session, Blueprint, url_for
@@ -102,6 +103,7 @@ def page_user_password():
 
 @USER.route('/user/profile/event_optin', methods=['POST'])
 @login_required
+@with_event_lock
 def page_user_event_optin():
     """
     Medien-Einwilligung fuer ein einzelnes Event ueberschreiben

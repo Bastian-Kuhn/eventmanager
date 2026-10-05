@@ -16,8 +16,10 @@ from markupsafe import Markup
 
 
 from mongoengine import Q
+from redis.exceptions import LockError
 from application.events.models import Event, EventParticipation,\
-                             CustomField, CustomFieldDefintion, Ticket, OwnedTicket, EventCost, difficulties
+                             CustomField, CustomFieldDefintion, Ticket, OwnedTicket, EventCost, difficulties, \
+                             event_lock, with_event_lock
 from application.huts.models import Hut, sync_event_booking, remove_event_booking
 
 
@@ -219,6 +221,7 @@ def save_event_form(event):
 
 
 @EVENTS.route('/user/change_ticket', methods=['POST'])
+@with_event_lock
 def ajax_mybooking():
     """
     Save Ajax Data for Ticket Changes
@@ -254,6 +257,7 @@ def ajax_mybooking():
         return {'msg': 'error', 'error': 'Ticket nicht gefunden oder keine Berechtigung'}, 403
 
 @EVENTS.route('/user/add_ticket', methods=['POST'])
+@with_event_lock
 def ajax_add_ticket():
     """
     Add new ticket for a user (Guide only)
@@ -418,6 +422,16 @@ def page_mybooking():
 
 #.
 #   . Event List Page
+# Felder, die event_list(_export).html braucht. Von den Teilnahmen nur die
+# Ticket-Flags fuer Event.get_numbers().
+EVENT_LIST_FIELDS = (
+    'event_name', 'event_teaser', 'event_category', 'event_owners', 'places',
+    'start_date', 'end_date', 'difficulty', 'shape',
+    'length_h', 'length_km', 'altitude_difference',
+    'participations.tickets.confirmed', 'participations.tickets.waitinglist',
+    'participations.tickets.is_extra_ticket',
+)
+
 @EVENTS.route('/', methods=['POST', 'GET'])
 def page_list():
     """
@@ -509,11 +523,13 @@ def page_list():
         events = Event.objects(future_q, **filter_expr).order_by('start_date')
     else:
         events = Event.objects(**filter_expr).order_by('start_date')
+    # Nur laden, was die Liste anzeigt - vor allem nicht alle Teilnehmerdaten
+    events = events.only(*EVENT_LIST_FIELDS)
     result = []
     if filters.get('filter_own') and current_user.is_authenticated:
         filter_names.append("Angemeldet")
         for event in events:
-            if event in current_user.event_registrations or \
+            if current_user.participate_event(event.id) or \
                 current_user in event.event_owners:
                 result.append(event)
     else:
@@ -523,8 +539,9 @@ def page_list():
     favorite_ids = set()
     if current_user.is_authenticated:
         result = list(result)
-        fav_events = list(current_user.favorites)
-        favorite_ids = {str(f.id) for f in fav_events}
+        favorite_ids = current_user._reference_ids('favorites')  # pylint: disable=protected-access
+        fav_events = list(Event.objects(id__in=list(favorite_ids))
+                          .only(*EVENT_LIST_FIELDS).order_by('start_date'))
         pinned = [e for e in result if str(e.id) in favorite_ids]
         rest = [e for e in result if str(e.id) not in favorite_ids]
         pinned_ids = {str(e.id) for e in pinned}
@@ -660,6 +677,7 @@ def page_delete():
 
 
 @EVENTS.route('/event/change_participants', methods=['POST'])
+@with_event_lock
 def change_participation():
     """
     Helper
@@ -939,6 +957,7 @@ def page_participants():
 #   . Billing
 
 @EVENTS.route('/event/change_paidstatus', methods=['POST'])
+@with_event_lock
 def change_paidstatus():
     """
     Helper to mark Tickets paid
@@ -974,6 +993,7 @@ def change_paidstatus():
     return response
 
 @EVENTS.route('/event/bulk_paidstatus', methods=['POST'])
+@with_event_lock
 def bulk_paidstatus():
     """
     Alle Tickets eines Events auf bezahlt/unbezahlt setzen
@@ -995,6 +1015,7 @@ def bulk_paidstatus():
 
 @EVENTS.route('/event/bulk_change_price', methods=['POST'])
 @login_required
+@with_event_lock
 def bulk_change_price():
     """
     Preis eines Ticket-Typs fuer alle Buchungen setzen
@@ -1030,6 +1051,7 @@ def bulk_change_price():
 
 @EVENTS.route('/event/change_price', methods=['POST'])
 @login_required
+@with_event_lock
 def change_price():
     """
     Helper to change ticket prices for guides
@@ -1438,7 +1460,6 @@ def page_details():
     # Add Custom Fields to Registration Form
     custom_fields = event.custom_fields
     for idx, field in enumerate(custom_fields):
-        print(idx, flush=True)
         setattr(EventRegForm, f"custom_{idx}",
                     StringField(field.field_name, validators=[InputRequired()]))
 
@@ -1574,16 +1595,12 @@ def page_details():
             register_possible = False
 
 
-        free_seats = {}
         ticket_data = {}
         wanted_seats = {}
-        ticket_stats = event.get_ticket_stats() # Update data
         for ticket in event_tickets:
             wanted = int(data[f'ticket_{ticket.name}'])
             if wanted == 0:
                 continue
-            places = ticket_stats['max'][ticket.name] - ticket_stats.get(ticket.name, 0)
-            free_seats[ticket.name] = places - wanted
             wanted_seats[ticket.name] = wanted
             is_extra = ticket.is_extra_ticket
             ticket_data[ticket.name] = {'name': ticket.name, 'desc': ticket.description, 'is_extra': is_extra}
@@ -1594,8 +1611,6 @@ def page_details():
 
 
         if register_possible:
-            current_user.add_event(event)
-
             new_participation = EventParticipation()
             new_participation.booking_date = now
             for idx, custom_field_def in enumerate(custom_fields):
@@ -1606,37 +1621,42 @@ def page_details():
                 custom_field.value = data[field_id]
                 new_participation.custom_fields.append(custom_field)
 
-            for ticket_name, num in wanted_seats.items():
-                waitinglist = True
-                for _ in range(num):
-                    if free_seats[ticket_name] >= 0:
-                        waitinglist = False
-                    free_seats[ticket_name] -= 1
+            try:
+                # Platzvergabe pro Event serialisieren: Ohne Lock lesen viele
+                # gleichzeitige Buchungen (Stichtag!) denselben Stand, alle sehen
+                # freie Plaetze und das Event wird ueberbucht.
+                with event_lock(event_id):
+                    event.reload()
+                    ticket_stats = event.get_ticket_stats()
+                    for ticket_name, num in wanted_seats.items():
+                        places = ticket_stats['max'][ticket_name] - ticket_stats.get(ticket_name, 0)
+                        # Gruppe bleibt zusammen: passt sie nicht komplett, geht sie
+                        # komplett auf die Warteliste
+                        waitinglist = places < num
+                        for _ in range(num):
+                            ticket = OwnedTicket()
+                            ticket.ticket_id = uuid.uuid4().hex
+                            ticket.ticket_name = ticket_name
+                            ticket.ticket_comment = ticket_data[ticket_name]['desc']
+                            ticket.confirmed = False
+                            ticket.name_on_ticket = f"{current_user.first_name} {current_user.last_name}"
+                            ticket.email_on_ticket = current_user.email
+                            ticket.phone_on_ticket = current_user.phone
+                            ticket.birthdate_on_ticket = current_user.birthdate
+                            ticket.comment_on_ticket = data['comment']
+                            ticket.is_extra_ticket = ticket_data[ticket_name]['is_extra']
+                            ticket.waitinglist = waitinglist
+                            new_participation.tickets.append(ticket)
 
-                    ticket_id = uuid.uuid4().hex
+                    new_participation.comment = data['comment']
+                    new_participation.user = current_user
+                    new_participation.waitinglist = waitinglist
+                    Event.objects(id=event_id).update_one(push__participations=new_participation)
+            except LockError:
+                flash("Gerade buchen sehr viele gleichzeitig. Bitte versuche es in ein paar Sekunden erneut.", 'danger')
+                return render_template('event_details.html', **context)
 
-
-                    ticket = OwnedTicket()
-                    ticket.ticket_id = ticket_id
-                    ticket.ticket_name = ticket_name
-                    ticket.ticket_comment = ticket_data[ticket_name]['desc']
-                    ticket.confirmed = False
-                    ticket.name_on_ticket = f"{current_user.first_name} {current_user.last_name}"
-                    ticket.email_on_ticket = current_user.email
-                    ticket.phone_on_ticket = current_user.phone
-                    ticket.birthdate_on_ticket = current_user.birthdate
-                    ticket.comment_on_ticket = data['comment']
-                    ticket.is_extra_ticket = ticket_data[ticket_name]['is_extra']
-                    ticket.waitinglist = waitinglist
-                    new_participation.tickets.append(ticket)
-
-
-            new_participation.comment = data['comment']
-            new_participation.user = current_user
-            new_participation.waitinglist = waitinglist
-            Event.objects(id=event_id).update_one(push__participations=new_participation)
-            event.reload()
-            event.save()
+            current_user.add_event(event)
 
             for guide in event.event_owners:
                 send_email(guide.email, f"Neue Anmeldung: {event.event_name}", 'email/newparticipant',

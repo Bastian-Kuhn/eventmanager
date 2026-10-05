@@ -2,9 +2,44 @@
 Events
 """
 #pylint: disable=too-few-public-methods, no-member
+from functools import wraps
 from random import choices
+from flask import request
+from redis.exceptions import LockError
 from wtforms import StringField
 from application import db, app
+
+
+def event_lock(event_id):
+    """
+    Redis-Lock pro Event. Buchungen und Guide-Aenderungen an den Teilnahmen
+    laufen damit nacheinander - MongoEngine speichert Listen oft komplett, so
+    wuerden sich parallele Aenderungen sonst gegenseitig ueberschreiben.
+    Als Context-Manager wirft er LockError, wenn er nicht binnen 20s frei wird.
+    """
+    return app.redis.lock(f"event:{event_id}", timeout=30, blocking_timeout=20)
+
+
+def with_event_lock(view):
+    """
+    View-Decorator: haelt den Event-Lock (event_id aus dem Request) fuer die
+    ganze View. Die View muss das Event selbst laden, dann sieht sie den
+    aktuellen Stand.
+    """
+    @wraps(view)
+    def wrapper(*args, **kwargs):
+        lock = event_lock(request.values.get('event_id'))
+        if not lock.acquire():
+            return ("Das Event wird gerade von vielen gleichzeitig bearbeitet. "
+                    "Bitte versuche es in ein paar Sekunden erneut."), 503
+        try:
+            return view(*args, **kwargs)
+        finally:
+            try:
+                lock.release()
+            except LockError:
+                pass  # Lock nach timeout bereits abgelaufen
+    return wrapper
 
 difficulties = [
     ('keine', "Keine"),
@@ -222,17 +257,15 @@ class Event(db.Document):
         found = False
         last = False
         for parti in self.participations:
-            for ticket in parti.tickets:
-                if ticket.ticket_id == ticket_id:
-                    parti.tickets.remove(ticket)
-                    found = True
-                    break
+            ticket = next((x for x in parti.tickets if x.ticket_id == ticket_id), None)
+            if ticket:
+                parti.tickets.remove(ticket)
+                found = True
+                break
         if found:
             if not parti.tickets:
                 last = True
-                user = parti.user
-                user.event_registrations.remove(self)
-                user.save()
+                parti.user.update(pull__event_registrations=self)
                 self.participations.remove(parti)
         return {
             'found': found,
