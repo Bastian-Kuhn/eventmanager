@@ -43,7 +43,7 @@ from application.auth.views import do_login
 from application.events.forms import EventForm, EventRegisterForm, EventSearchForm
 from application.models.config import Config
 from application.models.user import User
-from application.events.models import OwnedTicket
+from application.events.models import OwnedTicket, new_booking_ref
 
 from application.modules.email import send_email
 
@@ -300,6 +300,7 @@ def ajax_add_ticket():
             # Create new participation
             participation = EventParticipation()
             participation.user = target_user
+            participation.booking_ref = new_booking_ref()
             participation.booking_date = datetime.now()
             participation.custom_fields = []
             participation.tickets = []
@@ -372,6 +373,7 @@ def page_mybooking():
     event_id = request.args.get('event_id')
     user_id = request.args.get('user_id')  # Optional parameter for guides to view other users' bookings
     event = Event.objects.get(id=event_id)
+    event.ensure_booking_refs()
     tickets_by_name = {}
     total_cost = 0
     open_cost = 0  # Track unpaid costs
@@ -408,8 +410,11 @@ def page_mybooking():
                 tickets_by_name.setdefault(ticket.ticket_name, [])
                 tickets_by_name[ticket.ticket_name].append(ticket)
 
+    participation = event.get_participation(target_user)
+
     context = {
         'event': event,
+        'booking_ref': participation.booking_ref if participation else None,
         'tickets_by_name': tickets_by_name,
         'total_cost': total_cost,
         'open_cost': open_cost,
@@ -836,6 +841,7 @@ def get_participants(event):
                     'name': ticket.ticket_name,
                     'bucher': bucher,
                     'bucher_user_id': str(parti.user.id),
+                    'booking_ref': parti.booking_ref,
                     'telefon': ticket.phone_on_ticket if ticket.phone_on_ticket else parti.user.phone,
                     'email': ticket.email_on_ticket if ticket.email_on_ticket else parti.user.email,
                     'media_optin': parti.user.media_optin,
@@ -976,6 +982,7 @@ def change_paidstatus():
 
     if job == 'paid':
         ticket.is_paid = True
+        ticket.is_transfer = False  # Ueberweisung ist eingegangen
     elif job == 'unpaid':
         ticket.is_paid = False
     elif job == 'free':
@@ -1009,6 +1016,8 @@ def bulk_paidstatus():
     for parti in event.participations:
         for ticket in parti.tickets:
             ticket.is_paid = new_state
+            if new_state:
+                ticket.is_transfer = False
     event.save()
 
     return {}
@@ -1201,6 +1210,7 @@ def page_billing():
         abort(403)
 
     event = Event.objects.get(id=event_id)
+    event.ensure_booking_refs()
     context = {}
 
 
@@ -1613,6 +1623,7 @@ def page_details():
         if register_possible:
             new_participation = EventParticipation()
             new_participation.booking_date = now
+            new_participation.booking_ref = new_booking_ref()
             for idx, custom_field_def in enumerate(custom_fields):
                 field_name = custom_field_def.field_name
                 field_id = f"custom_{idx}"

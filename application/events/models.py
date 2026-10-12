@@ -120,6 +120,10 @@ class EventParticipation(db.EmbeddedDocument):
 
     comment = db.StringField()
 
+    # Kurze Buchungsnummer, z.B. als Verwendungszweck bei Ueberweisungen.
+    # Vergabe ueber new_booking_ref(), fuer Altbestand ueber Event.ensure_booking_refs().
+    booking_ref = db.StringField()
+
     # Ueberschreibt das globale User.media_optin fuer genau dieses Event.
     # None = globalen Wert aus dem Profil verwenden, True/False = bewusst gesetzt.
     media_optin = db.BooleanField()
@@ -182,6 +186,31 @@ class Event(db.Document):
         'strict': False,
     }
 
+
+    def ensure_booking_refs(self):
+        """
+        Vergibt allen Teilnahmen ohne Buchungsnummer eine. Bestehende Nummern
+        bleiben unveraendert. Unter dem Event-Lock und je Teilnahme als
+        atomares Positional-Update, damit kein paralleler Save etwas
+        ueberschreibt. Ist der Lock belegt, passiert jetzt nichts: die Nummer
+        kommt dann beim naechsten Aufruf.
+        """
+        if all(parti.booking_ref for parti in self.participations):
+            return
+        collection = Event._get_collection()
+        try:
+            with event_lock(self.id):
+                for _ in range(len(self.participations)):
+                    result = collection.update_one(
+                        {'_id': self.id,
+                         'participations': {'$elemMatch': {'booking_ref': None}}},
+                        {'$set': {'participations.$.booking_ref': new_booking_ref()}},
+                    )
+                    if not result.modified_count:
+                        break
+        except LockError:
+            return
+        self.reload('participations')
 
     def get_numbers(self):
         """
@@ -305,3 +334,18 @@ class Event(db.Document):
 
     def __str__(self):
         return self.event_name
+
+
+# Ohne leicht verwechselbare Zeichen (0/O, 1/I/L), nur Grossbuchstaben und Ziffern
+BOOKING_REF_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
+BOOKING_REF_LENGTH = 6
+
+
+def new_booking_ref():
+    """
+    Neue, eventuebergreifend eindeutige Buchungsnummer, z.B. "K7M3PQ"
+    """
+    while True:
+        ref = ''.join(choices(BOOKING_REF_ALPHABET, k=BOOKING_REF_LENGTH))
+        if not Event.objects(participations__booking_ref=ref).only('id').first():
+            return ref

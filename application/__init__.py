@@ -213,6 +213,21 @@ def age(date):
 app.jinja_env.globals.update(translate_bool=translate_bool)
 app.jinja_env.globals.update(age=age)
 
+
+def format_euro(value):
+    """
+    Geldbetrag deutsch mit genau zwei Nachkommastellen, z.B. 1234.5 -> "1.234,50 €".
+    Preise sind Floats, Summen daraus haben sonst Rundungsreste (0.1 + 0.2).
+    """
+    try:
+        amount = float(value or 0)
+    except (TypeError, ValueError):
+        return value
+    text = f"{amount:,.2f}".replace(',', ' ').replace('.', ',').replace(' ', '.')
+    return f"{text}\u00a0€"
+
+app.jinja_env.filters['euro'] = format_euro
+
 @app.context_processor
 def inject_now():
     return {'now': datetime.utcnow()}

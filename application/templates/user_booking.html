@@ -68,6 +68,13 @@
 <div class="row">
     <div class="col-sm-12">
     <h1>{{event.event_name}}</h1>
+    {% if booking_ref %}
+    <div class="alert alert-secondary d-flex flex-wrap align-items-center" role="note" aria-labelledby="booking-ref-label">
+        <span id="booking-ref-label" class="mr-2">Buchungsnummer:</span>
+        <strong class="text-monospace mr-3" style="font-size: 1.75rem; letter-spacing: 0.15em;">{{ booking_ref }}</strong>
+        <span class="small">Bitte bei Überweisungen als Verwendungszweck angeben.</span>
+    </div>
+    {% endif %}
     {% if is_viewing_other_user %}
     <div class="alert alert-warning" role="alert">
         <strong>Guide-Ansicht:</strong> Du betrachtest die Buchung von {{ target_user.first_name }} {{ target_user.last_name }}.
@@ -98,7 +105,7 @@
 <div class="row">
     <div class="col-sm-12">
         <div class="alert alert-info" role="alert">
-            <strong>Kosten: {{open_cost}}/ {{ total_cost }}€</strong>
+            <strong>Kosten: offen {{ open_cost|euro }} von {{ total_cost|euro }}</strong>
 
         </div>
     </div>
@@ -185,13 +192,13 @@
         {% if current_user.has_right('guide') %}
           <button type="button" class="editable-price btn btn-link p-0"
                 data-ticket-id="{{ ticket.ticket_id }}"
-                data-original-price="{{ ticket.price }}"
-                aria-label="Preis von {{ ticket.price }}€ für {{ ticket.name_on_ticket }} bearbeiten"
+                data-original-price="{{ '%.2f'|format(ticket.price or 0) }}"
+                aria-label="Preis von {{ ticket.price|euro }} für {{ ticket.name_on_ticket }} bearbeiten"
                 title="Preis bearbeiten (klicken)">
-            {{ ticket.price }}€
+            {{ ticket.price|euro }}
           </button>
         {% else %}
-          {{ ticket.price }}€
+          {{ ticket.price|euro }}
         {% endif %}
         </td>
         <td data-label="Bezahlt">
@@ -295,7 +302,7 @@
           <select id="ticket_type" name="ticket_type" class="form-control" required>
             <option value="">Bitte auswählen...</option>
             {% for ticket in event.tickets %}
-            <option value="{{ticket.name}}">{{ticket.name}} ({{ticket.price}}€)</option>
+            <option value="{{ticket.name}}">{{ticket.name}} ({{ ticket.price|euro }})</option>
             {% endfor %}
           </select>
         </div>

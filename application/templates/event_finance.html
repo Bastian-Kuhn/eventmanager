@@ -88,19 +88,19 @@
                     <tbody>
                         <tr>
                             <td>Bereits eingenommen (bezahlt)</td>
-                            <td class="text-end">{{ received }}€</td>
+                            <td class="text-end">{{ received|euro }}</td>
                         </tr>
                         <tr class="table-warning">
-                            <td>Überweisung angekündigt</td>
-                            <td class="text-end">{{ transfer }}€</td>
+                            <td>Überweisung vorgemerkt<br><small class="text-muted">vom Guide unter Abrechnung markiert, noch nicht eingegangen</small></td>
+                            <td class="text-end">{{ transfer|euro }}</td>
                         </tr>
                         <tr>
                             <td>Noch offen</td>
-                            <td class="text-end">{{ outstanding }}€</td>
+                            <td class="text-end">{{ outstanding|euro }}</td>
                         </tr>
                         <tr class="table-active">
                             <td><strong>Potenzielle Gesamteinnahmen</strong></td>
-                            <td class="text-end"><strong>{{ potential }}€</strong></td>
+                            <td class="text-end"><strong>{{ potential|euro }}</strong></td>
                         </tr>
                         <tr>
                             <td>Frei markiert</td>
@@ -169,7 +169,7 @@
                     {% endfor %}
                         <tr class="table-active">
                             <td colspan="3"><strong>Gesamtausgaben</strong></td>
-                            <td class="text-end"><strong>{{ expenses }}€</strong></td>
+                            <td class="text-end"><strong>{{ expenses|euro }}</strong></td>
                             <td colspan="2"></td>
                         </tr>
                     </tbody>
@@ -189,8 +189,8 @@
                 {% endfor %}
 
                 <p class="mb-2">
-                    Davon bezahlt: <strong>{{ expenses_paid }}€</strong> &middot;
-                    Noch auszuzahlen: <strong>{{ expenses_open }}€</strong>
+                    Davon bezahlt: <strong>{{ expenses_paid|euro }}</strong> &middot;
+                    Noch auszuzahlen: <strong>{{ expenses_open|euro }}</strong>
                 </p>
 
                 <form method="post" action="{{ url_for('EVENTS.add_cost') }}"
@@ -245,9 +245,9 @@
                         <tr class="{{ 'table-success' if info.all_paid else '' }}">
                             <td data-label="Person">{{ person if person else "(keine Person)" }}</td>
                             <td data-label="Anzahl" class="text-end">{{ info.count }}</td>
-                            <td data-label="Gesamt" class="text-end">{{ info.total }}€</td>
-                            <td data-label="Bezahlt" class="text-end">{{ info.paid }}€</td>
-                            <td data-label="Offen" class="text-end">{{ info.open }}€</td>
+                            <td data-label="Gesamt" class="text-end">{{ info.total|euro }}</td>
+                            <td data-label="Bezahlt" class="text-end">{{ info.paid|euro }}</td>
+                            <td data-label="Offen" class="text-end">{{ info.open|euro }}</td>
                             <td data-label="Aktion">
                                 <form method="post" action="{{ url_for('EVENTS.mark_person_paid') }}" style="margin:0;">
                                     <input type="hidden" name="event_id" value="{{ event.id }}">
@@ -277,7 +277,7 @@
         <div class="card">
             <div class="card-body">
                 <h5 class="card-title">Saldo aktuell (eingenommen − Ausgaben)</h5>
-                <p class="card-text" style="font-size: 1.5rem;">{{ balance_current }}€</p>
+                <p class="card-text" style="font-size: 1.5rem;">{{ balance_current|euro }}</p>
             </div>
         </div>
     </div>
@@ -285,7 +285,7 @@
         <div class="card">
             <div class="card-body">
                 <h5 class="card-title">Saldo potenziell (potenziell − Ausgaben)</h5>
-                <p class="card-text" style="font-size: 1.5rem;">{{ balance_potential }}€</p>
+                <p class="card-text" style="font-size: 1.5rem;">{{ balance_potential|euro }}</p>
             </div>
         </div>
     </div>

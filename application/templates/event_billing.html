@@ -87,7 +87,7 @@
         <div class="card">
             <div class="card-body">
                 <h5 class="card-title">Bereits abgerechnet</h5>
-                <p class="card-text" style="font-size: 1.5rem;">{{ total_billed }}€</p>
+                <p class="card-text" style="font-size: 1.5rem;">{{ total_billed|euro }}</p>
             </div>
         </div>
     </div>
@@ -95,7 +95,7 @@
         <div class="card">
             <div class="card-body">
                 <h5 class="card-title">Noch nicht abgerechnet</h5>
-                <p class="card-text" style="font-size: 1.5rem;">{{ total_unbilled }}€</p>
+                <p class="card-text" style="font-size: 1.5rem;">{{ total_unbilled|euro }}</p>
             </div>
         </div>
     </div>
@@ -103,7 +103,8 @@
         <div class="card border-warning">
             <div class="card-body">
                 <h5 class="card-title">Überweisung vorgemerkt</h5>
-                <p class="card-text" style="font-size: 1.5rem;">{{ total_transfer }}€</p>
+                <p class="card-text small text-muted mb-1">Per <i class="fas fa-university" aria-hidden="true"></i><span class="sr-only">Bank-Symbol</span> am Ticket gesetzt, Geld noch nicht eingegangen.</p>
+                <p class="card-text" style="font-size: 1.5rem;">{{ total_transfer|euro }}</p>
             </div>
         </div>
     </div>
@@ -120,16 +121,23 @@
 <div class="row mb-3">
     <div class="col-12">
         <div class="card">
-            <div class="card-header">Preise sammeln (alle Buchungen eines Ticket-Typs)</div>
+            <div class="card-header"><h2 class="h5 mb-0">Preis je Ticket-Typ für alle Buchungen ändern</h2></div>
             <div class="card-body">
+                <p class="text-muted small" id="bulk-price-help">
+                    Setzt den Preis eines Ticket-Typs neu. Der Preis gilt für neue Buchungen und
+                    überschreibt ihn bei <strong>allen bestehenden Buchungen</strong> dieses Typs,
+                    auch bei einzeln angepassten Preisen. Der Bezahlstatus bleibt unverändert.
+                </p>
                 {% for ticket_def in event.tickets %}
                 <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-                    <span class="flex-grow-1">{{ ticket_def.name }}</span>
+                    <label class="flex-grow-1 mb-0" for="bulk_price_{{ loop.index }}">{{ ticket_def.name }}</label>
                     <input type="number" step="0.01" class="form-control form-control-sm bulk-price-input"
+                           id="bulk_price_{{ loop.index }}" aria-describedby="bulk-price-help"
                            data-ticket-name="{{ ticket_def.name }}"
-                           value="{{ ticket_def.price or 0 }}" style="max-width: 120px;">
+                           value="{{ '%.2f'|format(ticket_def.price or 0) }}" style="max-width: 120px;">
                     <a href="#" class="bulk-price btn btn-sm btn-outline-primary"
-                       data-ticket-name="{{ ticket_def.name }}">Übernehmen</a>
+                       data-ticket-name="{{ ticket_def.name }}" role="button"
+                       aria-label="Preis für alle Buchungen von {{ ticket_def.name }} setzen">Für alle setzen</a>
                 </div>
                 {% endfor %}
             </div>
@@ -148,11 +156,14 @@
             {{owner}}
           </a>
           </span>
+          {% if all_tickets[0].ticket_info.booking_ref %}
+          <span class="ml-2">Buchungsnummer: <strong class="text-monospace">{{ all_tickets[0].ticket_info.booking_ref }}</strong></span>
+          {% endif %}
           </h2>
         </div>
 
         <div class="card-body">
-          Total offen: {{ tickets_by_status['total'] }}
+          Total offen: {{ tickets_by_status['total']|euro }}
           {% for booking_status in ['paid', 'unpaid', 'transfer', 'free'] %}
               {% if not tickets_by_status[booking_status] %}
               {% else %}
@@ -161,7 +172,7 @@
               {% elif booking_status == 'paid' %}
                   <h3>Bezahlt</h3>
               {% elif booking_status == 'transfer' %}
-                  <h3 class="text-warning">Überweisung ausstehend</h3>
+                  <h3 class="text-warning">Überweisung vorgemerkt</h3>
               {% elif booking_status == 'free' %}
                   <h3>Frei</h3>
               {% endif %}
@@ -194,10 +205,10 @@
                     <td data-label="Preis">
                       <span class="editable-price"
                             data-ticket-id="{{ ticket.id }}"
-                            data-original-price="{{ ticket.price }}"
+                            data-original-price="{{ '%.2f'|format(ticket.price or 0) }}"
                             style="cursor: pointer; text-decoration: underline;"
                             title="Preis bearbeiten (klicken)">
-                        {{ ticket.price }}€
+                        {{ ticket.price|euro }}
                       </span>
                     </td>
                     <td data-label="Optionen">
@@ -206,46 +217,46 @@
                       <a href="#" class="job btn btn-sm btn-outline-success"
                          data-job="paid"
                          data-ticket_id={{ ticket.id }}
-                         title="Als bezahlt markieren">
-                        <i class="fas fa-check"></i>
+                         title="Als bezahlt markieren" aria-label="Als bezahlt markieren" role="button">
+                        <i class="fas fa-check" aria-hidden="true"></i>
                       </a>
                       {% endif %}
                       {% if booking_status != 'unpaid' %}
                       <a href="#" class="job btn btn-sm btn-outline-warning"
                          data-job="unpaid"
                          data-ticket_id={{ ticket.id }}
-                         title="Als unbezahlt markieren">
-                        <i class="fas fa-times"></i>
+                         title="Als unbezahlt markieren" aria-label="Als unbezahlt markieren" role="button">
+                        <i class="fas fa-times" aria-hidden="true"></i>
                       </a>
                       {% endif %}
                       {% if booking_status != 'transfer' %}
                       <a href="#" class="job btn btn-sm btn-outline-info"
                          data-job="transfer"
                          data-ticket_id={{ ticket.id }}
-                         title="Überweisung vormerken">
-                        <i class="fas fa-university"></i>
+                         title="Überweisung vormerken" aria-label="Überweisung vormerken" role="button">
+                        <i class="fas fa-university" aria-hidden="true"></i>
                       </a>
                       {% else %}
                       <a href="#" class="job btn btn-sm btn-outline-info"
                          data-job="untransfer"
                          data-ticket_id={{ ticket.id }}
-                         title="Überweisung aufheben">
-                        <i class="fas fa-undo"></i>
+                         title="Überweisung aufheben" aria-label="Überweisung aufheben" role="button">
+                        <i class="fas fa-undo" aria-hidden="true"></i>
                       </a>
                       {% endif %}
                       {% if booking_status != 'free' %}
                       <a href="#" class="job btn btn-sm btn-outline-secondary"
                          data-job="free"
                          data-ticket_id={{ ticket.id }}
-                         title="Als frei markieren">
-                        <i class="fas fa-gift"></i>
+                         title="Als frei markieren" aria-label="Als frei markieren" role="button">
+                        <i class="fas fa-gift" aria-hidden="true"></i>
                       </a>
                       {% else %}
                       <a href="#" class="job btn btn-sm btn-outline-secondary"
                          data-job="unfree"
                          data-ticket_id={{ ticket.id }}
-                         title="Frei aufheben">
-                        <i class="fas fa-undo"></i>
+                         title="Frei aufheben" aria-label="Frei aufheben" role="button">
+                        <i class="fas fa-undo" aria-hidden="true"></i>
                       </a>
                       {% endif %}
                       </div>
@@ -309,7 +320,7 @@ $(document).ready(function() {
             alert('Bitte einen gültigen Preis eingeben.');
             return;
         }
-        if (!confirm('Preis für alle Buchungen von "' + ticketName + '" auf ' + newPrice + '€ setzen?')) {
+        if (!confirm('Preis für alle Buchungen von "' + ticketName + '" auf ' + newPrice + ' € setzen? Einzeln angepasste Preise dieses Typs werden überschrieben.')) {
             return;
         }
         $.post('/event/bulk_change_price', {
