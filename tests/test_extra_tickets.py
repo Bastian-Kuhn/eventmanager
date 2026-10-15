@@ -104,6 +104,22 @@ class RegisterExtrasPerPersonTest(unittest.TestCase):
                                   'extra_0_0': '1', 'extra_0_1': '1', 'extra_0_2': '1'})
         self.assertIsNone(parti)
 
+    def test_several_main_ticket_types(self):
+        # Jede gebuchte Person jedes Haupt-Tickets bekommt ihre eigenen Zusatztickets
+        self.event.tickets.insert(1, Ticket(name='Jugend', price=5.0, maximum_tickets=2))
+        response, parti, _ = self._post({
+            'ticket_Teilnahme': '1', 'ticket_Jugend': '2', 'comment': '',
+            'extra_0_0': '2', 'extra_1_1': ['2', '3'],
+        })
+        self.assertEqual(response.status_code, 302)
+        by_name = {}
+        for ticket in parti.tickets:
+            by_name.setdefault(ticket.ticket_name, []).append(ticket)
+        self.assertEqual(len(by_name['Jugend']), 2)
+        leih = sorted(x.main_ticket_id for x in by_name['Leihausruestung'])
+        self.assertEqual(leih, sorted([by_name['Teilnahme'][0].ticket_id, by_name['Jugend'][1].ticket_id]))
+        self.assertEqual(by_name['Busfahrt'][0].main_ticket_id, by_name['Jugend'][1].ticket_id)
+
 
 if __name__ == '__main__':
     unittest.main()
