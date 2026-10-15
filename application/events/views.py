@@ -251,8 +251,9 @@ def ajax_mybooking():
         ticket.email_on_ticket = new_email
         ticket.birthdate_on_ticket = new_birthdate
         ticket.comment_on_ticket = new_comment
+        linked = event.sync_linked_tickets(ticket)
         event.save()
-        return {'msg': 'success'}
+        return {'msg': 'success', 'linked_ticket_ids': [x.ticket_id for x in linked]}
     else:
         return {'msg': 'error', 'error': 'Ticket nicht gefunden oder keine Berechtigung'}, 403
 
@@ -389,8 +390,11 @@ def page_mybooking():
     
     for parti in event.participations:
         if parti.user == target_user:
+            main_names = {x.ticket_id: x.name_on_ticket for x in parti.tickets}
             for ticket in parti.tickets:
                 ticket.booking_date = parti.booking_date
+                # Zusatzticket, das die Personendaten seines Haupt-Tickets uebernimmt
+                ticket.main_name = main_names.get(ticket.main_ticket_id)
                 # Add price information to the ticket
                 if ticket.custom_price:
                     # Use custom price set by guide
@@ -1478,7 +1482,18 @@ def page_details():
 
     # Handle Ticket function
     event_tickets = event.tickets
-    for ticket in event_tickets:
+    # Gibt es Haupt- und Zusatztickets, waehlt man die Zusatztickets direkt pro
+    # Person (= Haupt-Ticket) statt als Anzahl
+    main_tickets = [(idx, x) for idx, x in enumerate(event_tickets) if not x.is_extra_ticket]
+    extra_tickets = [(idx, x) for idx, x in enumerate(event_tickets)
+                     if x.is_extra_ticket and x.maximum_tickets]
+    extras_per_person = bool(main_tickets and extra_tickets)
+    person_slots = []
+    if extras_per_person:
+        person_slots = [{'main_idx': idx, 'main_name': x.name, 'slot': slot}
+                        for idx, x in main_tickets for slot in range(x.maximum_tickets)]
+    select_tickets = [x for x in event_tickets if not (extras_per_person and x.is_extra_ticket)]
+    for ticket in select_tickets:
         choices = [ (str(x), f'{x} mal') for x in range(ticket.maximum_tickets+1) ]
         places = ticket_stats['max'][ticket.name] - ticket_stats.get(ticket.name, 0)
         preisinfo = ""
@@ -1583,7 +1598,10 @@ def page_details():
         'higest_guide_level' : higest_level,
         'registration_enabled': registration_enabled,
         'event_custom_fields': [(str(x), y) for x, y in enumerate(event.custom_fields)],
-        'event_ticket_ids': [x.name for x in event.tickets],
+        'event_ticket_ids': [x.name for x in select_tickets],
+        'main_tickets': main_tickets,
+        'extra_tickets': extra_tickets,
+        'person_slots': person_slots,
         'event_id': event_id,
         'event_details' : event_details_list,
         'LoginForm': login_form,
@@ -1605,15 +1623,35 @@ def page_details():
             register_possible = False
 
 
-        ticket_data = {}
+        ticket_data = {ticket.name: {'name': ticket.name, 'desc': ticket.description,
+                                     'is_extra': ticket.is_extra_ticket}
+                       for ticket in event_tickets}
         wanted_seats = {}
-        for ticket in event_tickets:
+        for ticket in select_tickets:
             wanted = int(data[f'ticket_{ticket.name}'])
             if wanted == 0:
                 continue
             wanted_seats[ticket.name] = wanted
-            is_extra = ticket.is_extra_ticket
-            ticket_data[ticket.name] = {'name': ticket.name, 'desc': ticket.description, 'is_extra': is_extra}
+
+        # Zusatztickets pro Person: (Haupt-Ticket, Person, Zusatzticket)
+        extra_wishes = []
+        for slot in person_slots:
+            for extra_idx in request.form.getlist(f"extra_{slot['main_idx']}_{slot['slot']}"):
+                extra = dict(extra_tickets).get(int(extra_idx)) if extra_idx.isdigit() else None
+                if not extra:
+                    continue
+                if slot['slot'] >= wanted_seats.get(slot['main_name'], 0):
+                    flash(f"{extra.name} ist für {slot['main_name']}, Person {slot['slot'] + 1} "
+                          "gewählt, diese Person ist aber nicht gebucht.", 'danger')
+                    register_possible = False
+                    continue
+                extra_wishes.append((slot['main_name'], slot['slot'], extra.name))
+        for _, extra in extra_tickets:
+            num = sum(1 for wish in extra_wishes if wish[2] == extra.name)
+            if num > extra.maximum_tickets:
+                flash(f"{extra.name} kann pro Anmeldung höchstens "
+                      f"{extra.maximum_tickets} mal gebucht werden.", 'danger')
+                register_possible = False
 
         if not wanted_seats:
             flash("Du hast keine Tickets gewählt.", 'danger')
@@ -1639,12 +1677,19 @@ def page_details():
                 with event_lock(event_id):
                     event.reload()
                     ticket_stats = event.get_ticket_stats()
-                    for ticket_name, num in wanted_seats.items():
+                    for wish in extra_wishes:
+                        wanted_seats[wish[2]] = wanted_seats.get(wish[2], 0) + 1
+                    # Haupt-Tickets zuerst, die Zusatztickets haengen sich daran
+                    booked = {}
+                    for ticket_name, num in sorted(wanted_seats.items(),
+                                                   key=lambda x: ticket_data[x[0]]['is_extra']):
                         places = ticket_stats['max'][ticket_name] - ticket_stats.get(ticket_name, 0)
                         # Gruppe bleibt zusammen: passt sie nicht komplett, geht sie
                         # komplett auf die Warteliste
                         waitinglist = places < num
-                        for _ in range(num):
+                        extra_mains = [booked[main][slot] for main, slot, extra in extra_wishes
+                                       if extra == ticket_name]
+                        for number in range(num):
                             ticket = OwnedTicket()
                             ticket.ticket_id = uuid.uuid4().hex
                             ticket.ticket_name = ticket_name
@@ -1657,6 +1702,9 @@ def page_details():
                             ticket.comment_on_ticket = data['comment']
                             ticket.is_extra_ticket = ticket_data[ticket_name]['is_extra']
                             ticket.waitinglist = waitinglist
+                            if number < len(extra_mains):
+                                ticket.take_person_from(extra_mains[number])
+                            booked.setdefault(ticket_name, []).append(ticket)
                             new_participation.tickets.append(ticket)
 
                     new_participation.comment = data['comment']

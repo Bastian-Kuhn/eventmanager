@@ -86,6 +86,20 @@ class OwnedTicket(db.EmbeddedDocument):
     is_free = db.BooleanField(default=False)  # Teilnehmer zahlt nichts, gilt als erledigt
     is_transfer = db.BooleanField(default=False)  # Ueberweisung vorgemerkt, noch nicht eingegangen
     custom_price = db.FloatField()  # Individual price override for guides
+    # Zusatzticket einer Person: ticket_id des Haupt-Tickets, dessen
+    # Personendaten das Zusatzticket automatisch uebernimmt
+    main_ticket_id = db.StringField()
+
+    def take_person_from(self, main_ticket):
+        """
+        Haengt das Zusatzticket an main_ticket und uebernimmt dessen Personendaten
+        """
+        self.main_ticket_id = main_ticket.ticket_id
+        for field in PERSON_FIELDS:
+            setattr(self, field, getattr(main_ticket, field))
+
+
+PERSON_FIELDS = ('name_on_ticket', 'email_on_ticket', 'phone_on_ticket', 'birthdate_on_ticket')
 
 class EventCost(db.EmbeddedDocument):
     """
@@ -250,6 +264,17 @@ class Event(db.Document):
                 for ticket in parti.tickets:
                     if ticket.ticket_id == ticket_id:
                         return ticket
+
+    def sync_linked_tickets(self, main_ticket):
+        """
+        Uebertraegt die Personendaten von main_ticket auf alle daran
+        haengenden Zusatztickets. Gibt diese Tickets zurueck.
+        """
+        linked = [ticket for parti in self.participations for ticket in parti.tickets
+                  if ticket.main_ticket_id and ticket.main_ticket_id == main_ticket.ticket_id]
+        for ticket in linked:
+            ticket.take_person_from(main_ticket)
+        return linked
 
     def get_tickets_of_user(self, user):
         for parti in self.participations:

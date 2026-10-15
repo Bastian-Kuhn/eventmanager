@@ -151,6 +151,30 @@
                 {{ wtf.form_field(regform|attr('ticket_'+ticket_id)) }}
             {% endfor %}
             </fieldset>
+            {% if person_slots %}
+            <hr>
+            <fieldset class="form-group" id="extras-per-person">
+             <legend>Zusatztickets pro Person:</legend>
+             <p class="small mb-2">Wähle für jede Person ihre Zusatztickets. Sie werden automatisch auf diese Person ausgestellt.</p>
+             {% for slot in person_slots %}
+             {% set field_name = 'extra_%s_%s'|format(slot.main_idx, slot.slot) %}
+             <fieldset class="border rounded p-2 mb-2 extra-person"
+                       data-select="ticket_{{ slot.main_name }}" data-slot="{{ slot.slot }}">
+              <legend class="h6 w-auto px-1 mb-1">{{ slot.main_name }}, Person {{ slot.slot + 1 }}</legend>
+              {% for extra_idx, extra in extra_tickets %}
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="{{ field_name }}"
+                       value="{{ extra_idx }}" id="{{ field_name }}_{{ extra_idx }}"
+                       {% if extra_idx|string in request.form.getlist(field_name) %}checked{% endif %}>
+                <label class="form-check-label" for="{{ field_name }}_{{ extra_idx }}">
+                  {{ extra.name }}{% if extra.price %} ({{ extra.price|euro }}){% endif %}
+                </label>
+              </div>
+              {% endfor %}
+             </fieldset>
+             {% endfor %}
+            </fieldset>
+            {% endif %}
             <hr>
             <fieldset class="form-group">
              <legend>Bildfreigabe:</legend>
@@ -191,6 +215,28 @@
 {% block scripts %}
 {{ super() }}
 <script>
+  // Zusatztickets nur fuer die Personen zeigen, die oben gebucht werden
+  (function () {
+    var box = document.getElementById('extras-per-person');
+    if (!box) { return; }
+    var persons = box.querySelectorAll('.extra-person');
+    function update() {
+      var any = false;
+      persons.forEach(function (person) {
+        var select = document.getElementsByName(person.dataset.select)[0];
+        var show = select && Number(select.value) > Number(person.dataset.slot);
+        person.hidden = !show;
+        person.disabled = !show;
+        any = any || show;
+      });
+      box.hidden = !any;
+    }
+    document.querySelectorAll('#event-register-form select').forEach(function (select) {
+      select.addEventListener('change', update);
+    });
+    update();
+  })();
+
   // Doppelte Buchung durch erneutes Klicken verhindern, waehrend die Anfrage laeuft
   (function () {
     var form = document.getElementById('event-register-form');
