@@ -1470,10 +1470,9 @@ def page_details():
     # Handle Ticket function
     event_tickets = event.tickets
     # Gibt es Haupt- und Zusatztickets, waehlt man die Zusatztickets direkt pro
-    # Person (= Haupt-Ticket) statt als Anzahl
+    # Person (= Haupt-Ticket) statt als Anzahl. Anzahl 0 heisst bei Zusatztickets: ohne Limit
     main_tickets = [(idx, x) for idx, x in enumerate(event_tickets) if not x.is_extra_ticket]
-    extra_tickets = [(idx, x) for idx, x in enumerate(event_tickets)
-                     if x.is_extra_ticket and x.maximum_tickets]
+    extra_tickets = [(idx, x) for idx, x in enumerate(event_tickets) if x.is_extra_ticket]
     extras_per_person = bool(main_tickets and extra_tickets)
     person_slots = []
     if extras_per_person:
@@ -1635,7 +1634,7 @@ def page_details():
                 extra_wishes.append((slot['main_name'], slot['slot'], extra.name))
         for _, extra in extra_tickets:
             num = sum(1 for wish in extra_wishes if wish[2] == extra.name)
-            if num > extra.maximum_tickets:
+            if extra.maximum_tickets and num > extra.maximum_tickets:
                 flash(f"{extra.name} kann pro Anmeldung höchstens "
                       f"{extra.maximum_tickets} mal gebucht werden.", 'danger')
                 register_possible = False
@@ -1673,7 +1672,9 @@ def page_details():
                         places = ticket_stats['max'][ticket_name] - ticket_stats.get(ticket_name, 0)
                         # Gruppe bleibt zusammen: passt sie nicht komplett, geht sie
                         # komplett auf die Warteliste
-                        waitinglist = places < num
+                        unlimited = extras_per_person and ticket_data[ticket_name]['is_extra'] \
+                            and not ticket_stats['max'][ticket_name]
+                        waitinglist = places < num and not unlimited
                         extra_mains = [booked[main][slot] for main, slot, extra in extra_wishes
                                        if extra == ticket_name]
                         for number in range(num):
@@ -1696,7 +1697,10 @@ def page_details():
 
                     new_participation.comment = data['comment']
                     new_participation.user = current_user
-                    new_participation.waitinglist = waitinglist
+                    # Warteliste richtet sich nach den Personen, nicht nach ihren Zusatztickets
+                    new_participation.waitinglist = any(
+                        x.waitinglist for x in new_participation.tickets
+                        if not (extras_per_person and x.is_extra_ticket))
                     Event.objects(id=event_id).update_one(push__participations=new_participation)
             except LockError:
                 flash("Gerade buchen sehr viele gleichzeitig. Bitte versuche es in ein paar Sekunden erneut.", 'danger')

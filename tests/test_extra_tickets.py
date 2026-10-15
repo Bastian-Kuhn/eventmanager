@@ -120,6 +120,24 @@ class RegisterExtrasPerPersonTest(unittest.TestCase):
         self.assertEqual(leih, sorted([by_name['Teilnahme'][0].ticket_id, by_name['Jugend'][1].ticket_id]))
         self.assertEqual(by_name['Busfahrt'][0].main_ticket_id, by_name['Jugend'][1].ticket_id)
 
+    def test_extras_without_limit(self):
+        # Opt. Tickets mit Anzahl 0 (ohne Limit) und zwei Haupt-Tickets, eins davon gratis
+        self.event.tickets = [Ticket(name='Erwachsene', price=50.0, maximum_tickets=4),
+                              Ticket(name='Kind', price=0.0, maximum_tickets=4),
+                              Ticket(name='Kurs', price=100.0, maximum_tickets=0, is_extra_ticket=True),
+                              Ticket(name='Liftkarte', price=0.0, maximum_tickets=0, is_extra_ticket=True)]
+        response, parti, _ = self._post({
+            'ticket_Erwachsene': '1', 'ticket_Kind': '2', 'comment': '',
+            'extra_0_0': '3', 'extra_1_0': ['2', '3'], 'extra_1_1': ['2', '3'],
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(parti.waitinglist)
+        extras = [x for x in parti.tickets if x.is_extra_ticket]
+        self.assertEqual(sorted(x.ticket_name for x in extras), ['Kurs', 'Kurs', 'Liftkarte', 'Liftkarte', 'Liftkarte'])
+        self.assertFalse(any(x.waitinglist for x in extras))
+        mains = {x.ticket_id for x in parti.tickets if not x.is_extra_ticket}
+        self.assertTrue(all(x.main_ticket_id in mains for x in extras))
+
 
 if __name__ == '__main__':
     unittest.main()
