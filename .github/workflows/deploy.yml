@@ -1,0 +1,111 @@
+# Deploy every instance on every push to main, like Cairn's deploy.yml.
+#
+# Runs on a SELF-HOSTED runner on the prod server (Settings, Actions,
+# Runners, New self-hosted runner; then `./svc.sh install <user> &&
+# ./svc.sh start`), as a user in the `docker` group with its own git
+# credentials for the pull. `docker-compose` is the v1 binary.
+#
+# It does NOT check the repo out: each instance is deployed from its own
+# working copy (`dir`), which holds that instance's `.env` (SECRET_KEY,
+# APP_PORT) and owns its Mongo volume through the compose project name
+# (`project`). Changing `project` for a running instance would bring it up
+# as a second, empty stack.
+#
+# Adding an instance is one entry under `matrix.include`. Instances are
+# deployed one after another in list order; the first failure stops the rest.
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: deploy ${{ matrix.instance }}
+    runs-on: [self-hosted, "${{ matrix.runner }}"]
+    timeout-minutes: 30
+    strategy:
+      max-parallel: 1
+      fail-fast: true
+      matrix:
+        include:
+          # TODO: real values from Bastian, these are placeholders.
+          - instance: instanz-a
+            runner: eventmanager
+            dir: /opt/eventmanager-instanz-a
+            project: eventmanager-instanz-a
+            port: 8002
+          - instance: instanz-b
+            runner: eventmanager
+            dir: /opt/eventmanager-instanz-b
+            project: eventmanager-instanz-b
+            port: 8003
+    env:
+      DEPLOY_DIR: ${{ matrix.dir }}
+      COMPOSE: docker-compose -f docker-compose.yml -f docker-compose.prod.yml -p ${{ matrix.project }}
+      # The container directly, without reverse proxy or DNS.
+      HEALTH_URL: http://127.0.0.1:${{ matrix.port }}/login
+    steps:
+      - name: Trust GitHub's host key
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          touch ~/.ssh/known_hosts && chmod 600 ~/.ssh/known_hosts
+          if ! ssh-keygen -F github.com -f ~/.ssh/known_hosts >/dev/null; then
+            curl -fsS https://api.github.com/meta \
+              | python3 -c 'import json,sys; [print(f"github.com {k}") for k in json.load(sys.stdin)["ssh_keys"]]' \
+              >> ~/.ssh/known_hosts
+          fi
+
+      - name: Check instance config
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$DEPLOY_DIR"
+          # Port in the matrix and in the instance's .env must agree, or the
+          # health check below asks the wrong container.
+          got=$(sed -n 's/^APP_PORT=//p' .env)
+          [ "${got:-8002}" = "${{ matrix.port }}" ] || {
+            echo "::error::APP_PORT in $DEPLOY_DIR/.env is ${got:-unset (8002)}, matrix says ${{ matrix.port }}"
+            exit 1
+          }
+          grep -q '^SECRET_KEY=.\+' .env || { echo "::error::no SECRET_KEY in $DEPLOY_DIR/.env"; exit 1; }
+
+      - name: Pull
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$DEPLOY_DIR"
+          git pull --ff-only origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" HEAD
+          git --no-pager log --oneline -1
+
+      - name: Rebuild
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$DEPLOY_DIR"
+          $COMPOSE up --build --force-recreate -d
+
+      - name: Wait for the new build to serve
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$DEPLOY_DIR"
+          # --force-recreate removed the old container, so any answer here
+          # comes from the new build.
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "$HEALTH_URL" || true)
+            [ "$code" = "200" ] && echo "live" && exit 0
+            echo "  ...$i: ${code:-no answer}"
+            sleep 5
+          done
+          echo "::error::${{ matrix.instance }} not serving after 150s"
+          $COMPOSE logs --tail=50 application
+          exit 1

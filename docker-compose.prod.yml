@@ -7,7 +7,8 @@ services:
     security_opt:
       - no-new-privileges:true
     ports:
-      - 8002:9090
+      # Pro Instanz eigener Port (in deren .env), Default wie bisher.
+      - ${APP_PORT:-8002}:9090
     environment:
       config: prod_compose
       # Stabiler, geheimer Key - identisch ueber alle Worker und Restarts, sonst
