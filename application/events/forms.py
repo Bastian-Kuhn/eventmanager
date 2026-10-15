@@ -69,8 +69,9 @@ class EventForm(FlaskForm):
     booking_from = DateTimeLocalField("Buchbar ab (leer = sofort)", format=DATETIME_LOCAL, validators=[Optional()])
     booking_until = DateTimeLocalField("Buchbar bis (leer = bis Beginn)", format=DATETIME_LOCAL,
                                        validators=[Optional()])
-    difficulty = RadioField("Schwierigkeit", choices=difficulties, validators=[InputRequired()])
-    shape = RadioField("Kondition", choices=difficulties, validators=[InputRequired()])
+    difficulty = RadioField("Schwierigkeit", choices=difficulties, default='keine',
+                            validators=[InputRequired()])
+    shape = RadioField("Kondition", choices=difficulties, default='keine', validators=[InputRequired()])
     length_h = IntegerField("Länge in Stunden", default=0)
     length_km= IntegerField("Strecke in km", default=0)
     altitude_difference= IntegerField("Höhenmeter", default=0)

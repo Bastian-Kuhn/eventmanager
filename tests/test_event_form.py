@@ -48,6 +48,19 @@ class EventFormDatesTest(unittest.TestCase):
             self.assertIn('value="2030-05-01T08:30"', form.start_date())
             self.assertIn('type="datetime-local"', form.start_date())
 
+    def test_new_event_preselects_keine(self):
+        with app.test_request_context():
+            form = EventForm(meta={'csrf': False})
+            self.assertIn('checked id="difficulty-0"', form.difficulty())
+            self.assertIn('checked id="shape-0"', form.shape())
+            self.assertEqual(form.difficulty.data, 'keine')
+
+    def test_existing_event_keeps_difficulty(self):
+        with app.test_request_context():
+            form = EventForm(obj=Event(difficulty='schwer', shape='mittel'), meta={'csrf': False})
+            self.assertEqual(form.difficulty.data, 'schwer')
+            self.assertEqual(form.shape.data, 'mittel')
+
 
 if __name__ == '__main__':
     unittest.main()
