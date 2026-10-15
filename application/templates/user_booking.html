@@ -146,7 +146,7 @@
       <tr>
         <td data-label="Bearbeiten">
           {% if ticket.main_name is not none %}
-          <span class="small">wie Haupt-Ticket</span>
+          {# Zusatzticket: Daten kommen vom Haupt-Ticket, nichts zu bearbeiten #}
           {% elif current_user.has_right('guide') or target_user == current_user %}
           <a role="button"
                data-ticket-id="{{ ticket.ticket_id }}"

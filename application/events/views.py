@@ -135,7 +135,7 @@ def populate_event_form(form, event):
     return form
 #.
 #   . save_event_form
-def save_event_form(event):
+def save_event_form(event, form):
     """
     Helper to store Event Object
     """
@@ -152,17 +152,11 @@ def save_event_form(event):
         event.event_owners.append(current_user)
 
 
-    start_datetime_str = f"{request.form['start_date']} {request.form.get('start_time', '00:00')}"
-    end_datetime_str = f"{request.form['end_date']} {request.form.get('end_time', '00:00')}"
-    event.start_date = start_datetime_str
-    event.end_date = end_datetime_str
-
-    if request.form.get('booking_from'):
-        book_start_datetime_str = f"{request.form['booking_from']} {request.form.get('booking_from_time', '00:00')}"
-        event.booking_from = book_start_datetime_str
-    if request.form.get('booking_until'):
-        book_end_datetime_str = f"{request.form['booking_until']} {request.form.get('booking_until_time', '00:00')}"
-        event.booking_until = book_end_datetime_str
+    # Leere Felder bekommen sinnvolle Vorgaben, damit nur der Beginn Pflicht ist
+    event.start_date = form.start_date.data
+    event.end_date = form.end_date.data or event.start_date
+    event.booking_from = form.booking_from.data or datetime.now().replace(second=0, microsecond=0)
+    event.booking_until = form.booking_until.data or event.start_date
 
 
     # Huetten-Referenz aufloesen (Formular liefert die id als String)
@@ -597,13 +591,6 @@ def event_populate(event):
     """
     Hepler to have always all needed fields to the event form
     """
-    # We store DateTime Fields,
-    # but the Form useses two seperate ones:
-    event.start_time = event.start_date
-    event.end_time = event.end_date
-    event.booking_until_time = event.booking_until
-    event.booking_from_time = event.booking_from
-
     event.custom_fields.insert(0, custom_question_template)
     event.tickets.insert(0, ticket_template)
 
@@ -638,7 +625,7 @@ def page_admin():
         form.hut.data = str(event.hut.id) if event.hut else ""
         form = populate_event_form(form, event)
     if form.validate_on_submit():
-        save_event_form(event)
+        save_event_form(event, form)
         flash("Event wurde aktualisiert", 'info')
         return redirect(url_for('EVENTS.page_details', event_id=event_id))
 
@@ -1768,7 +1755,7 @@ def page_create():
 
     if form.validate_on_submit():
         new_event = Event()
-        save_event_form(new_event)
+        save_event_form(new_event, form)
         flash("Event wurde erzeugt", 'info')
         return redirect(url_for('EVENTS.page_details', event_id=str(new_event.id)))
 

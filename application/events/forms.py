@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, RadioField, SubmitField, BooleanField, \
-                    TextAreaField, TimeField, DateField, SelectField, FieldList, FormField, \
+                    TextAreaField, DateField, DateTimeLocalField, SelectField, FieldList, FormField, \
                     IntegerField, FloatField
 from wtforms.widgets import TextArea
 from wtforms.validators import InputRequired, Email, EqualTo, ValidationError, Optional
@@ -10,6 +10,10 @@ from application import app
 from application.models.config import Config
 
 
+
+
+# Format von <input type="datetime-local">
+DATETIME_LOCAL = '%Y-%m-%dT%H:%M'
 
 
 class EventSearchForm(FlaskForm):
@@ -60,14 +64,11 @@ class EventForm(FlaskForm):
     event_description = TextAreaField("Beschreibung")
     places = IntegerField("Plätze auf Tour", default=7, validators=[Optional()])
     min_places = IntegerField("Mindestteilnehmerzahl", default=0, validators=[])
-    booking_from = DateField("Buchbar ab", validators=[InputRequired()])
-    booking_from_time = TimeField("Zeit", validators=[InputRequired()])
-    booking_until = DateField("Buchbar bis", validators=[InputRequired()])
-    booking_until_time = TimeField("Zeit", validators=[InputRequired()])
-    start_date = DateField("Datum")
-    start_time = TimeField("Beginn des Events", validators=[InputRequired()])
-    end_date = DateField("Ende Datum", validators=[InputRequired()])
-    end_time = TimeField("Endezeit des Events", validators=[InputRequired()])
+    start_date = DateTimeLocalField("Beginn", format=DATETIME_LOCAL, validators=[InputRequired()])
+    end_date = DateTimeLocalField("Ende (leer = wie Beginn)", format=DATETIME_LOCAL, validators=[Optional()])
+    booking_from = DateTimeLocalField("Buchbar ab (leer = sofort)", format=DATETIME_LOCAL, validators=[Optional()])
+    booking_until = DateTimeLocalField("Buchbar bis (leer = bis Beginn)", format=DATETIME_LOCAL,
+                                       validators=[Optional()])
     difficulty = RadioField("Schwierigkeit", choices=difficulties, validators=[InputRequired()])
     shape = RadioField("Kondition", choices=difficulties, validators=[InputRequired()])
     length_h = IntegerField("Länge in Stunden", default=0)

@@ -72,10 +72,8 @@
  {{ wtf.form_field(form.event_description) }}
  </fieldset>
  <div class="form-row">
- {{ wtf.form_field(form.start_date, group_css='col-md-3') }}
- {{ wtf.form_field(form.start_time, group_css='col-md-3') }}
- {{ wtf.form_field(form.end_date, group_css='col-md-3') }}
- {{ wtf.form_field(form.end_time, group_css='col-md-3') }}
+ <div class="col-md-6">{{ wtf.form_field(form.start_date) }}</div>
+ <div class="col-md-6">{{ wtf.form_field(form.end_date) }}</div>
  </div>
  <div class="form-row">
  {{ wtf.form_field(form.hut, group_css='col-md-6') }}
@@ -104,10 +102,8 @@
  </div>
  {% endif %}{% endfor %}
  <div class="form-row">
- {{ wtf.form_field(form.booking_from, group_css='col-md-3') }}
- {{ wtf.form_field(form.booking_from_time, group_css='col-md-3') }}
- {{ wtf.form_field(form.booking_until, group_css='col-md-3') }}
- {{ wtf.form_field(form.booking_until_time, group_css='col-md-3') }}
+ <div class="col-md-6">{{ wtf.form_field(form.booking_from) }}</div>
+ <div class="col-md-6">{{ wtf.form_field(form.booking_until) }}</div>
  </div>
 
 
@@ -115,8 +111,8 @@
  <fieldset class="form-group">
  <div class="row">
        <legend class="col-form-label col-sm-2 pt-0">Schwierigkeit</legend>
-        <div class="col-sm-6">
-            {{ wtf.form_field(form.difficulty, group_css='col-md-6') }}
+        <div class="col-sm-10">
+            {{ wtf.form_field(form.difficulty, form_type='inline') }}
         </div>
  </div>
  </fieldset>
@@ -124,8 +120,8 @@
  <fieldset class="form-group">
  <div class="row">
        <legend class="col-form-label col-sm-2 pt-0">Kondition</legend>
-        <div class="col-sm-6">
-            {{ wtf.form_field(form.shape, group_css='col-md-6') }}
+        <div class="col-sm-10">
+            {{ wtf.form_field(form.shape, form_type='inline') }}
         </div>
  </div>
  </fieldset>
