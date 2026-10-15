@@ -111,14 +111,23 @@ class DictObj:
                 setattr(self, key, DictObj(val) if isinstance(val, dict) else val)
 #.
 #   . Populate Event Form
-ticket_template = DictObj({
+def ticket_template():
+    """
+    Leere Vorlagenzeile fuer "Weiteres Ticket". Jedes Mal neu: populate_obj
+    schreibt in die Vorlage, eine geteilte Vorlage traegt sonst das erste
+    Ticket des zuletzt geoeffneten Events (samt Haken "Opt. Ticket") weiter.
+    """
+    return DictObj({
                     'name': None,
                     'description': None,
                     'maximum_tickets': 0,
-                    'price': 0.0
+                    'price': 0.0,
+                    'is_extra_ticket': False,
                     })
 
-custom_question_template = DictObj({'field_name': None})
+def custom_question_template():
+    """ Leere Vorlagenzeile fuer Extra Fragen """
+    return DictObj({'field_name': None})
 
 def populate_event_form(form, event):
     """
@@ -128,8 +137,8 @@ def populate_event_form(form, event):
     Beware: Donst save event object after this function
     """
     # Add Template Field
-    event.custom_fields.insert(0, custom_question_template)
-    event.tickets.insert(0, ticket_template)
+    event.custom_fields.insert(0, custom_question_template())
+    event.tickets.insert(0, ticket_template())
 
     form.populate_obj(event)
     return form
@@ -205,6 +214,14 @@ def save_event_form(event, form):
         else:
             ticket.maximum_tickets = t_data.get('maximum_tickets', 0)
         event.tickets.append(ticket)
+
+    # Gebuchte Tickets folgen dem Haken "Opt. Ticket" ihrer Definition, sonst
+    # bleiben z.B. Teilnehmer nach einer Korrektur als Zusatzticket einsortiert
+    is_extra_by_name = {x.name: x.is_extra_ticket for x in event.tickets}
+    for parti in event.participations:
+        for owned in parti.tickets:
+            if owned.ticket_name in is_extra_by_name:
+                owned.is_extra_ticket = is_extra_by_name[owned.ticket_name]
 
     event.save()
     # Verknüpfte Hüttenbuchung (an-)legen/aktualisieren bzw. entfernen
@@ -591,8 +608,8 @@ def event_populate(event):
     """
     Hepler to have always all needed fields to the event form
     """
-    event.custom_fields.insert(0, custom_question_template)
-    event.tickets.insert(0, ticket_template)
+    event.custom_fields.insert(0, custom_question_template())
+    event.tickets.insert(0, ticket_template())
 
     return event
 
