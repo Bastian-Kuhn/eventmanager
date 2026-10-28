@@ -473,7 +473,9 @@ def page_list():
     post_form = EventSearchForm(request.form)
     post_form.filter_category.choices = categories
     if request.method == 'POST' and post_form.validate_on_submit():
-        params = {}
+        # 'search' markiert ein abgeschicktes Formular, damit ein leerer Filter
+        # (z.B. nur "Zukünftige" abgewählt) nicht als Erstaufruf gilt.
+        params = {'search': '1'}
         for key in ('filter_name', 'filter_category', 'filter_date'):
             value = request.form.get(key)
             if value and value != 'None':
@@ -489,7 +491,7 @@ def page_list():
 
     filters = request.args.to_dict()
     search = any(request.args.get(k) for k in
-                 ('filter_name', 'filter_category', 'filter_date', 'filter_own', 'export')) \
+                 ('search', 'filter_name', 'filter_category', 'filter_date', 'filter_own', 'export')) \
              or request.args.get('filter') == 'my_events'
 
     if request.args.get('filter') == 'my_events':
