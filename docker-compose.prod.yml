@@ -16,7 +16,8 @@ services:
     restart: unless-stopped
     ports:
       # Pro Instanz eigener Port (in deren .env), Default wie bisher.
-      - ${APP_PORT:-8002}:9090
+      # Nur localhost: nginx davor macht TLS, Docker-Ports umgehen sonst die Firewall.
+      - 127.0.0.1:${APP_PORT:-8002}:9090
     environment:
       config: prod_compose
       # Stabiler, geheimer Key - identisch ueber alle Worker und Restarts, sonst
