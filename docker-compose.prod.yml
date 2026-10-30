@@ -2,10 +2,18 @@ version: "3.3"
 
 services:
 
+  # Ohne restart-Policy kommen nach einem Reboot nur die App-Container hoch
+  # und laufen ohne Datenbank in 500er.
+  redis:
+    restart: unless-stopped
+
+  mongo:
+    restart: unless-stopped
+
+  # security_opt kommt aus docker-compose.yml; doppelt angegeben lehnt
+  # Compose v2 die Datei ab, weil es die Listen zusammenfuehrt.
   application:
     restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
     ports:
       # Pro Instanz eigener Port (in deren .env), Default wie bisher.
       - ${APP_PORT:-8002}:9090

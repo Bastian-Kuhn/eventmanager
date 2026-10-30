@@ -109,3 +109,6 @@ venv.bak/
 .mypy_cache/
 .vscode
 *.vim
+
+# Instanz-Konfiguration auf dem Server (SECRET_KEY, APP_PORT)
+.env

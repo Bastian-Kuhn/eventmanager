@@ -3,7 +3,8 @@
 # Runs on a SELF-HOSTED runner on the prod server (Settings, Actions,
 # Runners, New self-hosted runner; then `./svc.sh install <user> &&
 # ./svc.sh start`), as a user in the `docker` group with its own git
-# credentials for the pull. `docker-compose` is the v1 binary.
+# credentials for the pull (public repo: plain https). Compose is v2
+# (`docker compose`, package docker-compose-v2); v1 cannot talk to Docker 29.
 #
 # It does NOT check the repo out: each instance is deployed from its own
 # working copy (`dir`), which holds that instance's `.env` (SECRET_KEY,
@@ -34,20 +35,20 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          # TODO: real values from Bastian, these are placeholders.
-          - instance: instanz-a
+          # project must stay as is: it owns the volume <project>_data_db.
+          - instance: dav
             runner: eventmanager
-            dir: /opt/eventmanager-instanz-a
-            project: eventmanager-instanz-a
+            dir: /opt/eventmanager-dav
+            project: dav
             port: 8002
-          - instance: instanz-b
+          - instance: tsv1860
             runner: eventmanager
-            dir: /opt/eventmanager-instanz-b
-            project: eventmanager-instanz-b
+            dir: /opt/eventmanager-tsv1860
+            project: tsv1860
             port: 8003
     env:
       DEPLOY_DIR: ${{ matrix.dir }}
-      COMPOSE: docker-compose -f docker-compose.yml -f docker-compose.prod.yml -p ${{ matrix.project }}
+      COMPOSE: docker compose -f docker-compose.yml -f docker-compose.prod.yml -p ${{ matrix.project }}
       # The container directly, without reverse proxy or DNS.
       HEALTH_URL: http://127.0.0.1:${{ matrix.port }}/login
     steps:
