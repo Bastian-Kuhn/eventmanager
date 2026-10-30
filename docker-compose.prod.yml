@@ -23,3 +23,5 @@ services:
       # funktioniert "Angemeldet bleiben" nicht. Auf dem Host setzen (z.B. .env):
       #   SECRET_KEY=$(python3 -c 'import secrets;print(secrets.token_urlsafe(48))')
       SECRET_KEY: ${SECRET_KEY:-}
+      # Setzt der Deploy: git rev-list --count HEAD (Footer "Build N").
+      APP_BUILD: ${APP_BUILD:-}

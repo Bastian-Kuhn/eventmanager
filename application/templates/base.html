@@ -95,6 +95,7 @@
 
   <!-- Copyright -->
   <div class="footer-copyright text-center py-3">© 2022 - {{ now.year }} <a href="https://bastian-kuhn.de">Bastian Kuhn</a>
+    {% if app_build %}<span class="text-muted"> · Build {{ app_build }}</span>{% endif %}
   </div>
   <!-- Copyright -->
 

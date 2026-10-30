@@ -232,6 +232,14 @@ app.jinja_env.filters['euro'] = format_euro
 def inject_now():
     return {'now': datetime.utcnow()}
 
+# Laufende Build-Nummer (Commit-Anzahl), beim Deploy gesetzt; zeigt im Footer,
+# welcher Stand gerade laeuft.
+APP_BUILD = os.environ.get('APP_BUILD', '')
+
+@app.context_processor
+def inject_build():
+    return {'app_build': APP_BUILD}
+
 @app.context_processor
 def inject_hut_management():
     """Flag fuer die Nav: darf der User Huetten-Buchungen freigeben?"""

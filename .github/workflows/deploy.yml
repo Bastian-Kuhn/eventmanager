@@ -92,6 +92,8 @@ jobs:
         run: |
           set -euo pipefail
           cd "$DEPLOY_DIR"
+          # Running build number, shown in the footer ("Build N").
+          export APP_BUILD=$(git rev-list --count HEAD)
           $COMPOSE up --build --force-recreate -d
 
       - name: Wait for the new build to serve
@@ -99,12 +101,14 @@ jobs:
         run: |
           set -euo pipefail
           cd "$DEPLOY_DIR"
-          # --force-recreate removed the old container, so any answer here
-          # comes from the new build.
+          # The footer carries the build number, so a match proves the
+          # running container is this commit and not the previous one.
+          want="Build $(git rev-list --count HEAD)"
+          echo "expecting $want"
           for i in $(seq 1 30); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "$HEALTH_URL" || true)
-            [ "$code" = "200" ] && echo "live" && exit 0
-            echo "  ...$i: ${code:-no answer}"
+            page=$(curl -fsS --max-time 5 "$HEALTH_URL" 2>/dev/null || true)
+            grep -q "$want<" <<<"$page" && echo "live: $want" && exit 0
+            echo "  ...$i: not yet"
             sleep 5
           done
           echo "::error::${{ matrix.instance }} not serving after 150s"
