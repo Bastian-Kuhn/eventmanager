@@ -21,6 +21,7 @@ from flask_bootstrap import Bootstrap
 from flask_mongoengine import MongoEngine
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from werkzeug.middleware.proxy_fix import ProxyFix
 import application.modules.log as logging
 
 
@@ -35,6 +36,13 @@ else:
     print(" * Loading Fallback Baseconfig")
     app.config.from_object('application.config.BaseConfig')
     app.jinja_env.auto_reload = True
+
+if os.environ.get('config') == "prod_compose":
+    # Hinter nginx mit TLS: nginx setzt X-Forwarded-For/-Proto selbst. Ohne das
+    # teilen sich alle Besucher ein Rate-Limit, naemlich das des Docker-Gateways.
+    # "compose" bleibt aussen vor, das laeuft lokal ueber HTTP.
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
+    app.config.update(SESSION_COOKIE_SECURE=True, REMEMBER_COOKIE_SECURE=True)
 
 RequestID(app)
 

@@ -6,14 +6,26 @@ services:
   # und laufen ohne Datenbank in 500er.
   redis:
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    pids_limit: 128
 
   mongo:
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 1g
+    pids_limit: 512
 
   # security_opt kommt aus docker-compose.yml; doppelt angegeben lehnt
   # Compose v2 die Datei ab, weil es die Listen zusammenfuehrt.
   application:
     restart: unless-stopped
+    cap_drop:
+      - ALL
+    mem_limit: 1500m
+    pids_limit: 512
     ports:
       # Pro Instanz eigener Port (in deren .env), Default wie bisher.
       # Nur localhost: nginx davor macht TLS, Docker-Ports umgehen sonst die Firewall.
