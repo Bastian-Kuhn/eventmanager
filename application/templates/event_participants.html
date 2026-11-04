@@ -54,15 +54,15 @@
     <h1>{{event.event_name}} ({{event.start_date.strftime("%d.%m.%Y") }})</h1>
 </div>
 
+{% if current_user.has_right('guide') %}
 <div class="row">
 {% if bookings['confirmed'] %}
     <a type="button" class="btn btn-secondary" href="{{ url_for('EVENTS.page_participants_export', event_id=event.id) }}">Export CSV</a>&nbsp;
-    <a type="button" class="btn btn-secondary" href="mailto:{{ ";".join(emails) }}?subject={{ event.event_name }}">Mail an Teilnehmer</a>
+    <a type="button" class="btn btn-secondary" href="mailto:{{ ";".join(emails) }}?subject={{ event.event_name|urlencode }}">Mail an Teilnehmer</a>
 {% else %}
 Keine Teilnehmer für Export oder Mail bestätigt
 {% endif %}
 </div>
-{% if current_user.has_right('guide') %}
 <hr>
 {% if extra_tickets %}
 <div class="row">

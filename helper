@@ -32,7 +32,7 @@ case "$1" in
     ;;
 "create_user")
     echo "Create User"
-    docker exec -it $APPLICATION ./cmdbsyncer sys create_user "$2"
+    docker exec -it $APPLICATION flask --app app create_user "$2"
     ;;
 "bve")
     python3 -m venv ENV

@@ -1,6 +1,8 @@
 """
 User Accounts
 """
+import hashlib
+import hmac
 from datetime import datetime
 from flask import current_app
 from datetime import timedelta
@@ -51,7 +53,7 @@ class User(db.Document, UserMixin):
     disabled = db.BooleanField(default=False)
 
     date_added = db.DateTimeField()
-    date_changed = db.DateTimeField(default=datetime.now())
+    date_changed = db.DateTimeField(default=datetime.now)
     date_password = db.DateTimeField()
     last_login = db.DateTimeField()
     force_password_change = db.BooleanField(default=False)
@@ -93,13 +95,10 @@ class User(db.Document, UserMixin):
         """
         Add/remove event from favorites, return new state
         """
-        for fav in self.favorites:
-            if str(fav.id) == str(event.id):
-                self.favorites.remove(fav)
-                self.save()
-                return False
-        self.favorites.append(event)
-        self.save()
+        if self.is_favorite(event.id):
+            User.objects(id=self.id).update_one(pull__favorites=event)
+            return False
+        User.objects(id=self.id).update_one(add_to_set__favorites=event)
         return True
 
 
@@ -114,7 +113,15 @@ class User(db.Document, UserMixin):
         """
         Password checker
         """
-        return check_password_hash(self.pwdhash, password)
+        return bool(self.pwdhash) and check_password_hash(self.pwdhash, password)
+
+    def password_fingerprint(self):
+        """
+        Aendert sich mit dem Passwort. Sessions und Reset-Links tragen ihn mit und
+        werden dadurch beim Passwortwechsel ungueltig.
+        """
+        key = current_app.config['SECRET_KEY'].encode()
+        return hmac.new(key, (self.pwdhash or '').encode(), hashlib.sha256).hexdigest()[:32]
 
     def generate_token(self, expiration=3600, custom_values=False):
         """
@@ -127,6 +134,7 @@ class User(db.Document, UserMixin):
         key = current_app.config['SECRET_KEY']
         data = {
             'userid': str(self.id),
+            'pwd': self.password_fingerprint(),
             'exp' : dt.timestamp(),
             'iat': datetime.utcnow(),
         }
@@ -160,11 +168,29 @@ class User(db.Document, UserMixin):
         return False
 
     def get_id(self):
-        """ User Mixin overwrite """
-        return str(self.id)
+        """ User Mixin overwrite, siehe password_fingerprint """
+        return f"{self.id}|{self.password_fingerprint()}"
 
     def __str__(self):
         """
         Model representation
         """
         return f"{self.first_name} {self.last_name}"
+
+
+def remove_event_references(event):
+    """Rueckreferenzen auf ein Event entfernen, das gleich geloescht wird."""
+    User.objects(event_registrations=event).update(pull__event_registrations=event)
+    User.objects(favorites=event).update(pull__favorites=event)
+
+
+def remove_user_references(user):
+    """
+    Verweise auf einen User entfernen, der gleich geloescht wird. Seine gebuchten
+    Tickets bleiben fuer die Abrechnung erhalten, die Teilnehmerliste zeigt sie
+    als "Geloeschter Account".
+    """
+    from application.huts.models import Hut, HutBooking  # pylint: disable=import-outside-toplevel
+    Event.objects(event_owners=user).update(pull__event_owners=user)
+    Hut.objects(admins=user).update(pull__admins=user)
+    HutBooking.objects(user=user).update(unset__user=True)

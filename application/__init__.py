@@ -12,7 +12,7 @@ import base64
 
 from pprint import pformat
 from redis import Redis
-from flask import Flask, session, request, send_from_directory
+from flask import Flask, session, request, send_from_directory, render_template
 from flask_login import LoginManager, current_user
 from flask_request_id_header.middleware import RequestID
 from flask_admin import Admin
@@ -21,8 +21,11 @@ from flask_bootstrap import Bootstrap
 from flask_mongoengine import MongoEngine
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from flask_wtf.csrf import CSRFProtect
+from mongoengine.errors import DoesNotExist, ValidationError
 from werkzeug.middleware.proxy_fix import ProxyFix
 import application.modules.log as logging
+from application.modules.sanitize import sanitize_html, safe_url
 
 
 app = Flask(__name__)
@@ -44,7 +47,12 @@ if os.environ.get('config') == "prod_compose":
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
     app.config.update(SESSION_COOKIE_SECURE=True, REMEMBER_COOKIE_SECURE=True)
 
+# Der Fallback aus BaseConfig steht im oeffentlichen Repo
+if os.environ.get('config') in ["prod", "prod_compose"] and not os.environ.get('SECRET_KEY'):
+    raise RuntimeError("SECRET_KEY fehlt: ohne ihn liessen sich Sessions faelschen")
+
 RequestID(app)
+csrf = CSRFProtect(app)
 
 if app.config.get('ENABLE_SENTRY'):
     print(" * ENABLED SENTRY")
@@ -170,7 +178,9 @@ def LogFunction(message): #pylint: disable=invalid-name
 
 log = logging.Logging(log_func=LogFunction)
 
-limiter = Limiter(app, storage_uri=app.config['REDIS_URL'])
+# swallow_errors: faellt Redis aus, soll das nicht auch noch den Login mitreissen
+limiter = Limiter(get_remote_address, app=app, storage_uri=app.config['REDIS_URL'],
+                  swallow_errors=True)
 limiter.request_filter(lambda: request.method.upper() == 'OPTIONS')
 
 bootstrap = Bootstrap(app)
@@ -235,6 +245,36 @@ def format_euro(value):
     return f"{text}\u00a0€"
 
 app.jinja_env.filters['euro'] = format_euro
+app.jinja_env.filters['sanitize_html'] = sanitize_html
+app.jinja_env.filters['safe_url'] = safe_url
+
+
+def error_page(code, title, message):
+    """Fehlerseite im Layout der Seite"""
+    return render_template('error.html', code=code, title=title, message=message), code
+
+@app.errorhandler(400)
+def bad_request(_error):
+    return error_page(400, "Ungültige Anfrage",
+                      "Bitte lade die Seite neu und versuche es noch einmal.")
+
+@app.errorhandler(403)
+def forbidden(_error):
+    return error_page(403, "Keine Berechtigung", "Du darfst diese Seite nicht aufrufen.")
+
+@app.errorhandler(404)
+@app.errorhandler(DoesNotExist)
+def not_found(_error):
+    return error_page(404, "Nicht gefunden", "Diese Seite gibt es nicht (mehr).")
+
+@app.errorhandler(ValidationError)
+def invalid_data(error):
+    """Kaputte id in der URL oder ungueltige Daten beim Speichern"""
+    return not_found(error) if request.method == 'GET' else bad_request(error)
+
+@app.errorhandler(429)
+def too_many_requests(_error):
+    return error_page(429, "Zu viele Versuche", "Bitte warte kurz und versuche es dann erneut.")
 
 @app.context_processor
 def inject_now():

@@ -8,8 +8,10 @@ import calendar as _calendar
 from datetime import datetime, date, timedelta
 from flask import Blueprint, render_template, request, redirect, url_for, flash, abort
 from flask_login import current_user, login_required
+from redis.exceptions import LockError
 
-from application.huts.models import Hut, HutBooking
+from application.huts.models import Hut, HutBooking, hut_lock
+from application.modules.sanitize import is_local_path
 
 HUTS = Blueprint('HUTS', __name__)
 
@@ -26,6 +28,12 @@ def _parse_date(value):
         return datetime.strptime(value, "%Y-%m-%d").date()
     except ValueError:
         return None
+
+
+def _next_or(default):
+    """Ruecksprungziel aus dem Formular, aber nur innerhalb dieser Seite"""
+    target = request.form.get('next')
+    return target if is_local_path(target) else default
 
 
 def can_manage_huts(user):
@@ -170,7 +178,8 @@ def _month_from_args(today):
         month = int(request.args.get('month') or today.month)
     except ValueError:
         return today.year, today.month
-    if not 1 <= month <= 12:
+    # Ausserhalb dieser Jahre laesst sich der Kalender nicht mehr berechnen
+    if not 1 <= month <= 12 or not 2000 <= year <= 2100:
         return today.year, today.month
     return year, month
 
@@ -282,33 +291,46 @@ def book_hut(hut_id):
     if not (from_date and to_date and from_date < to_date):
         flash("Bitte einen gültigen Zeitraum wählen (Abreise nach Anreise).", 'danger')
         return redirect(back)
+    # Nachtragen vergangener Belegungen bleibt der Hütten-Verwaltung vorbehalten
+    if from_date < datetime.now().date() and not hut.can_manage(current_user):
+        flash("Die Anreise darf nicht in der Vergangenheit liegen.", 'danger')
+        return redirect(back)
     if places < 1:
         flash("Bitte die Anzahl der Plätze angeben.", 'danger')
         return redirect(back)
-    if hut.blocks(from_date, to_date):
-        flash("Die Hütte ist in diesem Zeitraum gesperrt.", 'danger')
+    if not set(rooms) <= {room.name for room in hut.rooms}:
+        flash("Bitte nur Zimmer dieser Hütte wählen.", 'danger')
         return redirect(back)
 
-    # Ohne hinterlegte Zimmer ist die Kapazität unbekannt -> keine Platzprüfung,
-    # sonst gälte jede solche Hütte als dauerhaft ausgebucht.
-    if hut.has_capacity():
-        free = hut.free_places(from_date, to_date)
-        if places > free:
-            flash(f"Nicht genügend freie Plätze: im Zeitraum sind nur noch {free} frei.", 'danger')
-            return redirect(back)
-
     confirmed = not hut.requires_approval
-    HutBooking(
-        hut=hut,
-        from_date=from_date,
-        to_date=to_date,
-        places=places,
-        rooms=rooms,
-        comment=comment,
-        name=f"{current_user.first_name} {current_user.last_name}",
-        user=current_user,
-        confirmed=confirmed,
-    ).save()
+    try:
+        with hut_lock(hut.id):
+            if hut.blocks(from_date, to_date):
+                flash("Die Hütte ist in diesem Zeitraum gesperrt.", 'danger')
+                return redirect(back)
+
+            # Ohne hinterlegte Zimmer ist die Kapazität unbekannt -> keine Platzprüfung,
+            # sonst gälte jede solche Hütte als dauerhaft ausgebucht.
+            if hut.has_capacity():
+                free = hut.free_places(from_date, to_date)
+                if places > free:
+                    flash(f"Nicht genügend freie Plätze: im Zeitraum sind nur noch {free} frei.", 'danger')
+                    return redirect(back)
+
+            HutBooking(
+                hut=hut,
+                from_date=from_date,
+                to_date=to_date,
+                places=places,
+                rooms=rooms,
+                comment=comment,
+                name=f"{current_user.first_name} {current_user.last_name}",
+                user=current_user,
+                confirmed=confirmed,
+            ).save()
+    except LockError:
+        flash("Gerade buchen viele gleichzeitig. Bitte versuche es in ein paar Sekunden erneut.", 'danger')
+        return redirect(back)
 
     if confirmed:
         flash("Buchung bestätigt.", 'success')
@@ -331,7 +353,7 @@ def block_hut(hut_id):
     from_date = _parse_date(request.form.get('from_date'))
     to_date = _parse_date(request.form.get('to_date'))
     comment = request.form.get('comment') or None
-    back = request.form.get('next') or url_for('HUTS.page_hut_admin')
+    back = _next_or(url_for('HUTS.page_hut_admin'))
 
     if not (from_date and to_date and from_date < to_date):
         flash("Bitte einen gültigen Zeitraum wählen (Ende nach Beginn).", 'danger')
@@ -367,12 +389,13 @@ def _load_booking_or_404(hut_id, booking_id):
 def cancel_booking(hut_id, booking_id):
     """Eigene Buchung stornieren (oder durch Hütten-Admin/Guide entfernen/ablehnen)."""
     hut, booking = _load_booking_or_404(hut_id, booking_id)
-    is_own = booking.user and str(booking.user.id) == str(current_user.id)
+    # Roh-Referenz: booking.user wuerde bei einem geloeschten Account DoesNotExist werfen
+    is_own = booking.to_mongo().get('user') == current_user.id
     if not (is_own or hut.can_manage(current_user)):
         abort(403)
     booking.delete()
     flash("Buchung storniert.", 'success')
-    return redirect(request.form.get('next') or url_for('HUTS.page_hut_detail', hut_id=hut_id))
+    return redirect(_next_or(url_for('HUTS.page_hut_detail', hut_id=hut_id)))
 
 
 @HUTS.route('/huetten/<hut_id>/booking/<booking_id>/confirm', methods=['POST'])
@@ -385,4 +408,4 @@ def confirm_booking(hut_id, booking_id):
     booking.confirmed = True
     booking.save()
     flash("Buchung freigegeben.", 'success')
-    return redirect(request.form.get('next') or url_for('HUTS.page_hut_detail', hut_id=hut_id))
+    return redirect(_next_or(url_for('HUTS.page_hut_detail', hut_id=hut_id)))

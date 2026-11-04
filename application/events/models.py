@@ -6,6 +6,7 @@ from functools import wraps
 from random import choices
 from flask import request
 from redis.exceptions import LockError
+from mongoengine.errors import DoesNotExist
 from wtforms import StringField
 from application import db, app
 
@@ -142,6 +143,17 @@ class EventParticipation(db.EmbeddedDocument):
     # None = globalen Wert aus dem Profil verwenden, True/False = bewusst gesetzt.
     media_optin = db.BooleanField()
 
+    @property
+    def account(self):
+        """
+        Der buchende User oder None, wenn sein Account geloescht wurde. Die Buchung
+        bleibt fuer die Abrechnung erhalten; parti.user wuerde dann DoesNotExist werfen.
+        """
+        try:
+            return self.user
+        except DoesNotExist:
+            return None
+
     def get_field(self, fieldname):
         """
         Return given field from participation
@@ -239,10 +251,10 @@ class Event(db.Document):
                     continue
                 if ticket.confirmed:
                     confirmed += 1
+                elif ticket.waitinglist:
+                    waitinglist += 1
                 else:
                     wait_for_confirm += 1
-                if ticket.waitinglist:
-                    waitinglist += 1
         return {
             'total_places' : self.places,
             'confirmed': confirmed,
@@ -256,7 +268,7 @@ class Event(db.Document):
         """
         for parti in self.participations:
             if user:
-                if parti.user == user:
+                if parti.account == user:
                     for ticket in parti.tickets:
                         if ticket.ticket_id == ticket_id:
                             return ticket
@@ -278,7 +290,7 @@ class Event(db.Document):
 
     def get_tickets_of_user(self, user):
         for parti in self.participations:
-            if parti.user == user:
+            if parti.account == user:
                 for ticket in parti.tickets:
                     yield ticket
 
@@ -287,7 +299,7 @@ class Event(db.Document):
         Return the EventParticipation of the given user, or None.
         """
         for parti in self.participations:
-            if parti.user == user:
+            if parti.account == user:
                 return parti
         return None
 
@@ -319,8 +331,12 @@ class Event(db.Document):
         if found:
             if not parti.tickets:
                 last = True
-                parti.user.update(pull__event_registrations=self)
                 self.participations.remove(parti)
+                # Hat der Bucher noch eine zweite Buchung, bleibt die Rueckreferenz
+                account = parti.account
+                still_booked = any(other.account == account for other in self.participations)
+                if account and not still_booked:
+                    account.update(pull__event_registrations=self)
         return {
             'found': found,
             'last': last,
@@ -339,6 +355,9 @@ class Event(db.Document):
         max_tickets = {x.name: x.maximum_tickets for x in self.tickets}
         for parti in self.participations:
             for ticket in parti.tickets:
+                # Warteliste belegt keinen Platz
+                if ticket.waitinglist:
+                    continue
                 total += 1
                 counts.setdefault(ticket.ticket_name, 0)
                 counts[ticket.ticket_name] += 1

@@ -7,6 +7,7 @@ Models for flask_admin
 from datetime import datetime
 from wtforms import PasswordField
 from flask_login import current_user
+from application.models.user import remove_user_references
 from application.views.default import CustomModelView
 
 
@@ -43,9 +44,10 @@ class UserView(CustomModelView):
         return form_class
 
     def on_model_change(self, form, model, is_created):
-        if form.email.data:
+        # Das Inline-Bearbeiten in der Liste schickt nur das geaenderte Feld
+        if 'email' in form and form.email.data:
             model.email = form.email.data.lower()
-        if form.password.data:
+        if 'password' in form and form.password.data:
             # Time of Password Change will stored by set_password
             model.set_password(form.password.data)
         if is_created:
@@ -53,6 +55,9 @@ class UserView(CustomModelView):
         else:
             model.date_changed = datetime.now()
         return super().on_model_change(form, model, is_created)
+
+    def on_model_delete(self, model):
+        remove_user_references(model)
 
     def is_accessible(self):
         return current_user.is_authenticated and current_user.is_global_admin()

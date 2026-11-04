@@ -8,7 +8,8 @@ from datetime import datetime
 from wtforms import PasswordField
 from flask_login import current_user
 from application.views.default import CustomModelView
-from application.models.user import roles
+from wtforms.validators import ValidationError
+from application.models.user import roles, remove_user_references
 from markupsafe import Markup
 
 
@@ -80,3 +81,19 @@ class MemberView(CustomModelView):
 
     def is_accessible(self):
         return current_user.is_authenticated and current_user.is_admin()
+
+    def _protect_global_admin(self, model):
+        """
+        Nur Global Admins aendern Global Admins. Sonst liesse sich die Mailadresse
+        tauschen und das Konto per Passwort-Reset uebernehmen.
+        """
+        if model.global_admin and not current_user.is_global_admin():
+            raise ValidationError("Global Admins können nur von Global Admins geändert werden")
+
+    def on_model_change(self, form, model, is_created):
+        self._protect_global_admin(model)
+        return super().on_model_change(form, model, is_created)
+
+    def on_model_delete(self, model):
+        self._protect_global_admin(model)
+        remove_user_references(model)

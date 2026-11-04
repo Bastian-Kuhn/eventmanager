@@ -41,7 +41,7 @@ def send_email_inner(to, subject, template, app, mail,  **kwargs):
             sender = app.config['MAIL_SENDER']
 
         msg = Message(
-            app.config['MAIL_SUBJECT_PREFIX'] + ' ' + subject,
+            f"{app.config['MAIL_SUBJECT_PREFIX'] or ''} {subject}".strip(),
             sender=sender,
             recipients=[to]
         )

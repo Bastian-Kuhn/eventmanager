@@ -4,10 +4,13 @@ Login Routes and Handling for Frontend
 # pylint: disable=no-member, too-many-locals, too-many-branches, import-error, too-few-public-methods, too-many-statements
 
 from datetime import datetime, timedelta
+from types import SimpleNamespace
 from dateutil import relativedelta
+import math
+import re
 import uuid
 import io, csv
-from flask import request, render_template, \
+from flask import request, render_template, current_app, \
      flash, redirect, Blueprint, url_for, abort, make_response, jsonify
 from flask_login import current_user, login_required
 from wtforms import StringField, SelectField
@@ -39,13 +42,16 @@ def hut_rooms_map():
             for hut in Hut.objects.order_by('name')]
 from application.models.user import roles
 from application.auth.forms import LoginForm
-from application.auth.views import do_login
+from application import limiter
+from application.auth.views import do_login, LOGIN_LIMIT
 from application.events.forms import EventForm, EventRegisterForm, EventSearchForm
 from application.models.config import Config
 from application.models.user import User
 from application.events.models import OwnedTicket, new_booking_ref
 
+from application.models.user import remove_event_references
 from application.modules.email import send_email
+from application.modules.sanitize import csv_safe
 
 roles_dict = dict(roles)
 
@@ -87,7 +93,7 @@ def difficult_to_icon(level, icon_type):
         ib = "○"
     if not level:
         level = 'sehr leicht'
-    index = list([x[0] for x in difficulties]).index(level)+1
+    index = [x[0] for x in difficulties].index(level)
 
     output = ""
     for i in range(length):
@@ -96,6 +102,31 @@ def difficult_to_icon(level, icon_type):
         else:
             output += ib
 
+    return output
+
+def parse_price(value):
+    """
+    Betrag aus einem Formular. float() nimmt auch "nan" und "inf", die jede Summe
+    in der Abrechnung unbrauchbar machen. Wirft sonst ValueError oder TypeError.
+    """
+    price = float(value)
+    if not math.isfinite(price):
+        raise ValueError(value)
+    return price
+
+def parse_form_date(value):
+    """'YYYY-MM-DD' aus einem Formular -> date, leer oder ungueltig -> None"""
+    try:
+        return datetime.strptime(value or '', '%Y-%m-%d').date()
+    except ValueError:
+        return None
+
+def csv_attachment(content, name):
+    """CSV-Download. Der Eventname kommt von Nutzern, also nur Zeichen fuer Dateinamen."""
+    output = make_response(content)
+    filename = re.sub(r'[^\w.-]+', '_', name)
+    output.headers.set('Content-Disposition', 'attachment', filename=f"{filename}.csv")
+    output.headers["Content-type"] = "text/csv"
     return output
 
 class DictObj:
@@ -144,18 +175,22 @@ def populate_event_form(form, event):
     return form
 #.
 #   . save_event_form
+# Direkt aus dem Formular uebernommene Felder. Teilnahmen, Kosten und Owner
+# duerfen nicht per zusaetzlichem POST-Feld ueberschreibbar sein.
+EVENT_FORM_FIELDS = (
+    'event_name', 'event_teaser', 'event_type', 'event_description', 'event_category',
+    'places', 'min_places', 'difficulty', 'shape',
+    'length_h', 'length_km', 'altitude_difference',
+)
+
 def save_event_form(event, form):
     """
     Helper to store Event Object
     """
     form_data = dict(request.form)
-    for field, value in form_data.items():
-        # Set all default field which not here excluded
-        if field in ['start_date', 'end_date', 'booking_from', 'booking_until']:
-            continue
-        if field in ['waitlist',]:
-            value = bool(value)
-        setattr(event, field, value)
+    for field in EVENT_FORM_FIELDS:
+        if field in form_data:
+            setattr(event, field, form_data[field])
 
     if current_user not in event.event_owners and form_data.get('add_guide'):
         event.event_owners.append(current_user)
@@ -206,7 +241,10 @@ def save_event_form(event, form):
         is_extra = True if t_data.get('is_extra_ticket') == 'y' else False
         ticket = Ticket()
         ticket.name = t_data['name']
-        ticket.price = float(t_data.get('price', 0))
+        try:
+            ticket.price = parse_price(t_data.get('price', 0))
+        except ValueError:
+            ticket.price = 0
         ticket.description = t_data.get('description')
         ticket.is_extra_ticket = is_extra
         if overwrite_max_tickets and int(t_data.get('maximum_tickets', 0)) == 0:
@@ -232,6 +270,7 @@ def save_event_form(event, form):
 
 
 @EVENTS.route('/user/change_ticket', methods=['POST'])
+@login_required
 @with_event_lock
 def ajax_mybooking():
     """
@@ -260,7 +299,7 @@ def ajax_mybooking():
         ticket.name_on_ticket = new_name
         ticket.phone_on_ticket = new_phone
         ticket.email_on_ticket = new_email
-        ticket.birthdate_on_ticket = new_birthdate
+        ticket.birthdate_on_ticket = parse_form_date(new_birthdate)
         ticket.comment_on_ticket = new_comment
         linked = event.sync_linked_tickets(ticket)
         event.save()
@@ -269,6 +308,7 @@ def ajax_mybooking():
         return {'msg': 'error', 'error': 'Ticket nicht gefunden oder keine Berechtigung'}, 403
 
 @EVENTS.route('/user/add_ticket', methods=['POST'])
+@login_required
 @with_event_lock
 def ajax_add_ticket():
     """
@@ -304,7 +344,7 @@ def ajax_add_ticket():
         # Find or create participation for the target user
         participation = None
         for parti in event.participations:
-            if parti.user == target_user:
+            if parti.account == target_user:
                 participation = parti
                 break
                 
@@ -325,7 +365,7 @@ def ajax_add_ticket():
         new_ticket.name_on_ticket = new_name if new_name else f"{target_user.first_name} {target_user.last_name}"
         new_ticket.email_on_ticket = new_email if new_email else target_user.email
         new_ticket.phone_on_ticket = new_phone if new_phone else target_user.phone
-        new_ticket.birthdate_on_ticket = datetime.strptime(new_birthdate, '%Y-%m-%d').date() if new_birthdate else target_user.birthdate
+        new_ticket.birthdate_on_ticket = parse_form_date(new_birthdate) or target_user.birthdate
         new_ticket.comment_on_ticket = new_comment
         new_ticket.is_extra_ticket = ticket_definition.is_extra_ticket
         new_ticket.confirmed = False  # Guide needs to confirm
@@ -334,13 +374,16 @@ def ajax_add_ticket():
         
         participation.tickets.append(new_ticket)
         event.save()
+        target_user.add_event(event)
         
         return {'success': True, 'message': 'Ticket erfolgreich hinzugefügt'}
         
-    except Exception as e:
-        return {'success': False, 'message': str(e)}, 500
+    except Exception:
+        current_app.logger.exception("Ticket konnte nicht hinzugefuegt werden")
+        return {'success': False, 'message': 'Ticket konnte nicht hinzugefügt werden'}, 500
 
 @EVENTS.route('/user/get_data/<event_id>', methods=['GET'])
+@login_required
 def ajax_ticketdata(event_id):
     """
     Get user data for autocomplete suggestions
@@ -366,7 +409,7 @@ def ajax_ticketdata(event_id):
     }
     
     for ticket in tickets:
-        if query in ticket.name_on_ticket.lower():
+        if query in (ticket.name_on_ticket or '').lower():
             merged_data['name'] = ticket.name_on_ticket
             if not merged_data['email'] and ticket.email_on_ticket:
                 merged_data['email'] = ticket.email_on_ticket
@@ -378,6 +421,7 @@ def ajax_ticketdata(event_id):
     return jsonify([merged_data])
 
 @EVENTS.route('/user/booking')
+@login_required
 def page_mybooking():
     """
     Detail Page for Event
@@ -400,14 +444,14 @@ def page_mybooking():
         target_user = User.objects.get(id=user_id)
     
     for parti in event.participations:
-        if parti.user == target_user:
+        if parti.account == target_user:
             main_names = {x.ticket_id: x.name_on_ticket for x in parti.tickets}
             for ticket in parti.tickets:
                 ticket.booking_date = parti.booking_date
                 # Zusatzticket, das die Personendaten seines Haupt-Tickets uebernimmt
                 ticket.main_name = main_names.get(ticket.main_ticket_id)
                 # Add price information to the ticket
-                if ticket.custom_price:
+                if ticket.custom_price is not None:
                     # Use custom price set by guide
                     ticket.price = ticket.custom_price
                 elif ticket.ticket_name in event_tickets_by_name:
@@ -509,6 +553,10 @@ def page_list():
 
     # We need to check this filte
     filter_date = filters.get('filter_date')
+    # Kaputtes Datum in der URL: Filter ignorieren statt abstuerzen
+    parsed_filter_date = parse_form_date(filter_date)
+    if not parsed_filter_date:
+        filter_date = None
     filter_future = filters.get('filter_future')
 
 
@@ -528,8 +576,8 @@ def page_list():
         # Disable future Filter
         filter_future = False
         search_form.filter_future.data = False
-        date_start = datetime.strptime(filter_date, "%Y-%m-%d")
-        date_end = datetime.strptime(filter_date, "%Y-%m-%d") + timedelta(hours=24)
+        date_start = datetime.combine(parsed_filter_date, datetime.min.time())
+        date_end = date_start + timedelta(hours=24)
         filter_expr['start_date__gte'] = date_start
         filter_expr['start_date__lte'] = date_end
         filter_names.append(f"Zeitpunkt: {filter_date}")
@@ -616,14 +664,15 @@ def event_populate(event):
     return event
 
 @EVENTS.route('/event/admin', methods=['GET', 'POST'])
+@login_required
 def page_admin():
     """
     Admin Page
     """
-    event_id = request.args.get('event_id')
-    event = Event.objects.get(id=event_id)
     if not current_user.has_right('guide'):
         abort(403)
+    event_id = request.args.get('event_id')
+    event = Event.objects.get(id=event_id)
 
     try:
         extra_categories = [(x.name.lower(), x.name) for x in Config.objects(enabled=True)[0].event_categories_full]
@@ -677,10 +726,7 @@ def page_delete():
 
     # Rueckreferenzen auf den Usern entfernen, sonst zeigen sie auf ein
     # geloeschtes Event und das Dereferenzieren knallt spaeter.
-    User.objects(Q(event_registrations=event) | Q(favorites=event)).update(
-        pull__event_registrations=event,
-        pull__favorites=event,
-    )
+    remove_event_references(event)
     remove_event_booking(event)
     event.delete()
 
@@ -692,6 +738,7 @@ def page_delete():
 
 
 @EVENTS.route('/event/change_participants', methods=['POST'])
+@login_required
 @with_event_lock
 def change_participation():
     """
@@ -706,6 +753,8 @@ def change_participation():
 
     event = Event.objects.get(id=event_id)
     ticket = event.get_booked_ticket(ticket_id)
+    if not ticket:
+        return {'success': False, 'message': 'Ticket nicht gefunden'}, 404
 
     response = {}
 
@@ -732,6 +781,7 @@ def change_participation():
 
 
 @EVENTS.route('/event/manage_hidden_categories', methods=['POST'])
+@login_required
 def manage_hidden_categories():
     """
     Manage global hidden categories
@@ -772,8 +822,9 @@ def manage_hidden_categories():
         
         return jsonify({'success': True, 'hidden_categories': event.hidden_categories})
         
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+    except Exception:
+        current_app.logger.exception("Kategorien konnten nicht gespeichert werden")
+        return jsonify({'success': False, 'error': 'Speichern fehlgeschlagen'})
 
 
 @EVENTS.route('/event/get_hidden_categories', methods=['GET'])
@@ -794,8 +845,16 @@ def get_hidden_categories():
         
         return jsonify({'success': True, 'hidden_categories': hidden_categories})
         
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+    except Exception:
+        current_app.logger.exception("Kategorien konnten nicht gelesen werden")
+        return jsonify({'success': False, 'error': 'Laden fehlgeschlagen'})
+
+
+def deleted_booker(parti):
+    """Platzhalter fuer eine Buchung, deren Account geloescht wurde"""
+    return SimpleNamespace(id=parti.to_mongo().get('user'), first_name="Gelöschter", last_name="Account",
+                           role=None, phone=None, email=None, birthdate=None,
+                           media_optin=False, data_optin=False)
 
 
 def get_participants(event):
@@ -818,7 +877,9 @@ def get_participants(event):
             elif ticket.waitinglist:
                 what = 'waitinglist'
 
-            if not ticket.is_paid and tickets_by_name[ticket.ticket_name].price == 0:
+            # Der Ticket-Typ kann nach der Buchung umbenannt oder entfernt worden sein
+            ticket_def = tickets_by_name.get(ticket.ticket_name)
+            if not ticket.is_paid and ticket_def and ticket_def.price == 0:
                 ticket.is_paid = True
 
             extra_questions = []
@@ -826,11 +887,12 @@ def get_participants(event):
                 extra_questions.append((field.field_name, parti.get_field(field.field_name)))
 
 
-            bucher = f"{parti.user.first_name} {parti.user.last_name}"
+            booker = parti.account or deleted_booker(parti)
+            bucher = f"{booker.first_name} {booker.last_name}"
             if ticket.name_on_ticket != bucher:
                 role = 'Unbekannt'
-            elif parti.user.role:
-                role = roles_dict[parti.user.role]
+            elif booker.role:
+                role = roles_dict[booker.role]
             else:
                 role = "Nicht überprüft"
 
@@ -850,13 +912,13 @@ def get_participants(event):
                 'ticket_info': {
                     'name': ticket.ticket_name,
                     'bucher': bucher,
-                    'bucher_user_id': str(parti.user.id),
+                    'bucher_user_id': str(booker.id),
                     'booking_ref': parti.booking_ref,
-                    'telefon': ticket.phone_on_ticket if ticket.phone_on_ticket else parti.user.phone,
-                    'email': ticket.email_on_ticket if ticket.email_on_ticket else parti.user.email,
-                    'media_optin': parti.user.media_optin,
-                    'data_optin': parti.user.data_optin,
-                    'birthdate': ticket.birthdate_on_ticket if ticket.birthdate_on_ticket else parti.user.birthdate,
+                    'telefon': ticket.phone_on_ticket if ticket.phone_on_ticket else booker.phone,
+                    'email': ticket.email_on_ticket if ticket.email_on_ticket else booker.email,
+                    'media_optin': booker.media_optin,
+                    'data_optin': booker.data_optin,
+                    'birthdate': ticket.birthdate_on_ticket if ticket.birthdate_on_ticket else booker.birthdate,
                     'role': role,
                     'comment': ticket.comment_on_ticket if ticket.comment_on_ticket else "",
                     'guide_comment': ticket.guide_comment if ticket.guide_comment else "",
@@ -885,8 +947,7 @@ def page_participants_export():
     io_output = io.StringIO()
     writer = csv.writer(io_output, delimiter=';' )
 
-    extra_question_headers = \
-            [ x[0] for x in participants[0]['extra_questions']]
+    extra_question_headers = [csv_safe(x.field_name) for x in event.custom_fields]
 
     writer.writerow([
       'Bucher',
@@ -902,7 +963,7 @@ def page_participants_export():
 
     ]+ extra_question_headers)
     for line in participants:
-        writer.writerow([
+        writer.writerow([csv_safe(value) for value in [
             line['ticket_info']['bucher'],
             line['booking_date'],
             line['ticket_owner'],
@@ -913,13 +974,9 @@ def page_participants_export():
             line['ticket_info']['role'],
             age(line['ticket_info']['birthdate']),
             line['ticket_info']['comment'],
-        ]+ [x[1] for x in line['extra_questions']])
+        ]+ [x[1] for x in line['extra_questions']]])
 
-    output = make_response(io_output.getvalue())
-    filename = event.event_name.replace(' ', '_')
-    output.headers["Content-Disposition"] = f"attachment; filename={filename}.csv"
-    output.headers["Content-type"] = "text/csv"
-    return output
+    return csv_attachment(io_output.getvalue(), event.event_name)
 
 
 @EVENTS.route('/event/participants')
@@ -941,12 +998,15 @@ def page_participants():
     context = {}
 
 
+    # Der Sammel-Mailto ist Guides vorbehalten: er enthaelt auch Adressen von
+    # Teilnehmern ohne Datenfreigabe
     emails = []
     participants = get_participants(event)
-    for part in participants['confirmed']:
-        email = part['ticket_info']['email']
-        if email and email not in emails:
-            emails.append(email)
+    if current_user.has_right('guide'):
+        for part in participants['confirmed']:
+            email = part['ticket_info']['email']
+            if email and email not in emails:
+                emails.append(email)
 
     context['event'] = event
     context['emails'] = emails
@@ -973,6 +1033,7 @@ def page_participants():
 #   . Billing
 
 @EVENTS.route('/event/change_paidstatus', methods=['POST'])
+@login_required
 @with_event_lock
 def change_paidstatus():
     """
@@ -987,6 +1048,8 @@ def change_paidstatus():
 
     event = Event.objects.get(id=event_id)
     ticket = event.get_booked_ticket(ticket_id)
+    if not ticket:
+        return {'success': False, 'message': 'Ticket nicht gefunden'}, 404
 
     response = {}
 
@@ -1010,6 +1073,7 @@ def change_paidstatus():
     return response
 
 @EVENTS.route('/event/bulk_paidstatus', methods=['POST'])
+@login_required
 @with_event_lock
 def bulk_paidstatus():
     """
@@ -1047,7 +1111,7 @@ def bulk_change_price():
     new_price = request.form.get('new_price')
 
     try:
-        new_price = float(new_price)
+        new_price = parse_price(new_price)
     except (ValueError, TypeError):
         return jsonify({'success': False, 'message': 'Invalid price format'}), 400
 
@@ -1083,8 +1147,8 @@ def change_price():
     new_price = request.form.get('new_price')
     
     try:
-        new_price = float(new_price)
-    except ValueError:
+        new_price = parse_price(new_price)
+    except (ValueError, TypeError):
         return jsonify({'success': False, 'message': 'Invalid price format'}), 400
     
     event = Event.objects.get(id=event_id)
@@ -1187,23 +1251,19 @@ def page_extra_tickets_export(category):
     ])
     
     # Sort tickets by guide if guide is set, otherwise keep original order
-    sorted_tickets = sorted(category_tickets, key=lambda x: x['guide'] if x['guide'] else ticket['ticket_owner'])
+    sorted_tickets = sorted(category_tickets, key=lambda x: x['guide'] or x['ticket_owner'] or '')
     
     for ticket in sorted_tickets:
-        writer.writerow([
+        writer.writerow([csv_safe(value) for value in [
             ticket['ticket_owner'],
             ticket['comment'],
             ticket['guide_comment'],
             ticket['guide'],
             ticket['birthdate'].strftime('%m/%Y') if ticket['birthdate'] else '',
             'Ja' if ticket['is_paid'] else 'Nein'
-        ])
+        ]])
 
-    output = make_response(io_output.getvalue())
-    filename = f"{event.event_name}_{category}".replace(' ', '_')
-    output.headers["Content-Disposition"] = f"attachment; filename={filename}.csv"
-    output.headers["Content-type"] = "text/csv"
-    return output
+    return csv_attachment(io_output.getvalue(), f"{event.event_name}_{category}")
 
 @EVENTS.route('/event/billing')
 def page_billing():
@@ -1357,7 +1417,19 @@ def page_finance():
     }
     return render_template('event_finance.html', **context)
 
+def cost_from_form(event):
+    """
+    Kostenposition zum Formularfeld index. Negative Indizes zaehlen in Python von
+    hinten und wuerden sonst die falsche Position treffen.
+    """
+    try:
+        index = int(request.form['index'])
+    except ValueError:
+        return None
+    return event.costs[index] if 0 <= index < len(event.costs) else None
+
 @EVENTS.route('/event/finance/add_cost', methods=['POST'])
+@login_required
 def add_cost():
     """
     Kostenposition zum Event hinzufuegen
@@ -1372,17 +1444,17 @@ def add_cost():
     cost.name = request.form.get('name')
     cost.person = request.form.get('person')
     try:
-        cost.price = float(request.form.get('price') or 0)
+        cost.price = parse_price(request.form.get('price') or 0)
     except ValueError:
         cost.price = 0
-    if request.form.get('date'):
-        cost.date = datetime.strptime(request.form['date'], '%Y-%m-%d').date()
+    cost.date = parse_form_date(request.form.get('date'))
     event.costs.append(cost)
     event.save()
 
     return redirect(url_for('EVENTS.page_finance', event_id=event_id))
 
 @EVENTS.route('/event/finance/edit_cost', methods=['POST'])
+@login_required
 def edit_cost():
     """
     Kostenposition bearbeiten (inkl. Bezahlt-Status)
@@ -1393,27 +1465,24 @@ def edit_cost():
     event_id = request.form['event_id']
     event = Event.objects.get(id=event_id)
 
-    try:
-        cost = event.costs[int(request.form['index'])]
-    except (ValueError, IndexError):
+    cost = cost_from_form(event)
+    if not cost:
         return redirect(url_for('EVENTS.page_finance', event_id=event_id))
 
     cost.name = request.form.get('name')
     cost.person = request.form.get('person')
     try:
-        cost.price = float(request.form.get('price') or 0)
+        cost.price = parse_price(request.form.get('price') or 0)
     except ValueError:
         cost.price = 0
-    if request.form.get('date'):
-        cost.date = datetime.strptime(request.form['date'], '%Y-%m-%d').date()
-    else:
-        cost.date = None
+    cost.date = parse_form_date(request.form.get('date'))
     cost.is_paid = request.form.get('is_paid') == 'y'
     event.save()
 
     return redirect(url_for('EVENTS.page_finance', event_id=event_id))
 
 @EVENTS.route('/event/finance/mark_person_paid', methods=['POST'])
+@login_required
 def mark_person_paid():
     """
     Alle Ausgaben einer Person als bezahlt/offen markieren
@@ -1435,6 +1504,7 @@ def mark_person_paid():
     return redirect(url_for('EVENTS.page_finance', event_id=event_id))
 
 @EVENTS.route('/event/finance/delete_cost', methods=['POST'])
+@login_required
 def delete_cost():
     """
     Kostenposition entfernen
@@ -1445,12 +1515,10 @@ def delete_cost():
     event_id = request.form['event_id']
     event = Event.objects.get(id=event_id)
 
-    try:
-        index = int(request.form['index'])
-        event.costs.pop(index)
+    cost = cost_from_form(event)
+    if cost:
+        event.costs.remove(cost)
         event.save()
-    except (ValueError, IndexError):
-        pass
 
     return redirect(url_for('EVENTS.page_finance', event_id=event_id))
 
@@ -1458,6 +1526,7 @@ def delete_cost():
 #   . Event Details Page
 
 @EVENTS.route('/event/details', methods=['GET', 'POST'])
+@limiter.limit(LOGIN_LIMIT, methods=['POST'], exempt_when=lambda: current_user.is_authenticated)
 def page_details():
     """
     Detail Page for Event
@@ -1506,7 +1575,8 @@ def page_details():
             preisinfo = f"(je Anmeldung: {ticket.price}  €)"
         description = f": {ticket.description}" if ticket.description else ""
         setattr(EventRegForm, f"ticket_{ticket.name}",
-            SelectField(Markup(f"<b>{ticket.name}</b> {description} {preisinfo}"), choices=choices))
+            SelectField(Markup("<b>{}</b> {} {}").format(ticket.name, description, preisinfo),
+                        choices=choices))
 
 
     register_form = EventRegForm(request.form)
@@ -1528,8 +1598,9 @@ def page_details():
 
     detail_fields = [
       ("Kategorie", dict(categories).get(event.event_category), 'string'),
-      ("Start",  f'{event.start_date.strftime("%d.%m.%Y")} {event.start_date.strftime("%H:%M")}', 'string'),
-      ("Ende" , event.end_date.strftime("%d.%m.%Y %H:%M "), 'string'),
+      ("Start", event.start_date.strftime("%d.%m.%Y %H:%M") if event.start_date else None, 'string'),
+      # Im Admin-Panel angelegte Events haben nicht unbedingt ein Enddatum
+      ("Ende", event.end_date.strftime("%d.%m.%Y %H:%M ") if event.end_date else None, 'string'),
       ('Tickets', format_ticket(event.tickets), 'table'),
     ]
 
@@ -1540,8 +1611,10 @@ def page_details():
         detail_fields.append(("Hütte", hut_label, 'string'))
 
     if numbers['total_places']:
+        free_places = numbers['total_places'] - numbers['confirmed'] - numbers['wait_for_confirm']
         detail_fields += [
-            ("Freie Plätze insgesammt", numbers['total_places'], 'string'),
+            # Als Text, sonst fiele die 0 ("ausgebucht") unten aus der Liste
+            ("Freie Plätze insgesamt", str(max(free_places, 0)), 'string'),
         ]
 
 
@@ -1582,12 +1655,16 @@ def page_details():
     event_details_list = []
     higest_level = 'attendant'
     for guide in event.event_owners:
+        # Altbestand: Verweis auf einen inzwischen geloeschten User
+        if not isinstance(guide, User):
+            continue
         if guide.role == 'guide':
             higest_level = 'guide'
         elif higest_level != 'guide' and guide.role == 'youthguide':
             higest_level = 'youthguide'
         event_details_list.append(
-            (f'Verantwortlicher {roles_dict[guide.role]}', f"{guide.first_name} {guide.last_name}, {guide.email}", "string")
+            # Global Admins haben oft keine Vereinsrolle
+            (f'Verantwortlicher {roles_dict.get(guide.role, "")}'.strip(), f"{guide.first_name} {guide.last_name}, {guide.email}", "string")
         )
 
 
@@ -1619,7 +1696,7 @@ def page_details():
         register_possible = True
 
         # Count
-        if event.start_date < now:
+        if event.start_date and event.start_date < now:
             flash("Das Event hat bereits stattgefunden", 'danger')
             register_possible = False
 
@@ -1727,9 +1804,15 @@ def page_details():
 
             current_user.add_event(event)
 
-            for guide in event.event_owners:
-                send_email(guide.email, f"Neue Anmeldung: {event.event_name}", 'email/newparticipant',
-                       event=event, user=current_user, tickets=new_participation.tickets, fields=new_participation.custom_fields, form_data=data)
+            # Die Buchung steht: ein Mailproblem darf sie nicht als Fehler erscheinen
+            # lassen, sonst bucht der Teilnehmer ein zweites Mal
+            try:
+                for guide in event.event_owners:
+                    if isinstance(guide, User):
+                        send_email(guide.email, f"Neue Anmeldung: {event.event_name}", 'email/newparticipant',
+                               event=event, user=current_user, tickets=new_participation.tickets, fields=new_participation.custom_fields, form_data=data)
+            except Exception:  # pylint: disable=broad-except
+                current_app.logger.exception("Mail zur neuen Anmeldung fehlgeschlagen")
 
             return redirect(url_for('EVENTS.page_mybooking', event_id=str(event.id)))
 

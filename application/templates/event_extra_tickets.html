@@ -176,13 +176,13 @@ $(document).ready(function() {
         var datalist = $('#guide-datalist');
         datalist.empty();
         guides.forEach(function(guide) {
-            datalist.append('<option value="' + guide + '">');
+            datalist.append($('<option>').attr('value', guide));
         });
     }
     
     // Function to update the grouped participant list
     function updateGuideGroups() {
-        var guideGroups = {};
+        var guideGroups = Object.create(null);
         
         // Collect data from table rows
         $('tbody tr').each(function() {
@@ -207,32 +207,27 @@ $(document).ready(function() {
             }
         });
         
-        // Build the HTML
-        var html = '';
+        // Namen und Guides sind Nutzereingaben: nur per .text() einsetzen
+        var container = $('#guide-groups').empty();
         var sortedGuides = Object.keys(guideGroups).sort();
         
         sortedGuides.forEach(function(guide) {
             if (guideGroups[guide].length > 0) {
-                html += '<div class="mb-3">';
-                html += '<h5 style="color: #007bff; border-bottom: 1px solid #dee2e6; padding-bottom: 5px;">';
-                html += guide + ' (' + guideGroups[guide].length + ')';
-                html += '</h5>';
-                html += '<ul class="list-unstyled" style="margin-left: 15px;">';
-                
+                var list = $('<ul class="list-unstyled" style="margin-left: 15px;">');
                 guideGroups[guide].forEach(function(participant) {
-                    html += '<li style="padding: 2px 0;">• ' + participant + '</li>';
+                    list.append($('<li style="padding: 2px 0;">').text('• ' + participant));
                 });
-                
-                html += '</ul>';
-                html += '</div>';
+                container.append($('<div class="mb-3">').append(
+                    $('<h5 style="color: #007bff; border-bottom: 1px solid #dee2e6; padding-bottom: 5px;">')
+                        .text(guide + ' (' + guideGroups[guide].length + ')'),
+                    list
+                ));
             }
         });
         
-        if (html === '') {
-            html = '<p class="text-muted">Keine Teilnehmer vorhanden.</p>';
+        if (container.is(':empty')) {
+            container.append('<p class="text-muted">Keine Teilnehmer vorhanden.</p>');
         }
-        
-        $('#guide-groups').html(html);
     }
     
     // Initialize autocomplete on page load

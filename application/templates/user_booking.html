@@ -513,11 +513,11 @@
                 data[this.name] = this.value;
             });
             $.post('/user/change_ticket', form, function(res){
-                $('#user_name_'+data.ticket_id).html(data.new_name);
-                $('#user_email_'+data.ticket_id).html(data.new_email);
-                $('#user_phone_'+data.ticket_id).html(data.new_phone);
-                $('#user_age'+data.ticket_id).html(data.new_birthdate);
-                $('#user_comment'+data.ticket_id).html(data.new_comment);
+                $('#user_name_'+data.ticket_id).text(data.new_name);
+                $('#user_email_'+data.ticket_id).text(data.new_email);
+                $('#user_phone_'+data.ticket_id).text(data.new_phone);
+                $('#user_age'+data.ticket_id).text(data.new_birthdate);
+                $('#user_comment'+data.ticket_id).text(data.new_comment);
                 // Zusatztickets dieser Person haben die Daten serverseitig uebernommen
                 $.each(res.linked_ticket_ids || [], function(_, id){
                     $('#user_name_'+id).text(data.new_name);

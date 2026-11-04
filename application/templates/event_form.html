@@ -243,6 +243,7 @@
   </p>
   <form method="POST" action="{{ url_for('EVENTS.page_delete') }}"
         onsubmit='return confirm("Event " + {{ event.event_name|tojson }} + " wirklich endgültig löschen? Alle Anmeldungen gehen verloren.");'>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
    <input type="hidden" name="event_id" value="{{ event.id }}">
    <button type="submit" class="btn btn-danger" aria-describedby="delete_event_hint">Event löschen</button>
   </form>

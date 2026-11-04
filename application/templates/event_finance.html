@@ -179,10 +179,12 @@
                 {# Formulare ausserhalb der Tabelle, per HTML5 form-Attribut verknuepft #}
                 {% for cost in costs %}
                 <form method="post" action="{{ url_for('EVENTS.edit_cost') }}" id="editcost_{{ loop.index0 }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="event_id" value="{{ event.id }}">
                     <input type="hidden" name="index" value="{{ loop.index0 }}">
                 </form>
                 <form method="post" action="{{ url_for('EVENTS.delete_cost') }}" id="delcost_{{ loop.index0 }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="event_id" value="{{ event.id }}">
                     <input type="hidden" name="index" value="{{ loop.index0 }}">
                 </form>
@@ -195,6 +197,7 @@
 
                 <form method="post" action="{{ url_for('EVENTS.add_cost') }}"
                       class="d-flex flex-wrap gap-2 align-items-end mt-2">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="event_id" value="{{ event.id }}">
                     <div class="flex-grow-1">
                         <label class="form-label mb-0">Name</label>
@@ -250,6 +253,7 @@
                             <td data-label="Offen" class="text-end">{{ info.open|euro }}</td>
                             <td data-label="Aktion">
                                 <form method="post" action="{{ url_for('EVENTS.mark_person_paid') }}" style="margin:0;">
+                                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <input type="hidden" name="event_id" value="{{ event.id }}">
                                     <input type="hidden" name="person" value="{{ person }}">
                                     {% if info.all_paid %}

@@ -60,6 +60,13 @@
 {% block scripts %}
     {{super()}}
     <script src="/static/js/main.js"></script>
+    <script>
+      // CSRF-Token fuer alle AJAX-Aenderungen. Inline, damit nach einem Deploy kein
+      // altes main.js aus dem Browser-Cache die POSTs scheitern laesst.
+      $.ajaxSetup({
+        headers: {'X-CSRFToken': {{ csrf_token()|tojson }}}
+      });
+    </script>
 {% endblock %}
 
 

@@ -57,7 +57,8 @@ class RegisterExtrasPerPersonTest(unittest.TestCase):
                      Ticket(name='Busfahrt', price=8.0, maximum_tickets=3, is_extra_ticket=True)],
             participations=[])
         self.user = mock.MagicMock(is_authenticated=True, first_name='Max', last_name='Muster',
-                                   email='max@example.org', phone='0123', birthdate=None)
+                                   email='max@example.org', phone='0123', birthdate=None,
+                                   force_password_change=False)
 
     def _post(self, form):
         objects = mock.MagicMock()

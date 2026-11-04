@@ -15,6 +15,7 @@ from application.models.user import User
 def seed_user(email):
     """Generate new user"""
 
+    email = email.lower()
     try:
         user = User.objects.get(email=email)
     except DoesNotExist:
@@ -26,6 +27,6 @@ def seed_user(email):
     user.set_password(passwd)
     user.global_admin = True
     user.tfa_secret = None
-    user.disable = False
+    user.disabled = False
     user.save()
     print(f"User passwort set to: {passwd}")

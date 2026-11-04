@@ -1,9 +1,7 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField, BooleanField, DateField
-from wtforms.validators import InputRequired, Email, EqualTo, ValidationError
-from mongoengine.errors import DoesNotExist
+from wtforms.validators import InputRequired, Email, EqualTo
 
-from application.models.user import User
 from application.auth.forms import validate_password
 
 
@@ -28,26 +26,13 @@ class ChangePasswordForm(FlaskForm):
     submit_password = SubmitField("Passwort ändern")
 
 
-def validate_user(form, field):
-    """
-    Check if the user can be registered
-    """
-    email = field.data
-    try:
-        User.objects.get(email=email.lower())
-    except DoesNotExist:
-        return
-
-    raise ValidationError("Eine User mit dieser E-Mail Adresse exsitiert bereits")
-
-
 class NewUserForm(FlaskForm):
     """
     Signup Form for User
     """
     first_name = StringField("Vorname", validators=[InputRequired()])
     last_name = StringField("Nachname", validators=[InputRequired()])
-    email = StringField("E-Mail", validators=[Email(), InputRequired(), validate_user])
+    email = StringField("E-Mail", validators=[Email(), InputRequired()])
     phone = StringField("Handynummer", validators=[InputRequired()])
     birthdate = DateField("Geburstdatum", validators=[InputRequired()])
     club_id = StringField("Mitgliedsnummer")

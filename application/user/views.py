@@ -5,11 +5,13 @@ Frontend User
 from datetime import datetime
 from application import limiter
 from application.models.user import User
-from application.events.models import with_event_lock
+from application.events.models import Event, with_event_lock
+from application.auth.views import PASSWORD_LIMIT, refresh_login
 
 from flask import request, render_template, current_app, \
      flash, redirect, session, Blueprint, url_for
 from flask_login import current_user, login_required
+from mongoengine.errors import NotUniqueError
 from .forms import NewUserForm, ConsentForm, ChangePasswordForm
 
 
@@ -34,7 +36,8 @@ def page_user_profil():
     is_guide = current_user.has_right('guide')
     past_events = []
     for event in current_user.event_registrations:
-        if not event.is_over(now):
+        # Altbestand: Verweis auf ein inzwischen geloeschtes Event
+        if not isinstance(event, Event) or not event.is_over(now):
             continue
         participation = event.get_participation(current_user)
         past_events.append({
@@ -82,6 +85,7 @@ def page_user_consent():
 
 @USER.route('/user/profile/password', methods=['POST'])
 @login_required
+@limiter.limit(PASSWORD_LIMIT)
 def page_user_password():
     """
     Passwort aendern (aktuelles Passwort erforderlich)
@@ -94,6 +98,7 @@ def page_user_password():
         current_user.set_password(form.password.data)
         current_user.force_password_change = False
         current_user.save()
+        refresh_login(current_user._get_current_object())  # pylint: disable=protected-access
         flash("Passwort geändert", 'success')
     else:
         for _, messages in form.errors.items():
@@ -108,8 +113,6 @@ def page_user_event_optin():
     """
     Medien-Einwilligung fuer ein einzelnes Event ueberschreiben
     """
-    from application.events.models import Event
-
     event_id = request.form.get('event_id')
     choice = request.form.get('media_optin')  # 'default' | 'yes' | 'no'
     value = {'yes': True, 'no': False}.get(choice)  # 'default' -> None
@@ -136,7 +139,7 @@ def page_user_event_optin():
     return redirect(url_for('USER.page_user_profil'))
 
 @USER.route('/user/create', methods=['POST', 'GET'])
-@limiter.limit("4/min 1/sec")
+@limiter.limit("4/minute;1/second", methods=['POST'])
 def page_user_create():
     """
     Create New User
@@ -144,20 +147,30 @@ def page_user_create():
 
     form = NewUserForm(request.form)
     if form.validate_on_submit():
-        new_user = User()
-        for field, value in dict(request.form).items():
-            if field in ['password', 'password_repeat']:
-                continue
-            if field in ['media_optin', 'data_optin']:
-                value = bool(value)
-            if field == 'email':
-                value = value.lower()
-            setattr(new_user, field, value)
+        # Nur diese Felder: Rolle, Rechte oder die id darf niemand selbst setzen
+        new_user = User(
+            email=form.email.data.lower(),
+            first_name=form.first_name.data,
+            last_name=form.last_name.data,
+            phone=form.phone.data,
+            birthdate=form.birthdate.data,
+            club_id=form.club_id.data,
+            media_optin=form.media_optin.data,
+            data_optin=form.data_optin.data,
+            date_added=datetime.now(),
+        )
         if new_user.media_optin:
             new_user.media_optin_date = datetime.now()
-        new_user.set_password(request.form['password'])
-        new_user.save()
-        flash("Anmeldung erfolgreich", 'info')
+        new_user.set_password(form.password.data)
+        # Gleiche Antwort auch bei vergebener Adresse, sonst laesst sich
+        # abfragen, wer ein Konto hat
+        try:
+            if not User.objects(email=new_user.email).first():
+                new_user.save()
+        except NotUniqueError:
+            pass
+        flash("Registrierung abgeschlossen. Falls du schon ein Konto hast, "
+              "setze dein Passwort über „Passwort vergessen“ zurück.", 'info')
         return redirect(url_for('auth.login'))
 
     if form.errors:

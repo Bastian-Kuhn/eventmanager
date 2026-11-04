@@ -13,7 +13,7 @@ def _field_escape(_view, _context, model, name):
     return Markup(escape(model[name]))
 
 def _render_request_link(_view, _context, model, name):
-    return Markup("<a href='/admin/logentry/?flt1_35={req}'>{req}</a>".format(req=model.request_id))
+    return Markup("<a href='/admin/logentry/?flt1_35={req}'>{req}</a>").format(req=model.request_id)
 
 class LogView(CustomModelView): #pylint: disable=too-few-public-methods
     """

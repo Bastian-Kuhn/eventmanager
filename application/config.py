@@ -49,6 +49,12 @@ class BaseConfig():
     SESSION_COOKIE_SAMESITE = "Lax"
     REMEMBER_COOKIE_SAMESITE = "Lax"
     SECURITY_MSG_LOGIN_MESSAGE = False
+    # Das Token gilt so lange wie die Session: wer das Buchungsformular vor dem
+    # Stichtag oeffnet, darf nicht beim Absenden an einem Ablauf scheitern.
+    WTF_CSRF_TIME_LIMIT = None
+    # Der Referer-Vergleich haengt am Host-Header hinter nginx und an
+    # Browser-Einstellungen; der Schutz liegt im Token.
+    WTF_CSRF_SSL_STRICT = False
 
     BOOTSTRAP_SERVE_LOCAL = True
     BABEL_DEFAULT_LOCALE = "de"

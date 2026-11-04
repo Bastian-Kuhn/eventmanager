@@ -58,7 +58,7 @@
 
 <div class="row">
     <div class="col-sm-12">
-    <p>{{event.event_description|safe}}</p>
+    <div>{{ event.event_description|sanitize_html }}</div>
 
     {% if higest_guide_level not in ['guide', 'youthguide'] or event.event_type == 'unguided'%}
     <div class="alert alert-warning" role="alert">
@@ -129,6 +129,7 @@
         {% endif %}
         <form method="POST" id="event-register-form">
             {{ regform.hidden_tag() }}
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             {{ wtf.form_errors(regform, hiddens='only') }}
 
             <fieldset class="form-group">

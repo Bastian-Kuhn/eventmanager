@@ -2,16 +2,19 @@
 Login Routes and Handling for Frontend
 """
 # pylint: disable=no-member
+import hmac
 from datetime import datetime
 from datetime import timedelta
 from flask import request, render_template, current_app, \
      flash, redirect, session, Blueprint, url_for
 from flask_login import current_user, login_user, logout_user, login_required
 from authlib.jose import jwt, JoseError
+from werkzeug.security import generate_password_hash, check_password_hash
 
-from application import login_manager
+from application import limiter, login_manager
 from application.models.user import User
 from application.auth.forms import LoginForm, RequestPasswordForm, ResetPasswordForm
+from application.user.forms import ChangePasswordForm
 from application.modules.email import send_email
 
 def _(text):
@@ -23,6 +26,32 @@ def _(text):
 
 AUTH = Blueprint('auth', __name__)
 
+# Pro IP. Gilt auch fuer das Login-Formular auf der Eventseite.
+LOGIN_LIMIT = "10/minute;60/hour"
+PASSWORD_LIMIT = "10/minute"
+
+# Unbekannte E-Mail kostet so viel Zeit wie ein falsches Passwort
+_DUMMY_HASH = generate_password_hash("kein-echtes-passwort")
+
+
+@AUTH.before_app_request
+def enforce_password_change():
+    """
+    Wer sein Passwort aendern muss, kommt erst danach an den Rest der Seite
+    """
+    if request.endpoint in ('static', 'auth.change_password', 'auth.logout'):
+        return None
+    if current_user.is_authenticated and current_user.force_password_change:
+        return redirect(url_for('auth.change_password'))
+    return None
+
+
+def refresh_login(user):
+    """
+    Nach einem Passwortwechsel neu einloggen: die bisherige Session gilt nicht mehr
+    """
+    login_user(user, remember='remember_token' in request.cookies)
+
 
 def do_login(login_form, context):
     email = login_form.login_email.data.lower()
@@ -32,14 +61,11 @@ def do_login(login_form, context):
     if user_result:
         existing_user = user_result[0]
     else:
+        check_password_hash(_DUMMY_HASH, password)
         existing_user = False
 
     if not (existing_user and existing_user.check_password(password)):
-        flash("Wrong Password", 'danger')
-        return False
-
-    if existing_user.disabled:
-        flash("User Disabled", 'danger')
+        flash("E-Mail oder Passwort ist falsch", 'danger')
         return False
 
     login_user(
@@ -51,19 +77,22 @@ def do_login(login_form, context):
     )
     existing_user.last_login = datetime.now()
     existing_user.save()
-    if existing_user.force_password_change:
-        flash("Change Password", 'danger')
-        return False
     return True
 
 @login_manager.user_loader
-def load_user(user_id):
+def load_user(session_id):
     """
-    Flask Login: Load User from Database
+    Flask Login: Load User from Database. Gesperrte oder geloeschte User und
+    Sessions von vor dem letzten Passwortwechsel gelten als nicht eingeloggt.
     """
-    return User.objects.get(id=user_id)
+    user_id, _, fingerprint = session_id.partition('|')
+    user = User.objects(id=user_id, disabled__ne=True).first()
+    if not user or not hmac.compare_digest(user.password_fingerprint(), fingerprint):
+        return None
+    return user
 
 @AUTH.route('/login', methods=['GET', 'POST'])
+@limiter.limit(LOGIN_LIMIT, methods=['POST'])
 def login():
     """
     Login Route and Handling
@@ -96,17 +125,23 @@ def logout():
 
 
 @AUTH.route('/change-password', methods=['GET', 'POST'])
+@login_required
+@limiter.limit(PASSWORD_LIMIT, methods=['POST'])
 def change_password():
     """
     Change Password Route
     """
-    form = ResetPasswordForm(request.form)
+    form = ChangePasswordForm(request.form)
+    if current_user.force_password_change and request.method == 'GET':
+        flash("Bitte ändere dein Passwort", 'danger')
     if form.validate_on_submit():
-        password = request.form.get('password')
-        current_user.set_password(password)
-        current_user.lastLogin = datetime.now()
+        if not current_user.check_password(form.old_password.data):
+            flash("Aktuelles Passwort ist falsch", 'danger')
+            return render_template('formular.html', form=form)
+        current_user.set_password(form.password.data)
         current_user.force_password_change = False
         current_user.save()
+        refresh_login(current_user._get_current_object())  # pylint: disable=protected-access
         return redirect('/')
     if form.errors:
         for _, message in form.errors.items():
@@ -115,6 +150,7 @@ def change_password():
     return render_template('formular.html', form=form)
 
 @AUTH.route('/request-password', methods=['GET', 'POST'])
+@limiter.limit("5/minute;20/hour", methods=['POST'])
 def request_password():
     """
     Password Request Page
@@ -122,7 +158,7 @@ def request_password():
     form = RequestPasswordForm(request.form)
     if form.validate_on_submit():
         email = form.request_email.data.lower()
-        user_result = User.objects(email=email)
+        user_result = User.objects(email=email, disabled__ne=True)
         if user_result:
             existing_user = user_result[0]
             token = existing_user.generate_token()
@@ -134,9 +170,9 @@ def request_password():
     return render_template('formular.html', form=form)
 
 
-def get_userid(token): #pylint: disable=inconsistent-return-statements
+def read_reset_token(token):
     """
-    Helper to read Userid from token
+    Helper to read the claims from a reset token
     """
     key = current_app.config['SECRET_KEY']
     try:
@@ -147,34 +183,32 @@ def get_userid(token): #pylint: disable=inconsistent-return-statements
                 raise ValueError("Token Expired")
 
     except JoseError as error:
-        raise ValueError(error)
-    if data:
-        return data.get('userid')
+        raise ValueError("Der Link ist ungültig oder abgelaufen") from error
+    return data
 
 @AUTH.route('/reset-password/<token>', methods=['GET', 'POST'])
+@limiter.limit(PASSWORD_LIMIT, methods=['POST'])
 def reset_password(token):
     """ Reset Password Route"""
     form = ResetPasswordForm(request.form)
+    invalid_link = "Der Link ist ungültig oder abgelaufen"
     try:
-        user_id = get_userid(token)
-    except ValueError as error:
-        flash(str(error), "danger")
-        return redirect("/")
-    if not user_id:
-        flash("Invalid Link", "danger")
+        claims = read_reset_token(token)
+    except ValueError:
+        flash(invalid_link, "danger")
         return redirect("/")
 
-    user_result = User.objects(id=user_id)
-    if user_result:
-        existing_user = user_result[0]
-    else:
-        flash("User Uknown", "danger")
+    # Der Fingerprint macht den Link nach dem ersten Passwortwechsel ungueltig
+    existing_user = User.objects(id=claims.get('userid'), disabled__ne=True).first()
+    if not existing_user or claims.get('pwd') != existing_user.password_fingerprint():
+        flash(invalid_link, "danger")
         return redirect("/")
 
     if form.validate_on_submit():
         password = request.form.get('password')
         existing_user.set_password(password)
-        existing_user.lastLogin = datetime.now()
+        existing_user.last_login = datetime.now()
+        existing_user.force_password_change = False
         existing_user.save()
         login_user(
             existing_user,

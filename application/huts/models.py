@@ -10,7 +10,15 @@ Gesamtkapazität einer Hütte ergibt sich aus der Summe der Zimmerplätze (total
 """
 #pylint: disable=too-few-public-methods, no-member
 from datetime import datetime, timedelta
-from application import db
+from application import db, app
+
+
+def hut_lock(hut_id):
+    """
+    Serialisiert Selbstbuchungen pro Huette, sonst sehen zwei gleichzeitige Buchungen
+    dieselben freien Plaetze. Wirft LockError, wenn er nicht binnen 20s frei wird.
+    """
+    return app.redis.lock(f"hut:{hut_id}", timeout=30, blocking_timeout=20)
 
 
 class HutRoom(db.EmbeddedDocument):

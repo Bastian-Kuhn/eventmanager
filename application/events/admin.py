@@ -7,6 +7,7 @@ Models for flask_admin
 from flask_login import current_user
 from application.views.default import CustomModelView
 from application.huts.models import remove_event_booking
+from application.models.user import remove_event_references
 
 class EventView(CustomModelView):
     """
@@ -28,5 +29,6 @@ class EventView(CustomModelView):
         return current_user.is_authenticated and current_user.has_right('guide')
 
     def on_model_delete(self, model):
-        """Verknüpfte Hüttenbuchung mit dem Event mitentfernen."""
+        """Verknüpfte Hüttenbuchung und Rückreferenzen mit dem Event mitentfernen."""
+        remove_event_references(model)
         remove_event_booking(model)
