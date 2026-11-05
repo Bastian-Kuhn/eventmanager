@@ -14,6 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Projekt-Notizen
 
 - Stack wie `../cmdbsyncer`: Flask + MongoEngine + Flask-Admin, uWSGI in prod, `./helper` wrapt docker compose.
+- Deploy: `git push deploy main`. Der Hook auf dem Server baut und startet die Instanzen `dav` und `tsv1860`. Ein Push auf `origin` deployt nichts. Danach die Build-Nummer im Footer gegen `git rev-list --count HEAD` prüfen.
 - UI-Sprache ist Deutsch — neue Strings auf Deutsch halten.
 - Erster Admin: `./helper create_user <email>` (druckt das generierte Passwort).
 - Config-Auswahl per `config` env var (`compose` setzen die docker-compose Files). Ohne uWSGI läuft die App standalone mit `BaseConfig`.
