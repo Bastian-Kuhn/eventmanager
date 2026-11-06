@@ -6,6 +6,8 @@
 /* Tabs auf Mobile horizontal scrollbar statt umbrechen */
 .nav-tabs { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .nav-tabs .nav-link { white-space: nowrap; }
+/* Bilder aus dem Editor haben oft Kamera-Aufloesung */
+.event-description img { max-width: 100%; height: auto; }
 </style>
 <div class="event-list-container">
 <div class="row">
@@ -58,7 +60,7 @@
 
 <div class="row">
     <div class="col-sm-12">
-    <div>{{ event.event_description|sanitize_html }}</div>
+    <div class="event-description">{{ event.event_description|sanitize_html }}</div>
 
     {% if higest_guide_level not in ['guide', 'youthguide'] or event.event_type == 'unguided'%}
     <div class="alert alert-warning" role="alert">
