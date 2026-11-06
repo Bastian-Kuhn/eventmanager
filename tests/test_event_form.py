@@ -12,6 +12,7 @@ from application import app
 from application.events import views
 from application.events.forms import EventForm
 from application.events.models import Event, EventParticipation, OwnedTicket, Ticket
+from application.modules.sanitize import sanitize_html
 
 
 class EventFormDatesTest(unittest.TestCase):
@@ -100,6 +101,38 @@ class EventFormTicketsTest(unittest.TestCase):
         self.assertFalse(main.is_extra_ticket)
         self.assertTrue(extra.is_extra_ticket)
         self.assertTrue(gone.is_extra_ticket)
+
+
+class DescriptionImagesTest(unittest.TestCase):
+    """Der Editor speichert Bilder als data:-URL im Text"""
+
+    PNG = 'data:image/png;base64,iVBORw0KGgo='
+
+    def test_editor_image_stays(self):
+        html = sanitize_html(f'<img src="{self.PNG}" width="677" height="508" alt="Bild">')
+        self.assertIn(f'src="{self.PNG}"', html)
+        self.assertIn('width="677"', html)
+
+    def test_normal_image_and_link_stay(self):
+        html = sanitize_html('<img src="https://example.com/a.png"><a href="https://example.com/">x</a>')
+        self.assertIn('src="https://example.com/a.png"', html)
+        self.assertIn('href="https://example.com/"', html)
+
+    def test_alt_text_may_start_with_data(self):
+        self.assertIn('alt="data: Karte"', sanitize_html(f'<img src="{self.PNG}" alt="data: Karte">'))
+
+    def test_dangerous_data_urls_are_removed(self):
+        for snippet in ('<img src="data:image/svg+xml;base64,PHN2Zz4=">',
+                        '<img src="data:text/html;base64,PHNjcmlwdD4=">',
+                        '<img src="DATA:text/html,x">',
+                        '<img src=" da\tta:text/html,x">',
+                        f'<a href="{self.PNG}">x</a>',
+                        '<a href="data:text/html,x">x</a>',
+                        '<a href="javascript:alert(1)">x</a>',
+                        '<blockquote cite="data:text/html,x">x</blockquote>'):
+            html = sanitize_html(snippet).lower()
+            self.assertNotIn('data:', html, snippet)
+            self.assertNotIn('javascript:', html, snippet)
 
 
 if __name__ == '__main__':

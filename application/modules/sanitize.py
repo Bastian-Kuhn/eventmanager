@@ -24,13 +24,30 @@ _DESCRIPTION_STYLES = {
     'margin-right', 'text-align', 'text-decoration', 'width',
 }
 
+# Der Editor speichert Bilder direkt im Text. SVG bleibt draussen, es kann Skripte enthalten.
+_DATA_IMAGE = re.compile(r'data:image/(?:png|jpe?g|gif|webp);base64,[a-z0-9+/=]*', re.IGNORECASE)
+_URL_ATTRIBUTES = {'href', 'src', 'cite'}
+
 _FORMULA_START = ('=', '+', '-', '@', '\t', '\r')
 _PLAIN_NUMBER = re.compile(r'^[+-]?[\d\s/().-]+$')
+
+
+def _only_image_data_urls(tag, attribute, value):
+    """data:-URLs nur als Rasterbild in img src, nicht als Link oder anderes Format"""
+    if attribute in _URL_ATTRIBUTES:
+        # Browser ignorieren Leer- und Steuerzeichen in URLs
+        url = re.sub(r'[\x00-\x20]', '', value)
+        if url[:5].lower() == 'data:' \
+                and not (tag == 'img' and attribute == 'src' and _DATA_IMAGE.fullmatch(url)):
+            return None
+    return value
 
 
 def sanitize_html(value):
     """Von Guides gepflegtes HTML fuer die Ausgabe bereinigen"""
     return Markup(nh3.clean(value or '', attributes=_DESCRIPTION_ATTRIBUTES,
+                            attribute_filter=_only_image_data_urls,
+                            url_schemes=nh3.ALLOWED_URL_SCHEMES | {'data'},
                             filter_style_properties=_DESCRIPTION_STYLES))
 
 
