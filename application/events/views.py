@@ -146,7 +146,7 @@ def ticket_template():
     """
     Leere Vorlagenzeile fuer "Weiteres Ticket". Jedes Mal neu: populate_obj
     schreibt in die Vorlage, eine geteilte Vorlage traegt sonst das erste
-    Ticket des zuletzt geoeffneten Events (samt Haken "Opt. Ticket") weiter.
+    Ticket des zuletzt geoeffneten Events (samt Haken "Zusatzticket") weiter.
     """
     return DictObj({
                     'name': None,
@@ -253,7 +253,7 @@ def save_event_form(event, form):
             ticket.maximum_tickets = t_data.get('maximum_tickets', 0)
         event.tickets.append(ticket)
 
-    # Gebuchte Tickets folgen dem Haken "Opt. Ticket" ihrer Definition, sonst
+    # Gebuchte Tickets folgen dem Haken "Zusatzticket" ihrer Definition, sonst
     # bleiben z.B. Teilnehmer nach einer Korrektur als Zusatzticket einsortiert
     is_extra_by_name = {x.name: x.is_extra_ticket for x in event.tickets}
     for parti in event.participations:
@@ -1592,7 +1592,7 @@ def page_details():
               ('Name', line.name),
               ('Beschreibung', line.description),
               ('Preis Euro', line.price),
-              ('Anzahl', line.maximum_tickets),
+              ('Max. pro Anmeldung', line.maximum_tickets),
             ])
         return table
 
@@ -1610,11 +1610,11 @@ def page_details():
             hut_label = f"{event.hut.name} ({event.hut.region})"
         detail_fields.append(("Hütte", hut_label, 'string'))
 
-    if numbers['total_places']:
-        free_places = numbers['total_places'] - numbers['confirmed'] - numbers['wait_for_confirm']
+    free_places = event.free_places()
+    if free_places is not None:
         detail_fields += [
             # Als Text, sonst fiele die 0 ("ausgebucht") unten aus der Liste
-            ("Freie Plätze insgesamt", str(max(free_places, 0)), 'string'),
+            ("Freie Plätze insgesamt", str(free_places), 'string'),
         ]
 
 
@@ -1761,16 +1761,23 @@ def page_details():
                     ticket_stats = event.get_ticket_stats()
                     for wish in extra_wishes:
                         wanted_seats[wish[2]] = wanted_seats.get(wish[2], 0) + 1
+                    # Personen belegen Plaetze der Tour, die Anmeldung bleibt zusammen:
+                    # passt sie nicht komplett, geht sie komplett auf die Warteliste
+                    free_places = event.free_places()
+                    persons = sum(num for name, num in wanted_seats.items()
+                                  if not ticket_data[name]['is_extra'])
                     # Haupt-Tickets zuerst, die Zusatztickets haengen sich daran
                     booked = {}
                     for ticket_name, num in sorted(wanted_seats.items(),
                                                    key=lambda x: ticket_data[x[0]]['is_extra']):
                         places = ticket_stats['max'][ticket_name] - ticket_stats.get(ticket_name, 0)
-                        # Gruppe bleibt zusammen: passt sie nicht komplett, geht sie
-                        # komplett auf die Warteliste
-                        unlimited = extras_per_person and ticket_data[ticket_name]['is_extra'] \
-                            and not ticket_stats['max'][ticket_name]
-                        waitinglist = places < num and not unlimited
+                        if free_places is not None and not ticket_data[ticket_name]['is_extra']:
+                            waitinglist = persons > free_places
+                        else:
+                            # Zusatztickets und Touren ohne Platzzahl: Kontingent des Tickets
+                            unlimited = extras_per_person and ticket_data[ticket_name]['is_extra'] \
+                                and not ticket_stats['max'][ticket_name]
+                            waitinglist = places < num and not unlimited
                         extra_mains = [booked[main][slot] for main, slot, extra in extra_wishes
                                        if extra == ticket_name]
                         for number in range(num):

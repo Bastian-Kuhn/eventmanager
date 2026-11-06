@@ -122,7 +122,7 @@ class RegisterExtrasPerPersonTest(unittest.TestCase):
         self.assertEqual(by_name['Busfahrt'][0].main_ticket_id, by_name['Jugend'][1].ticket_id)
 
     def test_extras_without_limit(self):
-        # Opt. Tickets mit Anzahl 0 (ohne Limit) und zwei Haupt-Tickets, eins davon gratis
+        # Zusatztickets mit Anzahl 0 (ohne Limit) und zwei Haupt-Tickets, eins davon gratis
         self.event.tickets = [Ticket(name='Erwachsene', price=50.0, maximum_tickets=4),
                               Ticket(name='Kind', price=0.0, maximum_tickets=4),
                               Ticket(name='Kurs', price=100.0, maximum_tickets=0, is_extra_ticket=True),
@@ -138,6 +138,44 @@ class RegisterExtrasPerPersonTest(unittest.TestCase):
         self.assertFalse(any(x.waitinglist for x in extras))
         mains = {x.ticket_id for x in parti.tickets if not x.is_extra_ticket}
         self.assertTrue(all(x.main_ticket_id in mains for x in extras))
+
+    def _book_on_tour(self, places, taken, form):
+        """Bucht auf einer Tour mit places Plaetzen, von denen taken belegt sind"""
+        self.event.places = places
+        self.event.participations = [EventParticipation(tickets=[
+            OwnedTicket(ticket_name='Teilnahme', confirmed=False, waitinglist=False)
+            for _ in range(taken)])]
+        return self._post({'comment': '', **form})[1]
+
+    def test_waitlist_follows_tour_places_not_ticket_limit(self):
+        # Ticket erlaubt 3 pro Anmeldung, die Tour hat nur noch 1 Platz
+        parti = self._book_on_tour(7, 6, {'ticket_Teilnahme': '1'})
+        self.assertFalse(parti.tickets[0].waitinglist)
+        parti = self._book_on_tour(7, 7, {'ticket_Teilnahme': '1'})
+        self.assertTrue(parti.tickets[0].waitinglist)
+
+    def test_ticket_limit_does_not_start_waitlist_early(self):
+        # Tour hat 14 Plaetze, das Ticket nur 3 pro Anmeldung: Platz 8 ist noch frei
+        parti = self._book_on_tour(14, 7, {'ticket_Teilnahme': '1'})
+        self.assertFalse(parti.waitinglist)
+
+    def test_group_stays_together(self):
+        parti = self._book_on_tour(7, 6, {'ticket_Teilnahme': '2'})
+        self.assertTrue(all(x.waitinglist for x in parti.tickets))
+
+    def test_places_count_across_ticket_types(self):
+        self.event.tickets.insert(1, Ticket(name='Jugend', price=5.0, maximum_tickets=2))
+        parti = self._book_on_tour(7, 6, {'ticket_Teilnahme': '1', 'ticket_Jugend': '1'})
+        self.assertTrue(all(x.waitinglist for x in parti.tickets))
+
+    def test_extras_do_not_take_tour_places(self):
+        parti = self._book_on_tour(7, 6, {'ticket_Teilnahme': '1', 'extra_0_0': '1'})
+        self.assertEqual(len(parti.tickets), 2)
+        self.assertFalse(any(x.waitinglist for x in parti.tickets))
+
+    def test_tour_without_places_keeps_ticket_limit(self):
+        parti = self._book_on_tour(None, 3, {'ticket_Teilnahme': '1'})
+        self.assertTrue(parti.tickets[0].waitinglist)
 
 
 if __name__ == '__main__':

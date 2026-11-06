@@ -175,6 +175,9 @@
 <hr>
  <h2>Tickets</h2>
 <fieldset class="form-group">
+{% for error in form.tickets.errors if error is string %}
+<div class="alert alert-danger" role="alert">{{ error }}</div>
+{% endfor %}
 
 <div id="tickets">
     {% for field in form.tickets %}

@@ -262,6 +262,15 @@ class Event(db.Document):
             'waitlist': waitinglist,
         }
 
+    def free_places(self):
+        """
+        Freie Plaetze auf der Tour, None wenn die Tour kein Limit hat
+        """
+        if not self.places:
+            return None
+        numbers = self.get_numbers()
+        return max(self.places - numbers['confirmed'] - numbers['wait_for_confirm'], 0)
+
     def get_booked_ticket(self, ticket_id, user=False):
         """
         Get Event Particiation by ID

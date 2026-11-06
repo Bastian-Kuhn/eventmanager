@@ -48,8 +48,8 @@ class TicketForm(FlaskForm):
     name = StringField("Name", default="Teilnahme", validators=[Optional()])
     description = StringField("Beschreibung", validators=[Optional()])
     price = FloatField("Preis", validators=[Optional()])
-    maximum_tickets = IntegerField("Anzahl", validators=[Optional()])
-    is_extra_ticket = BooleanField("Opt. Ticket", validators=[Optional()])
+    maximum_tickets = IntegerField("Max. pro Anmeldung", validators=[Optional()])
+    is_extra_ticket = BooleanField("Zusatzticket (belegt keinen Platz)", validators=[Optional()])
 
 
 class EventForm(FlaskForm):
@@ -80,6 +80,16 @@ class EventForm(FlaskForm):
     add_guide = BooleanField("Mich beim speichern als verantwortlichen eintragen")
 
     submit = SubmitField("speichern")
+
+    def validate_tickets(self, field):
+        """
+        Nur optionale Tickets gehen nicht: sie belegen keine Plaetze, die
+        Anmeldungen fehlen dann in allen Zahlen der Tour.
+        """
+        # tickets-0 ist die versteckte Vorlage
+        tickets = [x.form for x in field.entries if x.name != 'tickets-0' and x.form.name.data]
+        if tickets and all(x.is_extra_ticket.data for x in tickets):
+            raise ValidationError("Mindestens ein Ticket darf kein Zusatzticket sein.")
 
 
 class EventRegisterForm(FlaskForm):

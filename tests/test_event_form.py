@@ -84,7 +84,7 @@ class EventFormTicketsTest(unittest.TestCase):
         self.assertEqual(template.maximum_tickets.data, 0)
 
     def test_save_applies_opt_flag_to_booked_tickets(self):
-        """Wird der Haken "Opt. Ticket" geaendert, folgen die schon gebuchten Tickets"""
+        """Wird der Haken "Zusatzticket" geaendert, folgen die schon gebuchten Tickets"""
         main = OwnedTicket(ticket_id='m1', ticket_name='Teilnahme', is_extra_ticket=True)
         extra = OwnedTicket(ticket_id='e1', ticket_name='Leihausruestung', is_extra_ticket=False)
         gone = OwnedTicket(ticket_id='g1', ticket_name='Alter Name', is_extra_ticket=True)
@@ -101,6 +101,28 @@ class EventFormTicketsTest(unittest.TestCase):
         self.assertFalse(main.is_extra_ticket)
         self.assertTrue(extra.is_extra_ticket)
         self.assertTrue(gone.is_extra_ticket)
+
+
+class OnlyOptionalTicketsTest(unittest.TestCase):
+    """Eine Tour nur aus optionalen Tickets zaehlt keine Anmeldungen"""
+
+    def errors(self, **rows):
+        data = {'tickets-0-name': '', **rows}
+        with app.test_request_context(method='POST', data=data):
+            form = EventForm(meta={'csrf': False})
+            form.event_category.choices = form.hut.choices = []
+            form.validate()
+            return form.tickets.errors
+
+    def test_only_optional_is_rejected(self):
+        self.assertTrue(self.errors(**{'tickets-1-name': 'Teilnahme', 'tickets-1-is_extra_ticket': 'y'}))
+
+    def test_main_ticket_is_accepted(self):
+        self.assertFalse(self.errors(**{'tickets-1-name': 'Teilnahme'}))
+
+    def test_optional_next_to_main_is_accepted(self):
+        self.assertFalse(self.errors(**{'tickets-1-name': 'Teilnahme', 'tickets-2-name': 'Bus',
+                                        'tickets-2-is_extra_ticket': 'y'}))
 
 
 class DescriptionImagesTest(unittest.TestCase):
