@@ -13,7 +13,7 @@ import ipaddress
 
 from pprint import pformat
 from redis import Redis
-from flask import Flask, session, request, send_from_directory, render_template
+from flask import Flask, session, request, send_from_directory, render_template, redirect, url_for, abort
 from flask_login import LoginManager, current_user
 from flask_request_id_header.middleware import RequestID
 from flask_admin import Admin
@@ -99,7 +99,7 @@ db = MongoEngine(app)
 
 
 
-from application.models.section import Section, current_section
+from application.models.section import Section, current_section, is_portal_request
 from application.views.section import SectionView
 
 # Logo (GridFS) nicht bei jedem Request neu laden und kodieren, am
@@ -129,6 +129,8 @@ def inject_section():
     teilen sich alle Threads, parallele Requests verschiedener Sektionen
     wuerden sich gegenseitig ueberschreiben.
     """
+    if is_portal_request():
+        return {'site': {'name': 'Tourenanmeldung', 'nav_color': '#2f6b3a'}, 'portal': True}
     try:
         section = current_section()
     except DoesNotExist:
@@ -141,11 +143,32 @@ def inject_section():
         'media_consent_text': section.media_consent_text,
     }}
 
+# Was es auf dem Portal-Host gibt: das Portal selbst, Login und Konto
+PORTAL_BLUEPRINTS = ('PORTAL', 'auth', 'USER', 'bootstrap')
+
 @app.before_request
 def require_section():
-    """Unbekannte Adresse ohne Default-Sektion: 404 statt einer fremden Sektion"""
-    if request.endpoint != 'static':
-        current_section()
+    """
+    Unbekannte Adresse ohne Default-Sektion: 404 statt einer fremden Sektion.
+    Auf dem Portal nur dessen Seiten. Eine Sektion ohne Testphase und ohne
+    bezahltes Abo zeigt nur einen Hinweis, ihre Daten bleiben.
+    """
+    if request.endpoint == 'static':
+        return None
+    if is_portal_request():
+        if request.path == '/':
+            return redirect(url_for('PORTAL.index'))
+        if request.blueprint not in PORTAL_BLUEPRINTS:
+            abort(404)
+        return None
+    section = current_section()
+    if not section.is_active():
+        portal = app.config.get('PORTAL_HOSTNAME')
+        return error_page(503, "Sektion nicht freigeschaltet",
+                          "Die Testphase dieser Sektion ist abgelaufen. Admins der Sektion "
+                          f"schließen das Abo unter https://{portal}/ ab." if portal else
+                          "Diese Sektion ist gerade nicht freigeschaltet.")
+    return None
 
 # Nur Regeln, die nichts brechen: Inline-Skripte und das Einbetten in fremde
 # Seiten bleiben erlaubt, bis geklaert ist, was davon gebraucht wird.
@@ -352,9 +375,11 @@ admin.add_link(MenuLink(name='Zum Frontend', category='', url="/"))
 admin.add_link(MenuLink(name='Logout', category='', url="/logout"))
 
 from application.huts.views import HUTS
+from application.portal.views import PORTAL
 
 app.register_blueprint(AUTH)
 app.register_blueprint(USER)
 app.register_blueprint(EVENTS)
 app.register_blueprint(HUTS)
+app.register_blueprint(PORTAL)
 from application.jobs import *

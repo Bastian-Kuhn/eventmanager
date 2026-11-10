@@ -282,3 +282,9 @@
     .plist-badge, .plist-account { border: 1px solid #999; background: none !important; color: #000 !important; }
     body:has(.plist) .main-container { overflow: visible; }
 }
+
+/* Portal: Bootstraps halbtransparente Links sind auf dem Gruen zu blass */
+.navbar-dark .portal-nav .nav-link,
+.navbar-dark .navbar-brand { color: #fff; }
+.navbar-dark .portal-nav .nav-link:hover,
+.navbar-dark .portal-nav .nav-link:focus { color: #fff; text-decoration: underline; }

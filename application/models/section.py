@@ -3,7 +3,8 @@ Sektionen: eine Installation bedient mehrere Vereine. Jede Sektion hat eigene
 Adresse, Design und Mailversand. Welche Sektion gilt, steht in g.section
 (siehe current_section).
 """
-from flask import g, has_request_context, request
+from datetime import datetime
+from flask import current_app, g, has_request_context, request
 from mongoengine.errors import DoesNotExist
 from mongoengine.queryset import QuerySetManager
 from application import db
@@ -47,6 +48,16 @@ class Section(db.Document):
     # HTML der Foto-/Video-Einwilligung, leer = Standardtext (DAV Kampenwand)
     media_consent_text = db.StringField()
 
+    # Abrechnung (nur Sektionen aus dem Portal). Ohne trial_until laeuft die
+    # Sektion ohne Abrechnung, so wie alle, die ein globaler Admin anlegt.
+    member_count = db.IntField(min_value=1)
+    trial_until = db.DateTimeField()
+    stripe_customer_id = db.StringField()
+    subscription_id = db.StringField()
+    subscription_status = db.StringField()  # Status laut Stripe
+    current_period_end = db.DateTimeField()
+    cancel_at_period_end = db.BooleanField(default=False)
+
     meta = {
         'strict': False,
         'indexes': ['hostnames'],
@@ -57,6 +68,20 @@ class Section(db.Document):
 
     def __str__(self):
         return self.name or self.slug
+
+    @property
+    def is_paid(self):
+        """Abo laeuft laut Stripe (past_due: Stripe versucht es noch)"""
+        return self.subscription_status in ('active', 'trialing', 'past_due')
+
+    def in_trial(self, now=None):
+        return bool(self.trial_until) and (now or datetime.now()) < self.trial_until
+
+    def is_active(self, now=None):
+        """Darf die Sektion genutzt werden?"""
+        if not current_app.config.get('SUBSCRIPTIONS_ENABLED') or self.trial_until is None:
+            return True
+        return self.is_paid or self.in_trial(now)
 
 
 def section_from_legacy_config():
@@ -95,10 +120,18 @@ def resolve_section(host):
     return section_from_legacy_config()
 
 
+def is_portal_request():
+    """Request an das Portal (PORTAL_HOSTNAME), dort gibt es keine Sektion"""
+    portal = current_app.config.get('PORTAL_HOSTNAME')
+    return bool(portal) and normalize_hostname(request.host) == portal
+
+
 def current_section():
     """Sektion des laufenden Requests, ausserhalb eines Requests None"""
     if not has_request_context():
         return None
+    if is_portal_request():
+        raise DoesNotExist('Das Portal gehoert zu keiner Sektion')
     if 'section' not in g:
         g.section = resolve_section(request.host)
     if g.section is None:

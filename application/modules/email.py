@@ -2,7 +2,8 @@
 from threading import Thread
 from flask import current_app, render_template
 from flask_mail import Connection, Mail, Message
-from application.models.section import current_section
+from email.utils import formataddr
+from application.models.section import section_or_none
 
 
 def send_async_email(app, msg, mail):
@@ -28,14 +29,43 @@ def mail_state(app, section):
     }, app.debug, app.testing)
 
 
+class PlatformSender:  # pylint: disable=too-few-public-methods
+    """
+    Versand ueber den Mailserver der Plattform, fuer Sektionen ohne eigenen
+    und fuers Portal. Absender ist die Plattform-Adresse mit dem Namen der
+    Sektion, damit die Mail nicht als gefaelscht im Spam landet.
+    """
+
+    def __init__(self, app, name):
+        config = app.config
+        self.mail_server = config.get('PLATFORM_MAIL_SERVER')
+        self.mail_sender = formataddr((name or 'Tourenanmeldung', config.get('PLATFORM_MAIL_SENDER') or ''))
+        self.mail_subject_prefix = ''
+        self.state = Mail().init_mail({
+            'MAIL_SERVER': self.mail_server,
+            'MAIL_USERNAME': config.get('PLATFORM_MAIL_USERNAME'),
+            'MAIL_PASSWORD': config.get('PLATFORM_MAIL_PASSWORD'),
+            'MAIL_PORT': config.get('PLATFORM_MAIL_PORT') or 465,
+            'MAIL_USE_TLS': False,
+            'MAIL_USE_SSL': True,
+            'MAIL_DEFAULT_SENDER': self.mail_sender,
+        }, app.debug, app.testing)
+
+
 def send_email(to, subject, template, **kwargs):
-    """Mail ueber den Mailserver der Sektion des Requests, ohne Sektion keine"""
+    """
+    Mail ueber den Mailserver der Sektion des Requests. Ohne eigenen (und im
+    Portal) ueber den der Plattform, ist auch der nicht eingerichtet: keine.
+    """
     app = current_app._get_current_object()  # pylint: disable=protected-access
-    section = current_section()
-    if section is None or not section.mail_server:
+    section = section_or_none()
+    if section is not None and section.mail_server:
+        return send_email_inner(to, subject, template, app, mail_state(app, section),
+                                section=section, **kwargs)
+    sender = PlatformSender(app, section.name if section is not None else None)
+    if not sender.mail_server or not app.config.get('PLATFORM_MAIL_SENDER'):
         return None
-    return send_email_inner(to, subject, template, app, mail_state(app, section),
-                            section=section, **kwargs)
+    return send_email_inner(to, subject, template, app, sender.state, section=sender, **kwargs)
 
 def send_email_inner(to, subject, template, app, mail, section, **kwargs):
     with app.app_context():

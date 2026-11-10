@@ -3,13 +3,29 @@
 {% block title %}Tourenportal{% endblock %}
 
 {% block navbar %}
-<nav id="top-nav" class="navbar navbar-expand-lg sticky-top navbar-light" style="background-color: {{ site.nav_color }}">
+<nav id="top-nav" class="navbar navbar-expand-lg sticky-top {{ 'navbar-dark' if portal else 'navbar-light' }}" style="background-color: {{ site.nav_color }}">
+  {% if portal %}
+  <a class="navbar-brand" href="{{ url_for('PORTAL.index') }}">Tourenanmeldung für Sektionen</a>
+  {% else %}
   <a class="navbar-brand" href="{{ site.homepage_link }}"> <img src="{{ site.logo }}" height="60" alt="{{ site.name or 'Startseite' }}"></a>
+  {% endif %}
   <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
     <span class="navbar-toggler-icon"></span>
   </button>
 
   <div class="collapse navbar-collapse" id="navbarSupportedContent">
+    {% if portal %}
+    <ul class="navbar-nav mr-auto portal-nav">
+      <li class="nav-item"><a class="nav-link" href="{{ url_for('PORTAL.index') }}">Meine Sektionen</a></li>
+      <li class="nav-item"><a class="nav-link" href="{{ url_for('PORTAL.register') }}">Sektion registrieren</a></li>
+      {% if current_user.is_authenticated %}
+      <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.logout') }}">Logout</a></li>
+      {% else %}
+      <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.login') }}">Login</a></li>
+      <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.request_password') }}">Passwort vergessen</a></li>
+      {% endif %}
+    </ul>
+    {% else %}
     <ul class="navbar-nav mr-auto">
       <li class="nav-item"><a class="nav-link" href="/">Startseite</a></li>
       {% if hut_count == 1 %}
@@ -35,7 +51,8 @@
       <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.logout') }}">Logout</a></li>
       {% endif %}
     </ul>
-    {% if current_user.is_authenticated %}
+    {% endif %}
+    {% if current_user.is_authenticated and not portal %}
     <ul class="navbar-nav ml-auto">
       <li class="nav-item">
         <a class="nav-link" href="{{ url_for('USER.page_user_profil') }}"

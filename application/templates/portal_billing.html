@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block title %}Abrechnung {{ section.name }}{% endblock %}
+{% block page_content %}
+<main class="container py-3" style="max-width: 640px">
+  <h1 class="h3">Abrechnung: {{ section.name }}</h1>
+  <p><a href="{{ url_for('PORTAL.settings', slug=section.slug) }}">Zu den Einstellungen</a></p>
+
+  {% if section.trial_until is none %}
+    <p>Diese Sektion läuft ohne Abrechnung.</p>
+  {% else %}
+    <dl class="row">
+      <dt class="col-sm-5">Mitglieder laut Angabe</dt><dd class="col-sm-7">{{ section.member_count or 1 }}</dd>
+      <dt class="col-sm-5">Preis</dt>
+      <dd class="col-sm-7">{{ price|euro }} im Monat ({{ units }} × {{ unit_price }}&nbsp;€ je angefangene {{ per_unit }} Mitglieder)</dd>
+      <dt class="col-sm-5">Status</dt>
+      <dd class="col-sm-7">
+        {% if section.is_paid %}
+          Abo läuft{% if section.cancel_at_period_end and section.current_period_end %}, gekündigt zum {{ section.current_period_end.strftime('%d.%m.%Y') }}{% elif section.current_period_end %}, nächste Abrechnung {{ section.current_period_end.strftime('%d.%m.%Y') }}{% endif %}
+          {% if section.subscription_status == 'past_due' %}<br><strong>Die letzte Zahlung ist fehlgeschlagen.</strong>{% endif %}
+        {% elif section.in_trial(now) %}
+          Testphase bis {{ section.trial_until.strftime('%d.%m.%Y') }}
+        {% else %}
+          <strong>Testphase abgelaufen, die Sektion ist gesperrt.</strong> Mit dem Abo ist sie sofort wieder da.
+        {% endif %}
+      </dd>
+    </dl>
+    {% if not billing_enabled %}
+      <p class="alert alert-info">Die Abrechnung ist hier noch nicht eingerichtet.</p>
+    {% elif section.is_paid %}
+      <form method="post" action="{{ url_for('PORTAL.customer_portal', slug=section.slug) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-primary" type="submit">Zahlungsdaten, Rechnungen und Kündigung</button>
+      </form>
+    {% else %}
+      <form method="post" action="{{ url_for('PORTAL.checkout', slug=section.slug) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-primary" type="submit">Abo abschließen ({{ price|euro }} im Monat)</button>
+      </form>
+    {% endif %}
+  {% endif %}
+</main>
+{% endblock %}

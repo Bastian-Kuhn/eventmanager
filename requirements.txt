@@ -38,6 +38,7 @@ pymongo==4.19.0
 pyotp==2.9.0
 redis==5.0.1
 rich==13.6.0
+stripe==10.10.0
 segno==1.6.6
 typing_extensions==4.8.0
 visitor==0.1.3
