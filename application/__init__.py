@@ -153,6 +153,20 @@ def prepare_config():
         _config_cache['expires'] = now + CONFIG_CACHE_SECONDS
     app.config.update(_config_cache['values'])
 
+# Nur Regeln, die nichts brechen: Inline-Skripte und das Einbetten in fremde
+# Seiten bleiben erlaubt, bis geklaert ist, was davon gebraucht wird.
+SECURITY_HEADERS = {
+    'Content-Security-Policy': "object-src 'none'; base-uri 'self'",
+    'X-Content-Type-Options': 'nosniff',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+}
+
+@app.after_request
+def set_security_headers(response):
+    for name, value in SECURITY_HEADERS.items():
+        response.headers.setdefault(name, value)
+    return response
+
 from application.models.log import LogEntry
 from application.views.log import LogView
 

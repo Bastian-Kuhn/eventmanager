@@ -1084,6 +1084,20 @@ class CommentLengthTest(AppTestCase):
         self.assertEqual(Event.objects.get(id=event.id).participations, [])
 
 
+class SecurityHeaderTest(AppTestCase):
+    """Grundlegende Sicherheits-Header auf Seiten und statischen Dateien"""
+
+    def test_headers_set(self):
+        client = app.test_client()
+        for url in ('/', '/static/js/main.js'):
+            response = client.get(url)
+            self.assertEqual(response.headers['X-Content-Type-Options'], 'nosniff')
+            self.assertIn("object-src 'none'", response.headers['Content-Security-Policy'])
+            self.assertEqual(response.headers['Referrer-Policy'],
+                             'strict-origin-when-cross-origin')
+            response.close()
+
+
 class SecretKeyTest(unittest.TestCase):
     """Fail closed: ohne SECRET_KEY startet die Prod-Config nicht"""
 
