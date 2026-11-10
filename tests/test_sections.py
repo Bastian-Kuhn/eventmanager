@@ -115,3 +115,89 @@ class SectionTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class MigrationTest(unittest.TestCase):
+    """Bestehende Installation wird zur Sektion, an Ort und Stelle"""
+
+    def setUp(self):
+        from application.events.models import Event  # pylint: disable=import-outside-toplevel
+        from application.huts.models import Hut, HutBooking  # pylint: disable=import-outside-toplevel
+        self.models = (User, Section, Config, Event, Hut, HutBooking)
+        for model in self.models:
+            model.drop_collection()
+        app.redis = mock.MagicMock()
+        limiter.enabled = False
+        app.config.update(WTF_CSRF_ENABLED=False, PROPAGATE_EXCEPTIONS=False)
+        Config(enabled=True, nav_background_color='#123456', mail_server='smtp.example.org',
+               mail_sender='touren@example.org',
+               event_categories_full=[Category(name='Skitour', color='#0000ff')]).save()
+        from datetime import datetime, timedelta  # pylint: disable=import-outside-toplevel
+        self.event = Event(event_name='Alttour', start_date=datetime.now() + timedelta(days=3)).save()
+        hut = Hut(name='Althuette').save()
+        HutBooking(hut=hut, name='Gruppe').save()
+        self.guide = User(email='guide@example.org', role='guide', admin=True, club_id='42').save()
+        self.guest = User(email='gast@example.org').save()
+
+    def migrate(self, **kwargs):
+        from application.jobs.migrate_section import migrate_to_section  # pylint: disable=import-outside-toplevel
+        return migrate_to_section('beispiel', 'DAV Sektion Beispiel',
+                                  ['touren.example.org'], default=True, **kwargs)
+
+    def test_dry_run_changes_nothing(self):
+        report = self.migrate(dry_run=True)
+        self.assertEqual(report, {'section': 'neu', 'touren': 1, 'huetten': 1,
+                                  'huettenbuchungen': 1, 'konten': 2})
+        self.assertEqual(Section.objects.count(), 0)
+        self.assertEqual(User.objects.get(email='guide@example.org').memberships, [])
+
+    def test_migration_assigns_everything_and_keeps_old_data(self):
+        from application.events.models import Event  # pylint: disable=import-outside-toplevel
+        from application.huts.models import Hut, HutBooking  # pylint: disable=import-outside-toplevel
+        self.migrate()
+        section = Section.objects.get(slug='beispiel')
+        self.assertEqual(section.hostnames, ['touren.example.org'])
+        self.assertTrue(section.is_default)
+        self.assertEqual(section.nav_background_color, '#123456')
+        self.assertEqual(section.mail_server, 'smtp.example.org')
+        self.assertEqual(section.event_categories_full[0].name, 'Skitour')
+        for model in (Event, Hut, HutBooking):
+            self.assertEqual(model.all_objects(section=section).count(), 1, model)
+        guide = User.objects.get(email='guide@example.org')
+        self.assertEqual(guide.role_in(section), 'guide')
+        self.assertTrue(guide.membership(section).admin)
+        self.assertEqual(guide.membership(section).club_id, '42')
+        self.assertEqual(guide.legacy_role, 'guide')
+        self.assertTrue(User.objects.get(email='gast@example.org').membership(section))
+        self.assertEqual(Config.objects.count(), 1)
+
+    def test_logo_is_copied(self):
+        import io  # pylint: disable=import-outside-toplevel
+        from PIL import Image  # pylint: disable=import-outside-toplevel
+        png = io.BytesIO()
+        Image.new('RGB', (2, 2), 'red').save(png, 'PNG')
+        old = Config.objects.get(enabled=True)
+        old.logo_image.put(io.BytesIO(png.getvalue()), content_type='image/png', filename='logo.png')
+        old.save()
+        self.migrate()
+        section = Section.objects.get(slug='beispiel')
+        self.assertEqual(Image.open(section.logo_image).size, (2, 2))
+        page = app.test_client().get('/login', base_url='https://touren.example.org')
+        self.assertIn('src="data:image/png;base64,', page.get_data(as_text=True))
+
+    def test_second_run_changes_nothing(self):
+        self.migrate()
+        report = self.migrate()
+        self.assertEqual(report, {'section': 'vorhanden', 'touren': 0, 'huetten': 0,
+                                  'huettenbuchungen': 0, 'konten': 0})
+        self.assertEqual(len(User.objects.get(email='guide@example.org').memberships), 1)
+
+    def test_app_after_migration(self):
+        self.migrate()
+        client = app.test_client()
+        page = client.get('/', base_url='https://touren.example.org').get_data(as_text=True)
+        self.assertIn('Alttour', page)
+        self.assertIn('#123456', page)
+        # Catchall-Subdomain zeigt auf die Default-Sektion
+        page = client.get('/', base_url='https://neu.example.org').get_data(as_text=True)
+        self.assertIn('Alttour', page)
