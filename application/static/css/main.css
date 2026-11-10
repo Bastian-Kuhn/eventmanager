@@ -69,3 +69,218 @@
     outline: 0;
     box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
 }
+
+/* Teilnehmerlisten (event_participants, event_extra_tickets)
+   Farben mit Kontrast AA auf Weiss; Status steht immer auch als Text da. */
+.plist {
+    --plist-text: #212529;
+    --plist-muted: #5a6169;
+    --plist-line: #e3e6ea;
+    --plist-head-bg: #f6f7f9;
+    --plist-link: #0056b3;
+    --plist-focus: #0056b3;
+    color: var(--plist-text);
+}
+.plist a:not(.btn) { color: var(--plist-link); }
+.plist :focus-visible {
+    outline: 3px solid var(--plist-focus);
+    outline-offset: 2px;
+    box-shadow: none;
+}
+.plist-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: .5rem 1rem;
+    margin: 1rem 0 1.25rem;
+}
+.plist-title { font-size: 1.75rem; font-weight: 600; margin: 0; }
+.plist-title-date { color: var(--plist-muted); font-weight: 400; font-size: 1.25rem; white-space: nowrap; }
+.plist-toolbar { display: flex; flex-wrap: wrap; gap: .5rem; }
+.plist-muted, .plist-hidden { color: var(--plist-muted); }
+.plist-hidden { font-style: italic; }
+.plist-section { margin-bottom: 2rem; }
+.plist-group-title { font-size: 1.5rem; font-weight: 600; margin: 2.5rem 0 1rem; }
+.plist-section-title {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: .75rem;
+}
+.plist-empty { margin: 0; }
+
+.plist-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .3em;
+    padding: .15em .6em;
+    border-radius: 999px;
+    font-size: .8125rem;
+    font-weight: 600;
+    line-height: 1.4;
+    white-space: nowrap;
+    border: 1px solid transparent;
+}
+.plist-badge--ok    { background: #e3f2e6; color: #1e5631; border-color: #b9dcc1; }
+.plist-badge--open  { background: #fff4d6; color: #6b4b00; border-color: #f1d98c; }
+.plist-badge--wait  { background: #e7eef8; color: #1d4a7a; border-color: #bfd2ea; }
+.plist-badge--no    { background: #fbe9ea; color: #8a1f28; border-color: #efc3c7; }
+.plist-badge--count { background: #eef0f2; color: #343a40; border-color: #d6dade; }
+
+.plist-scroll {
+    overflow: auto;
+    max-height: calc(100vh - 160px);
+    border: 1px solid var(--plist-line);
+    border-radius: .5rem;
+    background: #fff;
+}
+.plist-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: .9375rem;
+}
+.plist-table th,
+.plist-table td {
+    padding: .65rem .7rem;
+    vertical-align: top;
+    text-align: left;
+    border-bottom: 1px solid var(--plist-line);
+}
+.plist-table tbody tr:last-child > * { border-bottom: 0; }
+.plist-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--plist-head-bg);
+    color: var(--plist-muted);
+    font-size: .75rem;
+    font-weight: 600;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    vertical-align: bottom;
+    border-bottom: 1px solid #d6dade;
+}
+.plist-table tbody tr:hover > * { background-color: #f8fafb; }
+.plist-name { font-weight: 600; min-width: 7rem; }
+.plist-num { color: var(--plist-muted); width: 2.5rem; font-variant-numeric: tabular-nums; }
+.plist-secondary { color: var(--plist-muted); font-size: .875rem; }
+.plist-comment { min-width: 8rem; max-width: 14rem; }
+.plist-nowrap { white-space: nowrap; }
+.plist-card-only, .plist-print-only { display: none; }
+.plist-account {
+    display: inline-block;
+    padding: .1em .55em;
+    border-radius: 999px;
+    background: #e8f0fa;
+    color: var(--plist-link);
+    font-size: .8125rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.plist a.plist-account:hover { background: #d3e2f5; text-decoration: none; }
+.plist-questions { margin: 0; min-width: 9rem; }
+.plist-questions div + div { margin-top: .35rem; }
+.plist-questions dt { font-size: .75rem; font-weight: 600; color: var(--plist-muted); }
+.plist-questions dd { margin: 0; color: var(--plist-text); }
+.plist .guide-comment-input { min-width: 8rem; }
+.plist-actions { display: flex; gap: .35rem; align-items: center; justify-content: flex-end; }
+.plist-actions-col { text-align: right !important; white-space: nowrap; }
+/* Optionen bleiben beim seitlichen Scrollen am rechten Rand sichtbar */
+.plist-table .plist-actions-col {
+    position: sticky;
+    right: 0;
+    z-index: 1;
+    background: #fff;
+    box-shadow: inset 1px 0 0 var(--plist-line);
+}
+.plist-table thead .plist-actions-col { z-index: 3; background: var(--plist-head-bg); }
+.plist-btn-text { display: none; }
+.plist .btn-outline-success { color: #1e7e34; border-color: #1e7e34; }
+.plist .btn-outline-danger  { color: #b02a37; border-color: #b02a37; }
+.plist .btn-outline-secondary { color: #495057; border-color: #868e96; }
+.plist .btn-outline-success:hover { color: #fff; background: #1e7e34; }
+.plist .btn-outline-danger:hover  { color: #fff; background: #b02a37; }
+.plist .btn-outline-secondary:hover { color: #fff; background: #495057; }
+.plist-categories .list-group-item { border-color: var(--plist-line); }
+
+.plist-guide-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: .75rem; }
+.plist-guide-group { border: 1px solid var(--plist-line); border-radius: .5rem; padding: .75rem .9rem; }
+.plist-guide-title { font-size: 1rem; font-weight: 600; margin: 0 0 .4rem; }
+.plist-guide-list { list-style: none; margin: 0; padding: 0; }
+.plist-guide-list li { padding: .15rem 0; }
+
+/* Handy: jede Zeile wird eine Karte, die Spaltenueberschrift steht per data-label davor */
+@media screen and (max-width: 767.98px) {
+    .plist-title { font-size: 1.4rem; }
+    .plist-scroll { max-height: none; overflow: visible; border: 0; background: transparent; }
+    .plist-table, .plist-table tbody, .plist-table tr, .plist-table th, .plist-table td { display: block; }
+    .plist-table thead {
+        position: absolute; width: 1px; height: 1px; overflow: hidden;
+        clip: rect(0 0 0 0); white-space: nowrap;
+    }
+    .plist-table tbody tr {
+        border: 1px solid var(--plist-line);
+        border-radius: .6rem;
+        padding: .75rem .9rem;
+        margin-bottom: .75rem;
+        background: #fff;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, .04);
+    }
+    .plist-table tbody tr:hover > * { background-color: transparent; }
+    .plist-table th, .plist-table td { border: 0; padding: .25rem 0; }
+    .plist-table td {
+        display: grid;
+        grid-template-columns: minmax(7rem, 38%) 1fr;
+        gap: .75rem;
+        min-width: 0;
+        max-width: none;
+        overflow-wrap: anywhere;
+    }
+    .plist-table td::before {
+        content: attr(data-label);
+        color: var(--plist-muted);
+        font-size: .8125rem;
+        font-weight: 600;
+    }
+    .plist-table td:empty { display: none; }
+    .plist-table td > .plist-badge, .plist-table td > .plist-account { justify-self: start; }
+    .plist-table .plist-num { display: none; }
+    .plist-name {
+        display: flex !important;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: .4rem;
+        font-size: 1.05rem;
+        padding-bottom: .5rem !important;
+        margin-bottom: .35rem;
+        border-bottom: 1px solid var(--plist-line) !important;
+    }
+    .plist-card-only { display: inline-flex; }
+    .plist-actions-col { text-align: left !important; white-space: normal; }
+    .plist-table td.plist-actions-col { display: block; position: static; box-shadow: none; background: transparent; padding-top: .6rem; }
+    .plist-table td.plist-actions-col::before { content: none; }
+    .plist-actions { justify-content: flex-start; flex-wrap: wrap; }
+    .plist-btn-text { display: inline; }
+    .plist .guide-comment-input { min-width: 0; }
+}
+
+@media print {
+    .plist .btn, .plist-toolbar, .plist-actions-col,
+    body:has(.plist) .nav-tabs, body:has(.plist) #top-nav,
+    body:has(.plist) footer { display: none !important; }
+    .plist-scroll { max-height: none; overflow: visible; border: 0; }
+    .plist-table { font-size: 10pt; }
+    .plist-table th, .plist-table td { padding: 3pt 5pt; border-bottom: 1px solid #bbb; }
+    .plist-table thead th { position: static; background: none; color: #000; }
+    .plist-table tr { break-inside: avoid; }
+    .plist-secondary, .plist-muted { color: #333; }
+    .plist input.form-control, .plist-noprint { display: none !important; }
+    .plist-print-only { display: inline; }
+    .plist-badge, .plist-account { border: 1px solid #999; background: none !important; color: #000 !important; }
+    body:has(.plist) .main-container { overflow: visible; }
+}
