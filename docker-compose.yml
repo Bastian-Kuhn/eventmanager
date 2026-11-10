@@ -2,13 +2,13 @@ version: "3.3"
 services:
 
   # Versionen fest, damit der Deploy sie bei einer Aenderung zieht. Mongo
-  # nur innerhalb von 7.0 anheben, ein Major-Sprung braucht FCV-Schritte.
+  # nur innerhalb von 8.0 anheben, ein Major-Sprung braucht FCV-Schritte.
   redis:
     image: redis:8.10.3
     entrypoint: redis-server --appendonly yes
 
   mongo:
-    image: mongo:7.0.45
+    image: mongo:8.0.34
     volumes:
       - data_db:/data/db
 
