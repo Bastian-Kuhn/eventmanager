@@ -9,6 +9,7 @@ locale.setlocale(locale.LC_TIME, 'de_DE.UTF-8')
 from datetime import datetime
 from dateutil import relativedelta
 import base64
+import ipaddress
 
 from pprint import pformat
 from redis import Redis
@@ -178,8 +179,24 @@ def LogFunction(message): #pylint: disable=invalid-name
 
 log = logging.Logging(log_func=LogFunction)
 
+def client_key():
+    """
+    Schluessel fuer die IP-Limits. IPv6 zaehlt pro /64, weil ein Anschluss
+    meist ein ganzes /64 bekommt und sonst jede Adresse ein eigenes Limit haette.
+    """
+    address = get_remote_address()
+    try:
+        ip = ipaddress.ip_address(address)
+    except ValueError:
+        return address
+    if ip.version == 6:
+        if ip.ipv4_mapped:
+            return str(ip.ipv4_mapped)
+        return str(ipaddress.ip_network(f"{ip}/64", strict=False))
+    return address
+
 # swallow_errors: faellt Redis aus, soll das nicht auch noch den Login mitreissen
-limiter = Limiter(get_remote_address, app=app, storage_uri=app.config['REDIS_URL'],
+limiter = Limiter(client_key, app=app, storage_uri=app.config['REDIS_URL'],
                   swallow_errors=True)
 limiter.request_filter(lambda: request.method.upper() == 'OPTIONS')
 

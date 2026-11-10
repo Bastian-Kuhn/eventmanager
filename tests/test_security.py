@@ -229,6 +229,46 @@ class RateLimitTest(AppTestCase):
         codes = [client.post(f'/huetten/{hut.id}/book', data={}).status_code for _ in range(8)]
         self.assertIn(429, codes)
 
+    def test_ipv6_counts_per_64(self):
+        data = {'login_email': 'a@example.org', 'password': 'x', 'login_submit': 'Anmelden'}
+        client = app.test_client()
+        codes = [client.post('/login', data={**data, 'login_email': f'a{i}@example.org'},
+                             environ_base={'REMOTE_ADDR': f'2001:db8:1:2::{i:x}'}).status_code
+                 for i in range(1, 15)]
+        self.assertIn(429, codes)
+        self.assertEqual(client.post('/login', data=data, environ_base={
+            'REMOTE_ADDR': '2001:db8:1:3::1'}).status_code, 200)
+
+    def _login_from(self, number, password):
+        return app.test_client().post('/login', data={
+            'login_email': 'user@example.org', 'password': password, 'login_submit': 'Anmelden'},
+            environ_base={'REMOTE_ADDR': f'192.0.2.{number}'})
+
+    def test_account_is_locked_after_failures(self):
+        user = self.user()
+        for number in range(10):
+            self.assertEqual(self._login_from(number, 'falsch').status_code, 200)
+        locked = self._login_from(50, PASSWORD)
+        self.assertEqual(locked.status_code, 200)
+        self.assertIn('Zu viele Fehlversuche'.encode(), locked.data)
+        # Ein anderes Konto ist nicht betroffen
+        self.login(self.user('other@example.org'))
+        # Der Reset-Link hebt die Sperre auf
+        with app.app_context():
+            token = user.generate_token()
+        app.test_client().post(f'/reset-password/{token}', data={
+            'password': NEW_PASSWORD, 'password_repeat': NEW_PASSWORD})
+        self.assertEqual(self._login_from(51, NEW_PASSWORD).status_code, 302)
+
+    def test_lock_expires(self):
+        self.user()
+        with mock.patch('time.time', return_value=1_000_000):
+            for number in range(10):
+                self._login_from(number, 'falsch')
+            self.assertEqual(self._login_from(50, PASSWORD).status_code, 200)
+        with mock.patch('time.time', return_value=1_000_000 + 16 * 60):
+            self.assertEqual(self._login_from(51, PASSWORD).status_code, 302)
+
     def test_login_works_without_redis(self):
         with mock.patch.multiple(limiter, _storage=mock.MagicMock(),
                                  _limiter=mock.MagicMock(**{'hit.side_effect': ConnectionError})):

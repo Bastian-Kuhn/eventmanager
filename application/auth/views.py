@@ -9,6 +9,7 @@ from flask import request, render_template, current_app, \
      flash, redirect, session, Blueprint, url_for
 from flask_login import current_user, login_user, logout_user, login_required
 from authlib.jose import jwt, JoseError
+from limits import parse
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from application import limiter, login_manager
@@ -29,6 +30,10 @@ AUTH = Blueprint('auth', __name__)
 # Pro IP. Gilt auch fuer das Login-Formular auf der Eventseite.
 LOGIN_LIMIT = "10/minute;60/hour"
 PASSWORD_LIMIT = "10/minute"
+# Pro E-Mail-Adresse, egal von welcher IP: danach ist das Konto voruebergehend
+# gesperrt. Zeitlich begrenzt, damit niemand ein fremdes Konto dauerhaft sperrt.
+ACCOUNT_LOCK = parse("10 per 15 minutes")
+ACCOUNT_LOCK_KEY = "login-fail"
 
 # Unbekannte E-Mail kostet so viel Zeit wie ein falsches Passwort
 _DUMMY_HASH = generate_password_hash("kein-echtes-passwort")
@@ -53,9 +58,27 @@ def refresh_login(user):
     login_user(user, remember='remember_token' in request.cookies)
 
 
+def _account_lock(action, email):
+    """
+    Fehlversuche pro E-Mail-Adresse im Speicher des Limiters. Ohne Limiter oder
+    Redis gibt es keine Sperre, der Login selbst soll daran nicht scheitern.
+    """
+    if not limiter.enabled:
+        return True
+    try:
+        return getattr(limiter.limiter, action)(ACCOUNT_LOCK, ACCOUNT_LOCK_KEY, email)
+    except Exception:  # pylint: disable=broad-except
+        return True
+
+
 def do_login(login_form, context):
     email = login_form.login_email.data.lower()
     password = login_form.password.data
+    # Gilt auch fuer unbekannte Adressen, sonst verraet die Sperre, wer ein Konto hat
+    if not _account_lock('test', email):
+        flash("Zu viele Fehlversuche. Bitte versuche es in 15 Minuten noch einmal "
+              "oder setze dein Passwort zurück.", 'danger')
+        return False
     user_result = User.objects(email=email, disabled__ne=True)
     remember_login = login_form.remember_login.data
     if user_result:
@@ -65,6 +88,7 @@ def do_login(login_form, context):
         existing_user = False
 
     if not (existing_user and existing_user.check_password(password)):
+        _account_lock('hit', email)
         flash("E-Mail oder Passwort ist falsch", 'danger')
         return False
 
@@ -217,6 +241,7 @@ def reset_password(token):
         # Der Link kam per Mail, das Postfach ist damit bestaetigt
         existing_user.email_unconfirmed = False
         existing_user.save()
+        _account_lock('clear', existing_user.email)
         login_user(
             existing_user,
             duration=timedelta(
