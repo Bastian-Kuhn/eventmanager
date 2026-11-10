@@ -132,6 +132,54 @@ class RegistrationTest(AppTestCase):
         self.assertEqual(User.objects(email='taken@example.org').count(), 1)
 
 
+class EmailConfirmTest(AppTestCase):
+    """Selbstregistrierung erst nach Bestaetigung der E-Mail-Adresse nutzbar"""
+
+    def _register(self, **data):
+        Config.objects(enabled=True).first() or Config(enabled=True, mail_sender='a@example.org').save()
+        with mock.patch('application.modules.email.Thread') as thread:
+            app.test_client().post('/user/create', data={**REGISTRATION, **data})
+        message = thread.call_args.kwargs['args'][1]
+        return re.search(r'/user/confirm/[^\s<]+', message.html).group(0)
+
+    def _login_works(self, password=PASSWORD):
+        response = app.test_client().post('/login', data={
+            'login_email': 'eve@example.org', 'password': password, 'login_submit': 'Anmelden'})
+        return response.status_code == 302
+
+    def test_login_only_after_confirmation(self):
+        link = self._register()
+        self.assertFalse(self._login_works())
+        self.assertEqual(app.test_client().get(link).status_code, 200)
+        self.assertFalse(self._login_works())
+        app.test_client().post(link, data={'password': 'falsch', 'submit': 'x'})
+        self.assertFalse(self._login_works())
+        app.test_client().post(link, data={'password': PASSWORD, 'submit': 'x'})
+        self.assertTrue(self._login_works())
+
+    def test_new_registration_replaces_unconfirmed_account(self):
+        first_link = self._register(first_name='Mallory')
+        self._register(password=NEW_PASSWORD, password_repeat=NEW_PASSWORD)
+        self.assertEqual(User.objects(email='eve@example.org').count(), 1)
+        self.assertEqual(User.objects.get(email='eve@example.org').first_name, 'Eve')
+        app.test_client().post(first_link, data={'password': PASSWORD, 'submit': 'x'})
+        self.assertFalse(self._login_works())
+
+    def test_password_reset_confirms(self):
+        self._register()
+        user = User.objects.get(email='eve@example.org')
+        with app.test_request_context():
+            token = user.generate_token()
+        app.test_client().post(f'/reset-password/{token}', data={
+            'password': NEW_PASSWORD, 'password_repeat': NEW_PASSWORD, 'submit': 'x'})
+        self.assertTrue(self._login_works(NEW_PASSWORD))
+
+    def test_existing_accounts_keep_working(self):
+        self.user('eve@example.org')
+        User.objects(email='eve@example.org').update_one(unset__email_unconfirmed=True)
+        self.assertTrue(self._login_works())
+
+
 class RateLimitTest(AppTestCase):
     """Der Limiter muss wirklich aktiv sein"""
 

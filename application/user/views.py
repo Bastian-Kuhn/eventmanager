@@ -6,16 +6,20 @@ from datetime import datetime
 from application import limiter
 from application.models.user import User
 from application.events.models import Event, with_event_lock
-from application.auth.views import PASSWORD_LIMIT, refresh_login
+from application.auth.views import PASSWORD_LIMIT, refresh_login, read_reset_token
+from application.modules.email import send_email
 
 from flask import request, render_template, current_app, \
      flash, redirect, session, Blueprint, url_for
 from flask_login import current_user, login_required
 from mongoengine.errors import NotUniqueError
-from .forms import NewUserForm, ConsentForm, ChangePasswordForm
+from .forms import NewUserForm, ConsentForm, ChangePasswordForm, ConfirmEmailForm
 
 
 USER = Blueprint('USER', __name__)
+
+# Gueltigkeit des Bestaetigungslinks nach der Registrierung
+CONFIRM_TOKEN_SECONDS = 3 * 24 * 3600
 
 
 @USER.route('/user/profile')
@@ -147,30 +151,36 @@ def page_user_create():
 
     form = NewUserForm(request.form)
     if form.validate_on_submit():
-        # Nur diese Felder: Rolle, Rechte oder die id darf niemand selbst setzen
-        new_user = User(
-            email=form.email.data.lower(),
-            first_name=form.first_name.data,
-            last_name=form.last_name.data,
-            phone=form.phone.data,
-            birthdate=form.birthdate.data,
-            club_id=form.club_id.data,
-            media_optin=form.media_optin.data,
-            data_optin=form.data_optin.data,
-            date_added=datetime.now(),
-        )
-        if new_user.media_optin:
-            new_user.media_optin_date = datetime.now()
-        new_user.set_password(form.password.data)
+        email = form.email.data.lower()
+        user = User.objects(email=email).first()
+        # Ein noch unbestaetigtes Konto gehoert nicht sicher dem Absender der
+        # ersten Registrierung: eine neue Registrierung ersetzt seine Daten
+        if not user or user.email_unconfirmed:
+            if not user:
+                user = User(email=email, date_added=datetime.now())
+            # Nur diese Felder: Rolle, Rechte oder die id darf niemand selbst setzen
+            user.first_name = form.first_name.data
+            user.last_name = form.last_name.data
+            user.phone = form.phone.data
+            user.birthdate = form.birthdate.data
+            user.club_id = form.club_id.data
+            user.media_optin = form.media_optin.data
+            user.media_optin_date = datetime.now() if user.media_optin else None
+            user.data_optin = form.data_optin.data
+            user.email_unconfirmed = True
+            user.set_password(form.password.data)
+            try:
+                user.save()
+            except NotUniqueError:
+                user = None
+            if user:
+                send_email(user.email, "E-Mail-Adresse bestätigen", 'email/confirm_email',
+                           user=user, token=user.generate_token(CONFIRM_TOKEN_SECONDS))
         # Gleiche Antwort auch bei vergebener Adresse, sonst laesst sich
         # abfragen, wer ein Konto hat
-        try:
-            if not User.objects(email=new_user.email).first():
-                new_user.save()
-        except NotUniqueError:
-            pass
-        flash("Registrierung abgeschlossen. Falls du schon ein Konto hast, "
-              "setze dein Passwort über „Passwort vergessen“ zurück.", 'info')
+        flash("Wir haben dir einen Link zur Bestätigung deiner E-Mail-Adresse geschickt. "
+              "Falls du schon ein Konto hast, setze dein Passwort über "
+              "„Passwort vergessen“ zurück.", 'info')
         return redirect(url_for('auth.login'))
 
     if form.errors:
@@ -181,3 +191,36 @@ def page_user_create():
     }
 
     return render_template('user_create.html', **context)
+
+
+@USER.route('/user/confirm/<token>', methods=['POST', 'GET'])
+@limiter.limit(PASSWORD_LIMIT, methods=['POST'])
+def page_user_confirm(token):
+    """
+    E-Mail-Adresse bestaetigen. Neben dem Link aus der Mail braucht es das
+    Passwort aus der Registrierung: wer nur das Postfach hat, nutzt
+    "Passwort vergessen". Ein Link-Scanner im Postfach bestaetigt so nichts.
+    """
+    invalid_link = "Der Link ist ungültig oder abgelaufen"
+    try:
+        claims = read_reset_token(token)
+    except ValueError:
+        flash(invalid_link, 'danger')
+        return redirect(url_for('auth.login'))
+    user = User.objects(id=claims.get('userid'), disabled__ne=True).first()
+    if not user or claims.get('pwd') != user.password_fingerprint():
+        flash(invalid_link, 'danger')
+        return redirect(url_for('auth.login'))
+    if not user.email_unconfirmed:
+        flash("Deine E-Mail-Adresse ist schon bestätigt", 'info')
+        return redirect(url_for('auth.login'))
+
+    form = ConfirmEmailForm(request.form)
+    if form.validate_on_submit():
+        if user.check_password(form.password.data):
+            user.email_unconfirmed = False
+            user.save()
+            flash("E-Mail-Adresse bestätigt. Du kannst dich jetzt anmelden.", 'success')
+            return redirect(url_for('auth.login'))
+        flash("Passwort ist falsch", 'danger')
+    return render_template('formular.html', form=form, title="E-Mail-Adresse bestätigen")

@@ -42,3 +42,11 @@ class NewUserForm(FlaskForm):
     password  = PasswordField("Neues Passwort", validators=[InputRequired(),validate_password, EqualTo('password_repeat')])
     password_repeat = PasswordField("Password widerholen", validators=[InputRequired()])
     submit = SubmitField("Registrieren")
+
+
+class ConfirmEmailForm(FlaskForm):
+    """
+    E-Mail-Adresse nach der Registrierung bestaetigen
+    """
+    password = PasswordField("Passwort aus der Registrierung", validators=[InputRequired()])
+    submit = SubmitField("E-Mail-Adresse bestätigen")

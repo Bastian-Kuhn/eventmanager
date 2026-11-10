@@ -68,6 +68,11 @@ def do_login(login_form, context):
         flash("E-Mail oder Passwort ist falsch", 'danger')
         return False
 
+    if existing_user.email_unconfirmed:
+        flash("Bitte bestätige zuerst deine E-Mail-Adresse über den Link, "
+              "den wir dir nach der Registrierung geschickt haben.", 'danger')
+        return False
+
     login_user(
         existing_user,
         remember=remember_login,
@@ -209,6 +214,8 @@ def reset_password(token):
         existing_user.set_password(password)
         existing_user.last_login = datetime.now()
         existing_user.force_password_change = False
+        # Der Link kam per Mail, das Postfach ist damit bestaetigt
+        existing_user.email_unconfirmed = False
         existing_user.save()
         login_user(
             existing_user,

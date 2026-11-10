@@ -51,6 +51,9 @@ class User(db.Document, UserMixin):
     admin = db.BooleanField(default=False)
 
     disabled = db.BooleanField(default=False)
+    # Nur bei Selbstregistrierung gesetzt, bis der Link aus der Mail genutzt
+    # wurde. Fehlt bei Altkonten und bei Konten aus dem Admin: gilt als bestaetigt.
+    email_unconfirmed = db.BooleanField(default=False)
 
     date_added = db.DateTimeField()
     date_changed = db.DateTimeField(default=datetime.now)
