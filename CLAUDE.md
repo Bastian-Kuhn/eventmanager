@@ -13,11 +13,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Projekt-Notizen
 
-- Stack wie `../cmdbsyncer`: Flask + MongoEngine + Flask-Admin, uWSGI in prod, `./helper` wrapt docker compose.
+- Stack wie `../cmdbsyncer`: Flask + MongoEngine + Flask-Admin, gunicorn in prod (`configs/gunicorn.conf.py`), `./helper` wrapt docker compose.
 - Deploy: `git push deploy main`. Der Hook auf dem Server baut und startet die Instanzen `dav` und `tsv1860`. Ein Push auf `origin` deployt nichts. Danach die Build-Nummer im Footer gegen `git rev-list --count HEAD` prüfen.
 - UI-Sprache ist Deutsch — neue Strings auf Deutsch halten.
 - Erster Admin: `./helper create_user <email>` (druckt das generierte Passwort).
-- Config-Auswahl per `config` env var (`compose` setzen die docker-compose Files). Ohne uWSGI läuft die App standalone mit `BaseConfig`.
+- Config-Auswahl per `config` env var (`compose` setzen die docker-compose Files). Ohne `config` läuft die App mit `BaseConfig`.
 - Laufzeit-SMTP/Logo/Nav-Farbe kommen aus dem `Config`-Singleton-Doc (`enabled=True`); `@app.before_request` kopiert das in `app.config`. Ohne so ein Doc sendet `send_email()` stillschweigend nichts.
 - Event-Daten sind stark denormalisiert: `Event.tickets` sind Ticket-*Definitionen*, gebuchte Tickets liegen als `OwnedTicket` eingebettet in `EventParticipation` in `Event.participations`. `User.event_registrations` ist eine manuell gepflegte Rückreferenz — beim Hinzufügen/Entfernen von Tickets beide Seiten konsistent halten. Helper auf `Event` (`get_booked_ticket`, `delete_ticket`, `get_ticket_stats`, …) statt eigener Traversal nutzen.
 - Rechte immer mit `current_user.has_right('guide')` prüfen (deckt `attendant` und global admins mit ab), nicht direkt `role ==`.
