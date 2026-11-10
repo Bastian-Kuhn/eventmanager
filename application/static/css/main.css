@@ -157,10 +157,8 @@
     z-index: 2;
     background: var(--plist-head-bg);
     color: var(--plist-muted);
-    font-size: .75rem;
+    font-size: .8125rem;
     font-weight: 600;
-    letter-spacing: .03em;
-    text-transform: uppercase;
     vertical-align: bottom;
     border-bottom: 1px solid #d6dade;
 }
