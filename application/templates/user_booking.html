@@ -272,7 +272,8 @@
       <label for="new_birthdate" class="mt-2">Geburtsdatum</label>
       <input id="new_birthdate" name="new_birthdate" class="form-control" type="date" placeholder="Geburtsdatum" autocomplete="new-password">
       <label for="new_comment" class="mt-2">Kommentar</label>
-      <textarea id="new_comment" name="new_comment" class="form-control" placeholder="Kommentar" autocomplete="off"></textarea>
+      <textarea id="new_comment" name="new_comment" class="form-control" placeholder="Kommentar" autocomplete="off" maxlength="{{ comment_max }}" aria-describedby="new_comment_hint"></textarea>
+      <small id="new_comment_hint" class="form-text text-muted">Höchstens {{ comment_max }} Zeichen.</small>
       <input id="ticket_id" name="ticket_id" type="hidden">
       <input id="event_id" name="event_id" type="hidden" value="{{event.id}}">
       <input id="target_user_id" name="target_user_id" type="hidden" value="{{target_user.id}}">
@@ -320,7 +321,8 @@
         <label for="add_new_birthdate" class="mt-2">Geburtsdatum</label>
         <input id="add_new_birthdate" name="new_birthdate" class="form-control" type="date" placeholder="Geburtsdatum" autocomplete="new-password">
         <label for="add_new_comment" class="mt-2">Kommentar</label>
-        <textarea id="add_new_comment" name="new_comment" class="form-control" placeholder="Kommentar" autocomplete="off"></textarea>
+        <textarea id="add_new_comment" name="new_comment" class="form-control" placeholder="Kommentar" autocomplete="off" maxlength="{{ comment_max }}" aria-describedby="add_new_comment_hint"></textarea>
+        <small id="add_new_comment_hint" class="form-text text-muted">Höchstens {{ comment_max }} Zeichen.</small>
         <input id="add_event_id" name="event_id" type="hidden" value="{{event.id}}">
         <input id="add_user_id" name="user_id" type="hidden" value="{{target_user.id}}">
       </div>
@@ -526,6 +528,9 @@
                     $('#user_age'+id).text(data.new_birthdate);
                 });
                 modal.modal('hide');
+            }).fail(function(xhr) {
+                var res = xhr.responseJSON || {};
+                alert('Fehler beim Speichern: ' + (res.error || 'Bitte versuchen Sie es erneut.'));
             });
         });
 

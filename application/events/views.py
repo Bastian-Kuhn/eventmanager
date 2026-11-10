@@ -44,7 +44,7 @@ from application.models.user import roles
 from application.auth.forms import LoginForm
 from application import limiter
 from application.auth.views import do_login, LOGIN_LIMIT
-from application.events.forms import EventForm, EventRegisterForm, EventSearchForm
+from application.events.forms import EventForm, EventRegisterForm, EventSearchForm, COMMENT_MAX
 from application.models.config import Config
 from application.models.user import User
 from application.events.models import OwnedTicket, new_booking_ref
@@ -296,6 +296,10 @@ def ajax_mybooking():
         ticket = event.get_booked_ticket(ticket_id, current_user)
     
     if ticket:
+        # Aeltere lange Kommentare duerfen unveraendert mitgespeichert werden
+        if len(new_comment) > COMMENT_MAX and new_comment != ticket.comment_on_ticket:
+            return {'msg': 'error',
+                    'error': f'Der Kommentar darf höchstens {COMMENT_MAX} Zeichen lang sein'}, 400
         ticket.name_on_ticket = new_name
         ticket.phone_on_ticket = new_phone
         ticket.email_on_ticket = new_email
@@ -325,8 +329,10 @@ def ajax_add_ticket():
     new_phone = request.form['new_phone']
     new_birthdate = request.form['new_birthdate']
     new_comment = request.form['new_comment']
-    
-    
+    if len(new_comment) > COMMENT_MAX:
+        return {'success': False,
+                'message': f'Der Kommentar darf höchstens {COMMENT_MAX} Zeichen lang sein'}, 400
+
     try:
         event = Event.objects.get(id=event_id)
         target_user = User.objects.get(id=user_id)
@@ -479,6 +485,7 @@ def page_mybooking():
         'open_cost': open_cost,
         'target_user': target_user,
         'is_viewing_other_user': target_user != current_user,
+        'comment_max': COMMENT_MAX,
     }
 
 

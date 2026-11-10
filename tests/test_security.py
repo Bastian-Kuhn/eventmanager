@@ -17,6 +17,7 @@ from limits.strategies import FixedWindowRateLimiter
 
 from application import app, limiter
 from application.events.models import Event, EventCost, EventParticipation, OwnedTicket, Ticket
+from application.events.forms import COMMENT_MAX
 from application.events.views import difficult_to_icon
 from application.huts.models import Hut, HutBooking, HutRoom
 from application.huts.views import MAX_NIGHTS, MAX_OPEN_BOOKINGS
@@ -1023,6 +1024,64 @@ class BookingLogicTest(AppTestCase):
         self.assertEqual(event.event_name, 'Neu')
         self.assertEqual(len(event.participations), 1)
         self.assertEqual(list(event.hidden_categories), [])
+
+
+class CommentLengthTest(AppTestCase):
+    """Kommentare landen in jedem Ticket im Event-Dokument und sind begrenzt"""
+
+    def _book(self, client, event, comment):
+        return client.post(f'/event/details?event_id={event.id}', data={
+            'comment': comment, 'ticket_Teilnahme': '1', 'submit': 'Anmelden'})
+
+    def test_booking_rejects_long_comment(self):
+        event = self.event()
+        client = self.login(self.user())
+        response = self._book(client, event, 'x' * (COMMENT_MAX + 1))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(f'Höchstens {COMMENT_MAX} Zeichen', response.get_data(as_text=True))
+        self.assertEqual(Event.objects.get(id=event.id).participations, [])
+        self.assertEqual(self._book(client, event, 'x' * COMMENT_MAX).status_code, 302)
+        self.assertEqual(len(Event.objects.get(id=event.id).participations), 1)
+
+    def test_change_ticket_rejects_long_comment(self):
+        user = self.user()
+        event = self.event()
+        self.booking(user, event, comment_on_ticket='kurz')
+        data = {'event_id': str(event.id), 'ticket_id': 't1', 'new_name': 'Vor Nach',
+                'new_email': user.email, 'new_phone': '1', 'new_birthdate': ''}
+        client = self.login(user)
+        response = client.post('/user/change_ticket',
+                               data={**data, 'new_comment': 'x' * (COMMENT_MAX + 1)})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(Event.objects.get(id=event.id).participations[0].tickets[0]
+                         .comment_on_ticket, 'kurz')
+
+    def test_existing_long_comment_stays_editable(self):
+        user = self.user()
+        event = self.event()
+        old = 'x' * (COMMENT_MAX + 50)
+        self.booking(user, event, comment_on_ticket=old)
+        client = self.login(user)
+        page = client.get(f'/user/booking?event_id={event.id}')
+        self.assertIn(old, page.get_data(as_text=True))
+        self.assertIn(f'maxlength="{COMMENT_MAX}"', page.get_data(as_text=True))
+        response = client.post('/user/change_ticket', data={
+            'event_id': str(event.id), 'ticket_id': 't1', 'new_name': 'Neu Name',
+            'new_email': user.email, 'new_phone': '1', 'new_birthdate': '', 'new_comment': old})
+        self.assertEqual(response.status_code, 200)
+        ticket = Event.objects.get(id=event.id).participations[0].tickets[0]
+        self.assertEqual((ticket.name_on_ticket, ticket.comment_on_ticket), ('Neu Name', old))
+
+    def test_guide_add_ticket_rejects_long_comment(self):
+        user = self.user()
+        event = self.event()
+        client = self.login(self.user('guide@example.org', role='guide'))
+        response = client.post('/user/add_ticket', data={
+            'event_id': str(event.id), 'user_id': str(user.id), 'ticket_type': 'Teilnahme',
+            'new_name': '', 'new_email': '', 'new_phone': '', 'new_birthdate': '',
+            'new_comment': 'x' * (COMMENT_MAX + 1)})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(Event.objects.get(id=event.id).participations, [])
 
 
 class SecretKeyTest(unittest.TestCase):

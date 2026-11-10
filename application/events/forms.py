@@ -3,7 +3,7 @@ from wtforms import StringField, PasswordField, RadioField, SubmitField, Boolean
                     TextAreaField, DateField, DateTimeLocalField, SelectField, FieldList, FormField, \
                     IntegerField, FloatField
 from wtforms.widgets import TextArea
-from wtforms.validators import InputRequired, Email, EqualTo, ValidationError, Optional
+from wtforms.validators import InputRequired, Email, EqualTo, ValidationError, Optional, Length
 from flask import current_app
 from application.events.models import difficulties, Ticket, CustomField, event_types
 from application import app
@@ -92,13 +92,20 @@ class EventForm(FlaskForm):
             raise ValidationError("Mindestens ein Ticket darf kein Zusatzticket sein.")
 
 
+# Kommentare liegen in jedem gebuchten Ticket im Event-Dokument, das
+# MongoDB auf 16 MB begrenzt
+COMMENT_MAX = 1000
+
+
 class EventRegisterForm(FlaskForm):
     """
     Event Register Formular
     """
     class Meta:
         csrf = False
-    comment = TextAreaField("Kommentar", validators=[Optional()])
+    comment = TextAreaField("Kommentar", validators=[Optional(), Length(max=COMMENT_MAX)],
+                            render_kw={'maxlength': COMMENT_MAX,
+                                       'aria-describedby': 'comment_hint'})
     #custom_fields = FieldList(FormField(EventCustomField), min_entries=1)
     #tickets = FieldList(FormField(TicketForm), min_entries=1)
     submit = SubmitField("Anmelden")

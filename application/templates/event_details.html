@@ -137,6 +137,7 @@
             <fieldset class="form-group">
              <legend>Kommentare:</legend>
                 {{ wtf.form_field(regform.comment) }}
+                <small id="comment_hint" class="form-text text-muted">Höchstens {{ regform.comment.flags.maxlength }} Zeichen.</small>
             </fieldset>
             {% if event_custom_fields %}
             <hr>
