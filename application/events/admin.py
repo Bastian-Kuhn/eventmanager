@@ -14,7 +14,9 @@ class EventView(CustomModelView):
     Extended Admin View for Users
     """
     column_sortable_list = ("start_date", "event_name")
-    column_exclude_list = ('event_description', 'difficulty', 'length_h', 'length_km', 'tour_link', 'altitude_difference')
+    column_exclude_list = ('event_description', 'difficulty', 'length_h', 'length_km', 'tour_link',
+                           'altitude_difference', 'section')
+    form_excluded_columns = ('section',)
     page_size = 100
     can_set_page_size = True
     column_filters = (

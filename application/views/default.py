@@ -4,7 +4,8 @@ Models for flask_admin
 #pylint: disable=no-member
 from flask_admin import AdminIndexView
 from flask_admin.contrib.mongoengine import ModelView
-from flask_admin.contrib.mongoengine.form import CustomModelConverter
+from flask_admin.contrib.mongoengine.form import CustomModelConverter, ModelSelectField, \
+    ModelSelectMultipleField
 from mongoengine import ReferenceField
 
 from flask_login import current_user
@@ -25,6 +26,34 @@ class IndexView(AdminIndexView):
     def inaccessible_callback(self, name, **kwargs):
         return redirect(url_for('auth.login', next='/admin'))
 
+def _is_user(document_type):
+    return getattr(document_type, '__name__', document_type) == 'User'
+
+
+def _section_members():
+    from application.models.user import section_members  # pylint: disable=import-outside-toplevel
+    return section_members()
+
+
+class MemberSelectField(ModelSelectField):
+    """
+    Auswahl eines Kontos nur aus den Mitgliedern der Sektion. Das Feld
+    entsteht pro Formular, also im Request, auch in eingebetteten Formularen.
+    """
+
+    def __init__(self, label="", validators=None, model=None, **kwargs):
+        kwargs['queryset'] = _section_members()
+        super().__init__(label, validators, model=model, **kwargs)
+
+
+class MemberSelectMultipleField(ModelSelectMultipleField):
+    """Mehrfachauswahl wie MemberSelectField"""
+
+    def __init__(self, label="", validators=None, model=None, **kwargs):
+        kwargs['queryset'] = _section_members()
+        super().__init__(label, validators, model=model, **kwargs)
+
+
 class OptionalListConverter(CustomModelConverter):
     """
     Flask-Admin baut fuer ListField(ReferenceField) ein Multi-Select ohne
@@ -36,7 +65,16 @@ class OptionalListConverter(CustomModelConverter):
     def conv_List(self, model, field, kwargs):
         if isinstance(field.field, ReferenceField) and not field.required:
             kwargs.setdefault('allow_blank', True)
+        if isinstance(field.field, ReferenceField) and _is_user(field.field.document_type) \
+                and field.name not in getattr(self.view, '_form_ajax_refs', {}):
+            return MemberSelectMultipleField(model=field.field.document_type, **kwargs)
         return super().conv_List(model, field, kwargs)
+
+    def conv_Reference(self, model, field, kwargs):
+        if _is_user(field.document_type) and field.name not in getattr(self.view, '_form_ajax_refs', {}):
+            kwargs["allow_blank"] = not field.required
+            return MemberSelectField(model=field.document_type, **kwargs)
+        return super().conv_Reference(model, field, kwargs)
 
 
 class CustomModelView(ModelView):

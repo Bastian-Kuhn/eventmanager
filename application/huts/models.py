@@ -11,6 +11,8 @@ Gesamtkapazität einer Hütte ergibt sich aus der Summe der Zimmerplätze (total
 #pylint: disable=too-few-public-methods, no-member
 from datetime import datetime, timedelta
 from application import db, app
+from application.models.section import SectionQuerySetManager, SectionScoped
+from mongoengine.queryset import QuerySetManager
 
 
 def hut_lock(hut_id):
@@ -32,7 +34,7 @@ class HutRoom(db.EmbeddedDocument):
     meta = {'strict': False}
 
 
-class Hut(db.Document):
+class Hut(SectionScoped, db.Document):
     """
     Eine Hütte der Sektion.
     """
@@ -54,7 +56,13 @@ class Hut(db.Document):
 
     rooms = db.ListField(field=db.EmbeddedDocumentField(document_type=HutRoom))
 
-    meta = {'strict': False}
+    # Sektion, der der Datensatz gehoert. objects filtert im Request darauf,
+    # all_objects nicht (siehe models/section.py)
+    section = db.ReferenceField(document_type='Section')
+    objects = SectionQuerySetManager()
+    all_objects = QuerySetManager()
+
+    meta = {'strict': False, 'indexes': ['section']}
 
     def total_places(self):
         """Gesamtkapazität = Summe der Zimmerplätze."""
@@ -102,7 +110,7 @@ class Hut(db.Document):
         return self.name
 
 
-class HutBooking(db.Document):
+class HutBooking(SectionScoped, db.Document):
     """
     Belegung/Reservierung einer Hütte für einen Zeitraum. `to_date` ist der
     Abreisetag (nicht mehr belegt), Zeiträume gelten also halb-offen.
@@ -122,9 +130,15 @@ class HutBooking(db.Document):
     blocked = db.BooleanField(default=False)  # Admin-Sperre (Hütte im Zeitraum nicht buchbar)
     created = db.DateTimeField(default=datetime.now)
 
+    # Sektion, der der Datensatz gehoert. objects filtert im Request darauf,
+    # all_objects nicht (siehe models/section.py)
+    section = db.ReferenceField(document_type='Section')
+    objects = SectionQuerySetManager()
+    all_objects = QuerySetManager()
+
     meta = {
         'strict': False,
-        'indexes': ['hut', 'event', ('hut', 'from_date')],
+        'indexes': ['hut', 'event', ('hut', 'from_date'), 'section'],
     }
 
     def __str__(self):

@@ -5,6 +5,7 @@ Adresse, Design und Mailversand. Welche Sektion gilt, steht in g.section
 """
 from flask import g, has_request_context, request
 from mongoengine.errors import DoesNotExist
+from mongoengine.queryset import QuerySetManager
 from application import db
 from application.models.config import Config
 
@@ -93,3 +94,55 @@ def current_section():
         raise DoesNotExist('Keine Sektion fuer diese Adresse')
     return g.section
 
+
+
+def section_or_none():
+    """Wie current_section, aber None statt 404 (Fehlerseiten, Context-Processors)"""
+    try:
+        return current_section()
+    except DoesNotExist:
+        return None
+
+
+def ref_id(value):
+    """id eines Verweises als String, egal ob Document, DBRef, ObjectId oder None"""
+    if value is None:
+        return None
+    return str(getattr(value, 'id', value))
+
+
+def in_current_section(document):
+    """Gehoert der Datensatz zur Sektion des Requests? Fuer direkt geladene Verweise."""
+    section = section_or_none()
+    return ref_id(document._data.get('section')) == ref_id(section.pk if section else None)  # pylint: disable=protected-access
+
+
+class SectionQuerySetManager(QuerySetManager):  # pylint: disable=too-few-public-methods
+    """
+    `objects` fuer Daten einer Sektion: im Request nur die der aktuellen
+    Sektion. Ohne gespeicherte Section (vor der Migration) filtert er auf
+    section=None, das trifft alle Altdaten. Ausserhalb eines Requests (Jobs,
+    Tests) ungefiltert. Fuer bewusst sektionsuebergreifende Abfragen gibt es
+    `all_objects`.
+    """
+
+    def __get__(self, instance, owner):
+        queryset = super().__get__(instance, owner)
+        if not has_request_context():
+            return queryset
+        section = section_or_none()
+        return queryset.filter(section=section.pk if section is not None else None)
+
+
+class SectionScoped:  # pylint: disable=too-few-public-methods
+    """
+    Mixin fuer Documents mit Feld `section`: neue Datensaetze bekommen beim
+    Speichern die Sektion des Requests.
+    """
+
+    def clean(self):
+        if self.section is None and has_request_context():
+            section = section_or_none()
+            if section is not None and section.pk is not None:
+                self.section = section
+        super().clean()

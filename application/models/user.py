@@ -15,6 +15,7 @@ from mongoengine.queryset.visitor import Q
 from application import db
 from application.modules import tfa
 from application.events.models import Event
+from application.models.section import current_section, ref_id, section_or_none
 
 roles = [
   ('no_member', "Kein Vereinsmitglied"),
@@ -28,6 +29,23 @@ roles = [
 TFA_FIELDS = ('tfa_secret', 'tfa_pending_secret', 'tfa_recovery_codes', 'tfa_last_step')
 
 
+# Gilt pro Sektion, siehe Membership
+SECTION_FIELDS = ('role', 'admin', 'club_id')
+
+
+class Membership(db.EmbeddedDocument):
+    """Rolle, Vereinsadmin und Mitgliedsnummer eines Kontos in einer Sektion"""
+    section = db.ReferenceField(document_type='Section', required=True)
+    role = db.StringField(choices=roles)
+    admin = db.BooleanField(default=False)
+    club_id = db.StringField()
+
+
+def _saved(section):
+    """Gespeicherte Section, sonst None (vor der Migration gibt es nur Altfelder)"""
+    return section if section is not None and getattr(section, 'pk', None) is not None else None
+
+
 class User(db.Document, UserMixin):
     """
     User for login
@@ -37,14 +55,18 @@ class User(db.Document, UserMixin):
     first_name = db.StringField()
     last_name = db.StringField()
 
-    role = db.StringField(choices=roles)
+    # Ein Konto gilt in allen Sektionen, Rolle und Vereinsadmin je Sektion
+    memberships = db.ListField(field=db.EmbeddedDocumentField(document_type=Membership))
+    # Stand vor den Sektionen, nur noch gelesen solange es keine Section gibt.
+    # Die Migration uebernimmt sie in memberships und laesst sie stehen.
+    legacy_role = db.StringField(choices=roles, db_field='role')
 
     profile_img = db.ImageField(field="profile_img", collection='logos')
 
     birthdate = db.DateField()
     phone = db.StringField()
 
-    club_id = db.StringField()
+    legacy_club_id = db.StringField(db_field='club_id')
 
     media_optin = db.BooleanField()
     media_optin_date = db.DateTimeField()  # Zeitpunkt der Foto/Video-Einwilligung (Nachweis)
@@ -56,7 +78,7 @@ class User(db.Document, UserMixin):
     pwdhash = db.StringField()
 
     global_admin = db.BooleanField(default=False)
-    admin = db.BooleanField(default=False)
+    legacy_admin = db.BooleanField(default=False, db_field='admin')
 
     disabled = db.BooleanField(default=False)
     # Nur bei Selbstregistrierung gesetzt, bis der Link aus der Mail genutzt
@@ -79,10 +101,73 @@ class User(db.Document, UserMixin):
     tfa_last_step = db.IntField()
 
     meta = {'indexes': [
-        'email'
+        'email',
+        'memberships.section',
         ],
     'strict': False,
     }
+
+    def __init__(self, *args, **kwargs):
+        # role, admin und club_id sind keine Felder mehr, sondern gelten fuer
+        # die Sektion des Requests (siehe membership)
+        section_values = {key: kwargs.pop(key) for key in SECTION_FIELDS if key in kwargs}
+        super().__init__(*args, **kwargs)
+        for key, value in section_values.items():
+            setattr(self, key, value)
+
+    def membership(self, section=None, create=False):
+        """
+        Mitgliedschaft in section (Default: Sektion des Requests). None ohne
+        Mitgliedschaft und vor der Migration (dann gelten die Altfelder).
+        """
+        section = _saved(section if section is not None else section_or_none())
+        if section is None:
+            return None
+        wanted = ref_id(section)
+        for entry in self.memberships:
+            if ref_id(entry._data.get('section')) == wanted:  # pylint: disable=protected-access
+                return entry
+        if not create:
+            return None
+        entry = Membership(section=section)
+        self.memberships.append(entry)
+        return entry
+
+    def _section_value(self, key, section=None):
+        if _saved(section if section is not None else section_or_none()) is None:
+            return getattr(self, 'legacy_' + key)
+        entry = self.membership(section)
+        return getattr(entry, key) if entry else Membership._fields[key].default  # pylint: disable=protected-access
+
+    def _set_section_value(self, key, value):
+        entry = self.membership(create=True)
+        if entry is None:
+            setattr(self, 'legacy_' + key, value)
+        else:
+            setattr(entry, key, value)
+
+    role = property(lambda self: self._section_value('role'),
+                    lambda self, value: self._set_section_value('role', value))
+    admin = property(lambda self: self._section_value('admin'),
+                     lambda self, value: self._set_section_value('admin', value))
+    club_id = property(lambda self: self._section_value('club_id'),
+                       lambda self, value: self._set_section_value('club_id', value))
+
+    def role_in(self, section):
+        """Rolle in einer bestimmten Sektion, z.B. der eines Events"""
+        return self._section_value('role', section)
+
+    def join_section(self, section=None):
+        """
+        Mitgliedschaft (ohne Rolle) in der Sektion anlegen, falls es keine gibt.
+        Atomar, damit parallele Logins keine doppelten Eintraege erzeugen.
+        """
+        section = _saved(section if section is not None else section_or_none())
+        if section is None or self.membership(section):
+            return
+        User.objects(id=self.id, memberships__section__ne=section.pk) \
+            .update_one(push__memberships=Membership(section=section))
+        self.reload('memberships')
 
 
     def add_event(self, event):
@@ -132,6 +217,13 @@ class User(db.Document, UserMixin):
         # Ohne Dereferenzieren: die Liste kann DBRefs, ObjectIds oder Users enthalten
         owners = event._data.get('event_owners') or []  # pylint: disable=protected-access
         return str(self.id) in {str(getattr(ref, 'id', ref)) for ref in owners}
+
+    def leave_section(self, section=None):
+        """Mitgliedschaft in der Sektion entfernen, das Konto bleibt"""
+        section = _saved(section if section is not None else section_or_none())
+        if section is not None:
+            User.objects(id=self.id).update_one(pull__memberships__section=section.pk)
+            self.reload('memberships')
 
     def is_favorite(self, event_id):
         """
@@ -297,6 +389,14 @@ class User(db.Document, UserMixin):
         return f"{self.first_name} {self.last_name}"
 
 
+def section_members():
+    """Konten mit Mitgliedschaft in der Sektion des Requests (vor der Migration alle)"""
+    section = _saved(section_or_none())
+    if section is None:
+        return User.objects
+    return User.objects(memberships__section=section.pk)
+
+
 def remove_event_references(event):
     """Rueckreferenzen auf ein Event entfernen, das gleich geloescht wird."""
     User.objects(event_registrations=event).update(pull__event_registrations=event)
@@ -310,6 +410,7 @@ def remove_user_references(user):
     als "Geloeschter Account".
     """
     from application.huts.models import Hut, HutBooking  # pylint: disable=import-outside-toplevel
-    Event.objects(event_owners=user).update(pull__event_owners=user)
-    Hut.objects(admins=user).update(pull__admins=user)
-    HutBooking.objects(user=user).update(unset__user=True)
+    # all_objects: das Konto kann in mehreren Sektionen stecken
+    Event.all_objects(event_owners=user).update(pull__event_owners=user)
+    Hut.all_objects(admins=user).update(pull__admins=user)
+    HutBooking.all_objects(user=user).update(unset__user=True)

@@ -21,7 +21,7 @@ class UserView(CustomModelView):
     # tfa_secret bleibt in der Liste, der Formatter zeigt nur Ja/Nein
     column_exclude_list = ("pwdhash", 'force_password_change', 'date_changed', 'date_password',
                            'tfa_pending_secret', 'tfa_recovery_codes', 'tfa_last_step')
-    form_excluded_columns = ("pwdhash", *TFA_FIELDS)
+    form_excluded_columns = ("pwdhash", "legacy_role", "legacy_admin", "legacy_club_id", *TFA_FIELDS)
     column_labels = {'tfa_secret': '2FA'}
     column_formatters = {
         'tfa_secret': lambda _v, _c, model, _n: "Ja" if model.tfa_enabled else "Nein",

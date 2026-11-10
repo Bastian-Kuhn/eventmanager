@@ -9,6 +9,8 @@ from redis.exceptions import LockError
 from mongoengine.errors import DoesNotExist
 from wtforms import StringField
 from application import db, app
+from application.models.section import SectionQuerySetManager, SectionScoped
+from mongoengine.queryset import QuerySetManager
 
 
 def event_lock(event_id):
@@ -171,7 +173,7 @@ event_types = [
   ('notour', "Event/ Termin"),
 ]
 
-class Event(db.Document):
+class Event(SectionScoped, db.Document):
     """
     Event Entry
     """
@@ -206,10 +208,15 @@ class Event(db.Document):
     # Global hidden categories for all users
     hidden_categories = db.ListField(field=db.StringField())
 
-
+    # Sektion, der der Datensatz gehoert. objects filtert im Request darauf,
+    # all_objects nicht (siehe models/section.py)
+    section = db.ReferenceField(document_type='Section')
+    objects = SectionQuerySetManager()
+    all_objects = QuerySetManager()
 
     meta = {
         'strict': False,
+        'indexes': ['section'],
     }
 
 

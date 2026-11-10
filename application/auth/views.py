@@ -135,6 +135,9 @@ def _finish_login(user, remember):
     )
     user.last_login = datetime.now()
     user.save()
+    # Ein Konto gilt ueberall: wer sich bei einer Sektion anmeldet, steht
+    # danach in deren Mitgliederliste (ohne Rolle)
+    user.join_section()
 
 
 def do_login(login_form, context, next_url=None):  # pylint: disable=unused-argument

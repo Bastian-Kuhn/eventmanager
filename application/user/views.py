@@ -6,6 +6,7 @@ from datetime import datetime
 from application import limiter
 from application.models.user import User
 from application.events.models import Event, with_event_lock
+from application.models.section import in_current_section
 from application.auth.views import PASSWORD_LIMIT, refresh_login, read_reset_token, mail_allowed
 from application.modules.email import send_email
 
@@ -40,7 +41,8 @@ def page_user_profil():
     past_events = []
     for event in current_user.event_registrations:
         # Altbestand: Verweis auf ein inzwischen geloeschtes Event
-        if not isinstance(event, Event) or not event.is_over(now):
+        if not isinstance(event, Event) or not event.is_over(now) \
+                or not in_current_section(event):
             continue
         participation = event.get_participation(current_user)
         past_events.append({
