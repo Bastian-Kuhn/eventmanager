@@ -9,7 +9,9 @@ from datetime import timedelta
 from flask import request, render_template, current_app, \
      flash, redirect, session, Blueprint, url_for, make_response
 from flask_login import current_user, login_user, logout_user, login_required
-from authlib.jose import jwt, JoseError
+from joserfc import jwt
+from joserfc.errors import JoseError
+from joserfc.jwk import OctKey
 from limits import parse
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -329,9 +331,9 @@ def read_reset_token(token):
     """
     Helper to read the claims from a reset token
     """
-    key = current_app.config['SECRET_KEY']
+    key = OctKey.import_key(current_app.config['SECRET_KEY'])
     try:
-        data = jwt.decode(token, key)
+        data = jwt.decode(token, key, algorithms=['HS256']).claims
         if 'exp' in data:
             now = datetime.utcnow().timestamp()
             if now >  data['exp']:

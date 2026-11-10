@@ -9,7 +9,8 @@ from flask import current_app
 from datetime import timedelta
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
-from authlib.jose import jwt, JoseError
+from joserfc import jwt
+from joserfc.jwk import OctKey
 from mongoengine.queryset.visitor import Q
 from application import db
 from application.modules import tfa
@@ -243,14 +244,14 @@ class User(db.Document, UserMixin):
         header = {
               'alg': 'HS256'
         }
-        key = current_app.config['SECRET_KEY']
+        key = OctKey.import_key(current_app.config['SECRET_KEY'])
         data = {
             'userid': str(self.id),
             'pwd': self.password_fingerprint(),
             'exp' : dt.timestamp(),
             'iat': datetime.utcnow(),
         }
-        return jwt.encode(header=header, payload=data, key=key).decode('utf-8')
+        return jwt.encode(header, data, key, algorithms=['HS256'])
 
 
     def is_admin(self):
