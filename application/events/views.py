@@ -193,10 +193,10 @@ def save_event_form(event, form):
         if field in form_data:
             setattr(event, field, form_data[field])
 
-    # Wer kein globaler Admin ist, wird immer Verantwortlicher: sonst koennte er
+    # Wer nicht alle Touren verwaltet, wird immer Verantwortlicher: sonst koennte er
     # die eben angelegte Tour nicht mehr bearbeiten
     if current_user not in event.event_owners and \
-            (form_data.get('add_guide') or not current_user.is_global_admin()):
+            (form_data.get('add_guide') or not current_user.manages_all_events()):
         event.event_owners.append(current_user)
 
 

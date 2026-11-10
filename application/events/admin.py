@@ -30,17 +30,17 @@ class EventView(CustomModelView):
 
     def get_query(self):
         """
-        Trainer und Tourenbegleiter sehen und bearbeiten hier nur ihre eigenen
+        Tourenbegleiter sehen und bearbeiten hier nur ihre eigenen
         Touren. Liste, Bearbeiten, Loeschen und Export laufen alle hierueber.
         """
         query = super().get_query()
-        if current_user.is_global_admin():
+        if current_user.manages_all_events():
             return query
         return query.filter(event_owners=current_user.id)
 
     def on_model_change(self, form, model, is_created):
         """Wer hier eine Tour anlegt, wird ihr Verantwortlicher"""
-        if is_created and not current_user.is_global_admin() \
+        if is_created and not current_user.manages_all_events() \
                 and current_user.id not in [x.id for x in model.event_owners]:
             model.event_owners.append(current_user._get_current_object())  # pylint: disable=protected-access
 

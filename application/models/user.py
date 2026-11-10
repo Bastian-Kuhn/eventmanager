@@ -122,11 +122,10 @@ class User(db.Document, UserMixin):
     def may_manage_event(self, event):
         """
         Tour bearbeiten und verwalten (Teilnehmer, Preise, Abrechnung, Export):
-        globale Admins, sonst nur Trainer und Tourenbegleiter, die als
-        Verantwortliche der Tour eingetragen sind. Touren ohne Verantwortliche
-        verwalten nur globale Admins.
+        Admins und Trainer alle Touren, Tourenbegleiter nur die, bei denen sie
+        als Verantwortliche eingetragen sind.
         """
-        if self.global_admin:
+        if self.manages_all_events():
             return True
         if not self.has_right('guide'):
             return False
@@ -265,6 +264,13 @@ class User(db.Document, UserMixin):
         Check Admin Status
         """
         return self.global_admin
+
+    def manages_all_events(self):
+        """
+        Admins (global oder Verein) und Trainer verwalten alle Touren,
+        Tourenbegleiter nur ihre eigenen (Bastian, 2026-11-10)
+        """
+        return self.is_admin() or self.role == 'guide'
 
     def has_right(self, role):
         """

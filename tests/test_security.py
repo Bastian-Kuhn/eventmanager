@@ -1274,16 +1274,20 @@ class TourOwnerTest(AppTestCase):
         client = self.login(self.owner(self.event_, 'a@example.org', role='attendant'))
         self.assertEqual(client.get(f'/event/admin?event_id={self.event_.id}').status_code, 200)
 
-    def test_foreign_tour_forbidden_for_guide(self):
+    def test_trainer_manages_foreign_tour(self):
         self.owner(self.event_, 'other@example.org')
-        self.assert_denied(self.login(self.user('g@example.org', role='guide')), self.event_)
+        client = self.login(self.user('g@example.org', role='guide'))
+        eid = self.event_.id
+        for url in ('admin', 'billing', 'finance', 'participants', 'participants/export'):
+            self.assertEqual(client.get(f'/event/{url}?event_id={eid}').status_code, 200, url)
+        self.assertIn(str(eid).encode(), client.get('/admin/event/').data)
 
     def test_foreign_tour_forbidden_for_attendant(self):
         self.owner(self.event_, 'other@example.org')
         self.assert_denied(self.login(self.user('a@example.org', role='attendant')), self.event_)
 
-    def test_tour_without_leader_only_for_admins(self):
-        self.assert_denied(self.login(self.user('g@example.org', role='guide')), self.event_)
+    def test_tour_without_leader_not_for_attendant(self):
+        self.assert_denied(self.login(self.user('a@example.org', role='attendant')), self.event_)
         admin = self.login(self.user('admin@example.org', global_admin=True))
         self.assertEqual(admin.get(f'/event/admin?event_id={self.event_.id}').status_code, 200)
 
@@ -1297,8 +1301,16 @@ class TourOwnerTest(AppTestCase):
         self.assertEqual(client.post('/event/delete', data={'event_id': eid}).status_code, 302)
         self.assertEqual(Event.objects(id=eid).count(), 0)
 
-    def test_foreign_guide_sees_list_only_as_participant(self):
-        guide = self.user('g@example.org', role='guide')
+    def test_club_admin_manages_foreign_tour(self):
+        self.owner(self.event_, 'other@example.org')
+        client = self.login(self.user('clubadmin@example.org', role='attendant', admin=True))
+        eid = self.event_.id
+        for url in ('admin', 'billing', 'finance', 'participants', 'participants/export'):
+            self.assertEqual(client.get(f'/event/{url}?event_id={eid}').status_code, 200, url)
+        self.assertIn(str(eid).encode(), client.get('/admin/event/').data)
+
+    def test_foreign_attendant_sees_list_only_as_participant(self):
+        guide = self.user('a@example.org', role='attendant')
         client = self.login(guide)
         eid = self.event_.id
         self.assertEqual(client.get(f'/event/participants?event_id={eid}').status_code, 403)
@@ -1307,8 +1319,8 @@ class TourOwnerTest(AppTestCase):
         self.assertNotIn(b'0170 999', page)
         self.assertNotIn(b'participants/export', page)
 
-    def test_creator_becomes_leader(self):
-        guide = self.user('g@example.org', role='guide')
+    def test_attendant_creator_becomes_leader(self):
+        guide = self.user('a@example.org', role='attendant')
         client = self.login(guide)
         self.assertEqual(client.post('/create', data=self.FORM).status_code, 302)
         event = Event.objects.get(event_name='Neu')
