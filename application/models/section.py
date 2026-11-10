@@ -12,6 +12,17 @@ from application.models.config import Config
 SLUG_PATTERN = r'[a-z0-9][a-z0-9-]{0,39}'
 
 
+def normalize_hostname(value):
+    """
+    Nur der Hostname, wie ihn der Request liefert: aus
+    'https://Touren.Example.org:443/login' wird 'touren.example.org'
+    """
+    host = (value or '').strip().lower()
+    host = host.split('://', 1)[-1]
+    host = host.split('/', 1)[0].split('?', 1)[0]
+    return host.split(':', 1)[0].strip('.')
+
+
 class Section(db.Document):
     """Ein Verein, z.B. eine DAV-Sektion"""
     slug = db.StringField(required=True, unique=True, regex=f'^{SLUG_PATTERN}$')
@@ -42,7 +53,7 @@ class Section(db.Document):
     }
 
     def clean(self):
-        self.hostnames = sorted({h.strip().lower() for h in self.hostnames or [] if h.strip()})
+        self.hostnames = sorted({host for host in map(normalize_hostname, self.hostnames or []) if host})
 
     def __str__(self):
         return self.name or self.slug

@@ -60,6 +60,12 @@ class SectionTest(unittest.TestCase):
     def test_hostnames_are_stored_lowercase(self):
         self.assertEqual(Section.objects.get(slug='alpha').hostnames, ['alpha.example.org'])
 
+    def test_urls_are_stored_as_hostnames(self):
+        self.beta.hostnames = ['https://Beta.Example.org/', 'beta.example.org:443', ' ', 'http://neu.example.org/login']
+        self.beta.save()
+        self.assertEqual(Section.objects.get(slug='beta').hostnames, ['beta.example.org', 'neu.example.org'])
+        self.assertIn('#222222', self.get('neu.example.org').get_data(as_text=True))
+
     def test_unknown_host_without_default_is_404(self):
         self.assertEqual(self.get('other.example.org').status_code, 404)
 
@@ -115,6 +121,17 @@ class SectionTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+    def test_section_created_in_admin_gets_its_host(self):
+        from tests.test_security import AppTestCase  # pylint: disable=import-outside-toplevel
+        self.alpha.is_default = True  # login() laeuft ueber localhost
+        self.alpha.save()
+        client = AppTestCase.login(AppTestCase.user('root@example.org', global_admin=True))
+        client.post('/admin/section/new/', data={
+            'slug': 'test', 'name': 'Testsektion', 'hostnames-0': 'https://Test.Example.org/',
+            'nav_background_color': '#333333'})
+        self.assertEqual(Section.objects.get(slug='test').hostnames, ['test.example.org'])
+        self.assertIn('#333333', self.get('test.example.org').get_data(as_text=True))
 
 
 class MigrationTest(unittest.TestCase):
