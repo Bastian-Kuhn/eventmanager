@@ -10,6 +10,8 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from flask_login import current_user, login_required
 from redis.exceptions import LockError
 
+from application import limiter
+from application.events.views import BOOKING_LIMIT
 from application.huts.models import Hut, HutBooking, hut_lock
 from application.modules.sanitize import is_local_path
 
@@ -18,6 +20,12 @@ HUTS = Blueprint('HUTS', __name__)
 MONTH_NAMES_DE = ["", "Januar", "Februar", "März", "April", "Mai", "Juni", "Juli",
                   "August", "September", "Oktober", "November", "Dezember"]
 WEEKDAYS_DE = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
+
+# Grenzen der Selbstbuchung, damit ein Konto die Huette nicht dauerhaft belegt.
+# Die Huetten-Verwaltung ist davon ausgenommen.
+MAX_NIGHTS = 14
+MAX_OPEN_BOOKINGS = 3
+MEMBER_ROLES = ('member', 'guide', 'youthguide', 'attendant')
 
 
 def _parse_date(value):
@@ -110,6 +118,8 @@ def _booking_state(hut, user, range_active, is_blocked, free):
         return False, None
     if not (hut.allow_self_booking or hut.can_manage(user)):
         return False, "Diese Hütte wird nur über die Hütten-Verwaltung belegt."
+    if not _is_member(hut, user):
+        return False, MEMBER_HINT
     if not range_active:
         return False, None
     if is_blocked:
@@ -117,6 +127,29 @@ def _booking_state(hut, user, range_active, is_blocked, free):
     if hut.has_capacity() and free <= 0:
         return False, "In diesem Zeitraum ausgebucht."
     return True, None
+
+
+MEMBER_HINT = ("Selbst buchen können nur geprüfte Vereinsmitglieder. "
+               "Bitte wende dich an die Hütten-Verwaltung.")
+
+
+def _is_member(hut, user):
+    """Selbstbuchung nur fuer gepruefte Mitglieder; die Verwaltung darf immer."""
+    return user.role in MEMBER_ROLES or hut.can_manage(user)
+
+
+def _limit_error(hut, user, from_date, to_date):
+    """Fehlertext, wenn die Buchung die Grenzen pro Konto sprengt, sonst None."""
+    if hut.can_manage(user):
+        return None
+    if (to_date - from_date).days > MAX_NIGHTS:
+        return f"Pro Buchung sind höchstens {MAX_NIGHTS} Nächte möglich."
+    open_bookings = HutBooking.objects(hut=hut, user=user,
+                                       to_date__gt=datetime.now().date()).count()
+    if open_bookings >= MAX_OPEN_BOOKINGS:
+        return (f"Du hast schon {open_bookings} offene Buchungen für diese Hütte. "
+                f"Mehr als {MAX_OPEN_BOOKINGS} sind nicht möglich.")
+    return None
 
 
 @HUTS.route('/huetten/<hut_id>')
@@ -266,6 +299,7 @@ def page_hut_calendar(hut_id):
 
 @HUTS.route('/huetten/<hut_id>/book', methods=['POST'])
 @login_required
+@limiter.limit(BOOKING_LIMIT, key_func=lambda: f"user:{current_user.get_id()}")
 def book_hut(hut_id):
     """Mitglied bucht Plätze für einen Zeitraum."""
     hut = Hut.objects(id=hut_id).first()
@@ -288,6 +322,9 @@ def book_hut(hut_id):
     if not (hut.allow_self_booking or hut.can_manage(current_user)):
         flash("Diese Hütte wird nur über die Hütten-Verwaltung belegt.", 'danger')
         return redirect(back)
+    if not _is_member(hut, current_user):
+        flash(MEMBER_HINT, 'danger')
+        return redirect(back)
     if not (from_date and to_date and from_date < to_date):
         flash("Bitte einen gültigen Zeitraum wählen (Abreise nach Anreise).", 'danger')
         return redirect(back)
@@ -305,6 +342,11 @@ def book_hut(hut_id):
     confirmed = not hut.requires_approval
     try:
         with hut_lock(hut.id):
+            # Im Lock, sonst ueberholen parallele Anfragen die Zaehlung
+            error = _limit_error(hut, current_user, from_date, to_date)
+            if error:
+                flash(error, 'danger')
+                return redirect(back)
             if hut.blocks(from_date, to_date):
                 flash("Die Hütte ist in diesem Zeitraum gesperrt.", 'danger')
                 return redirect(back)

@@ -19,6 +19,7 @@ from application import app, limiter
 from application.events.models import Event, EventCost, EventParticipation, OwnedTicket, Ticket
 from application.events.views import difficult_to_icon
 from application.huts.models import Hut, HutBooking, HutRoom
+from application.huts.views import MAX_NIGHTS, MAX_OPEN_BOOKINGS
 from application.models.config import Config
 from application.models.user import User
 from application.modules.sanitize import csv_safe, is_local_path, safe_url, sanitize_html
@@ -221,6 +222,12 @@ class RateLimitTest(AppTestCase):
         other = self.login(self.user('other@example.org'))
         self.assertNotEqual(other.post(f'/event/details?event_id={event.id}', data={
             'comment': '', 'ticket_Teilnahme': '0', 'submit': 'Anmelden'}).status_code, 429)
+
+    def test_hut_booking_is_limited_per_account(self):
+        hut = Hut(name='H', rooms=[HutRoom(name='Lager', places=2)]).save()
+        client = self.login(self.user(role='member'))
+        codes = [client.post(f'/huetten/{hut.id}/book', data={}).status_code for _ in range(8)]
+        self.assertIn(429, codes)
 
     def test_login_works_without_redis(self):
         with mock.patch.multiple(limiter, _storage=mock.MagicMock(),
@@ -582,13 +589,36 @@ class HutTest(AppTestCase):
     def setUp(self):
         super().setUp()
         self.hut = Hut(name='H', rooms=[HutRoom(name='Lager', places=2)]).save()
-        self.client = self.login(self.user())
+        self.client = self.login(self.user(role='member'))
         self.start = date.today() + timedelta(days=3)
 
-    def _book(self, **form):
+    def _book(self, nights=1, **form):
         data = {'from_date': self.start.isoformat(),
-                'to_date': (self.start + timedelta(days=1)).isoformat(), 'places': '1', **form}
+                'to_date': (self.start + timedelta(days=nights)).isoformat(), 'places': '1', **form}
         return self.client.post(f'/huetten/{self.hut.id}/book', data=data)
+
+    def test_unchecked_account_cannot_book(self):
+        for number, role in enumerate((None, 'no_member')):
+            self.client = self.login(self.user(f'u{number}@example.org', role=role))
+            self._book()
+            self.assertEqual(HutBooking.objects.count(), 0, role)
+
+    def test_maximum_nights(self):
+        self._book(nights=MAX_NIGHTS + 1)
+        self.assertEqual(HutBooking.objects.count(), 0)
+        self._book(nights=MAX_NIGHTS)
+        self.assertEqual(HutBooking.objects.count(), 1)
+
+    def test_open_bookings_per_account(self):
+        for week in range(MAX_OPEN_BOOKINGS + 1):
+            self.start = date.today() + timedelta(days=3 + 7 * week)
+            self._book()
+        self.assertEqual(HutBooking.objects.count(), MAX_OPEN_BOOKINGS)
+
+    def test_managers_are_not_limited(self):
+        self.client = self.login(self.user('g@example.org', role='guide'))
+        self._book(nights=MAX_NIGHTS + 1)
+        self.assertEqual(HutBooking.objects.count(), 1)
 
     def test_booking_works_under_lock(self):
         self._book(rooms='Lager')
