@@ -990,11 +990,10 @@ def page_participants():
     if not current_user.is_authenticated:
         return redirect(url_for('auth.login'))
 
-    if not current_user.has_right('guide') and \
-        not current_user.participate_event(event_id):
+    event = Event.objects.get(id=event_id)
+    if not current_user.may_see_participants(event):
         abort(403)
 
-    event = Event.objects.get(id=event_id)
     context = {}
 
 

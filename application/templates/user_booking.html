@@ -31,7 +31,7 @@
         <a class="nav-link" href="{{ url_for('EVENTS.page_details', event_id=event.id) }}">Übersicht</a>
       </li>
     {% if current_user.is_authenticated %}
-       {% if current_user.has_right('guide') or current_user.participate_event(event.id) %}
+       {% if current_user.may_see_participants(event) %}
       <li class="nav-item">
         <a class="nav-link" href="{{ url_for('EVENTS.page_participants', event_id=event.id) }}">Teilnehmerliste</a>
       </li>

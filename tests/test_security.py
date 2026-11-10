@@ -494,6 +494,27 @@ class PrivacyTest(AppTestCase):
             f'/event/participants?event_id={event.id}').data
         self.assertIn(b'mailto:hidden@example.org', html)
 
+    def test_unverified_open_booking_gets_no_list(self):
+        event = self._event_with_hidden_address()
+        newcomer = self.user('new@example.org')
+        self.booking(newcomer, event, ticket_id='t2')
+        client = self.login(newcomer)
+        self.assertEqual(client.get(f'/event/participants?event_id={event.id}').status_code, 403)
+        self.assertNotIn(b'/event/participants', client.get(f'/event/details?event_id={event.id}').data)
+
+    def test_member_with_open_booking_gets_list(self):
+        event = self._event_with_hidden_address()
+        member = self.user('m@example.org', role='member')
+        self.booking(member, event, ticket_id='t2')
+        response = self.login(member).get(f'/event/participants?event_id={event.id}')
+        self.assertEqual(response.status_code, 200)
+
+    def test_member_without_booking_gets_no_list(self):
+        event = self._event_with_hidden_address()
+        member = self.user('m@example.org', role='member')
+        response = self.login(member).get(f'/event/participants?event_id={event.id}')
+        self.assertEqual(response.status_code, 403)
+
 
 class HutTest(AppTestCase):
     """Huettenbuchung"""

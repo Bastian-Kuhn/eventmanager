@@ -89,7 +89,7 @@
             {% if current_user.is_authenticated and current_user.has_right('guide') %}
                 <a class="card-link" href="{{ url_for('EVENTS.page_admin', event_id=event.id) }}">Bearbeiten</a>
             {% endif %}
-            {% if current_user.is_authenticated and (current_user.has_right('guide') or current_user.participate_event(event.id)) %}
+            {% if current_user.is_authenticated and current_user.may_see_participants(event) %}
                 <a class="card-link" href="{{ url_for('EVENTS.page_participants', event_id=event.id) }}">Teilnehmerliste</a>
             {% endif %}
             {% if current_user.is_authenticated and current_user.participate_event(event.id) %}

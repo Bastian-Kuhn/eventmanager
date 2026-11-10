@@ -85,6 +85,20 @@ class User(db.Document, UserMixin):
         """
         return str(event_id) in self._reference_ids('event_registrations')
 
+    def may_see_participants(self, event):
+        """
+        Teilnehmerliste: Guides, sonst nur Teilnehmer mit geprueftem Konto
+        (Rolle gesetzt) oder mit bestaetigtem Ticket. Ein frisch
+        registriertes Konto mit offener Buchung sieht sie nicht.
+        """
+        if self.has_right('guide'):
+            return True
+        if not self.participate_event(event.id):
+            return False
+        if self.role:
+            return True
+        return any(ticket.confirmed for ticket in event.get_tickets_of_user(self))
+
     def is_favorite(self, event_id):
         """
         Check if event is favored by user
