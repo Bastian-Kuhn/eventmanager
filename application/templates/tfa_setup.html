@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block page_content %}
+<div class="row">
+  <div class="col-md-8 col-lg-6">
+    <h1 class="h3">Zwei-Faktor-Anmeldung einrichten</h1>
+    <ol>
+      <li>Öffne deine Authenticator-App und füge ein neues Konto hinzu.</li>
+      <li>Scanne den QR-Code oder tippe den Schlüssel darunter ein.</li>
+      <li>Gib den Code ein, den die App jetzt anzeigt.</li>
+    </ol>
+
+    <figure class="my-3">
+      <div role="img" aria-label="QR-Code für die Authenticator-App" style="max-width: 100%; overflow-x: auto;">
+        {{ qr_svg|safe }}
+      </div>
+      <figcaption class="mt-2">
+        Schlüssel zum Eintippen:
+        <code id="tfa-secret" class="d-inline-block text-break" style="font-size: 1rem;">{{ secret }}</code>
+      </figcaption>
+    </figure>
+
+    {% if error %}
+    <div class="alert alert-danger" role="alert" id="setup-error">{{ error }}</div>
+    {% endif %}
+    <form method="POST" action="{{ url_for('auth.tfa_confirm') }}" novalidate>
+      {{ form.hidden_tag() }}
+      <div class="form-group">
+        {{ form.code.label(class="form-control-label") }}
+        {{ form.code(class="form-control" ~ (' is-invalid' if error else ''), autofocus=True,
+                     **({'aria-describedby': 'setup-error', 'aria-invalid': 'true'} if error else {})) }}
+      </div>
+      <button type="submit" class="btn btn-primary">Bestätigen und einschalten</button>
+    </form>
+
+    <p class="mt-4"><a href="{{ url_for('auth.tfa_settings') }}">Abbrechen</a></p>
+  </div>
+</div>
+{% endblock %}

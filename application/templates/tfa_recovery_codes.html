@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+
+{% block page_content %}
+<div class="row">
+  <div class="col-md-8 col-lg-6">
+    <h1 class="h3">Zwei-Faktor-Anmeldung ist eingeschaltet</h1>
+    <div class="alert alert-warning" role="alert">
+      Speichere diese Wiederherstellungscodes jetzt, zum Beispiel ausgedruckt oder im
+      Passwortmanager. Sie werden nur dieses eine Mal angezeigt. Ohne App kommst du
+      nur mit einem dieser Codes in dein Konto, jeder Code gilt einmal.
+    </div>
+    <ul class="list-unstyled" aria-label="Wiederherstellungscodes">
+      {% for code in codes %}
+      <li><code style="font-size: 1.1rem;">{{ code }}</code></li>
+      {% endfor %}
+    </ul>
+    <a class="btn btn-primary" href="{{ url_for('USER.page_user_profil') }}">Ich habe die Codes gespeichert</a>
+  </div>
+</div>
+{% endblock %}

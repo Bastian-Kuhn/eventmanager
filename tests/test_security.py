@@ -4,12 +4,14 @@ Ausfuehren: .venv/bin/python -m unittest discover tests
 Braucht mongomock (requirements-dev.txt), aber kein Mongo/Redis.
 """
 import re
+import time
 import unittest
 from datetime import date, datetime, timedelta
 from unittest import mock
 
 import mongoengine
 import mongomock
+import pyotp
 from mongomock.gridfs import enable_gridfs_integration
 
 from limits.storage import MemoryStorage
@@ -25,6 +27,7 @@ from application.huts.models import Hut, HutBooking, HutRoom
 from application.huts.views import MAX_NIGHTS, MAX_OPEN_BOOKINGS
 from application.models.config import Config
 from application.models.user import User
+from application.modules import tfa
 from application.modules.sanitize import csv_safe, is_local_path, safe_url, sanitize_html
 
 PASSWORD = 'Geheim!123x'
@@ -1340,3 +1343,220 @@ class SecretKeyTest(unittest.TestCase):
                                 capture_output=True, text=True, check=False)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('SECRET_KEY', result.stderr)
+
+
+class TwoFactorTest(AppTestCase):
+    """Freiwillige Zwei-Faktor-Anmeldung per TOTP"""
+
+    def setUp(self):
+        super().setUp()
+        storage = MemoryStorage()
+        patcher = mock.patch.multiple(limiter, _storage=storage,
+                                      _limiter=FixedWindowRateLimiter(storage), enabled=True)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.ip_counter = 0
+
+    def _ip(self):
+        """Jede Anfrage von einer anderen IP, damit nur die Kontosperre greift"""
+        self.ip_counter += 1
+        return {'REMOTE_ADDR': f'198.51.100.{self.ip_counter}'}
+
+    @staticmethod
+    def _code(secret, offset=30):
+        """Code des naechsten Zeitfensters: der aktuelle ist nach der Einrichtung verbraucht"""
+        return pyotp.TOTP(secret).at(time.time() + offset)
+
+    def _enable(self, user):
+        """Einrichtung ueber die Seiten, gibt Geheimnis und Wiederherstellungscodes zurueck"""
+        client = self.login(user)
+        self.assertEqual(client.post('/user/2fa/setup').status_code, 302)
+        page = client.get('/user/2fa/setup')
+        self.assertEqual(page.status_code, 200)
+        self.assertIn(b'<svg', page.data)
+        user.reload()
+        with app.app_context():
+            secret = tfa.decrypt_secret(user.tfa_pending_secret)
+        self.assertNotIn(secret, user.tfa_pending_secret)
+        self.assertIn(' '.join(secret[i:i + 4] for i in range(0, len(secret), 4)).encode(),
+                      page.data)
+
+        wrong = client.post('/user/2fa/confirm', data={'code': '000000'})
+        self.assertIn('Der Code passt nicht'.encode(), wrong.data)
+        self.assertFalse(User.objects.get(id=user.id).tfa_enabled)
+
+        done = client.post('/user/2fa/confirm', data={'code': pyotp.TOTP(secret).now()})
+        self.assertEqual(done.headers['Cache-Control'], 'no-store')
+        codes = re.findall(r'<code[^>]*>([0-9a-f]{5}-[0-9a-f]{5})</code>', done.data.decode())
+        self.assertEqual(len(codes), 10)
+        user.reload()
+        self.assertTrue(user.tfa_enabled)
+        self.assertFalse(set(codes) & set(user.tfa_recovery_codes))
+        return secret, codes
+
+    def _password_step(self, user, password=PASSWORD, path='/login'):
+        client = app.test_client()
+        response = client.post(path, data={'login_email': user.email, 'password': password,
+                                           'login_submit': 'Anmelden'},
+                               environ_base=self._ip())
+        return client, response
+
+    def _code_step(self, client, **data):
+        return client.post('/login/2fa', data=data, environ_base=self._ip())
+
+    def test_login_without_2fa_is_unchanged(self):
+        _client, response = self._password_step(self.user())
+        self.assertEqual(response.status_code, 302)
+        self.assertNotIn('/login/2fa', response.location)
+
+    def test_login_needs_code(self):
+        user = self.user()
+        secret, _codes = self._enable(user)
+        client, response = self._password_step(user)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/login/2fa', response.location)
+        # Nach dem Passwort allein ist niemand eingeloggt
+        self.assertEqual(client.get('/user/profile').status_code, 302)
+        page = client.get('/login/2fa')
+        self.assertIn(b'autocomplete="one-time-code"', page.data)
+        self.assertIn(b'inputmode="numeric"', page.data)
+
+        wrong = self._code_step(client, code='123456')
+        self.assertEqual(wrong.status_code, 200)
+        self.assertIn('Der Code ist falsch'.encode(), wrong.data)
+        self.assertIn(b'aria-invalid="true"', wrong.data)
+        self.assertEqual(client.get('/user/profile').status_code, 302)
+
+        self.assertEqual(self._code_step(client, code=self._code(secret)).status_code, 302)
+        self.assertEqual(client.get('/user/profile').status_code, 200)
+
+    def test_code_works_only_once(self):
+        user = self.user()
+        secret, _codes = self._enable(user)
+        code = self._code(secret)
+        client, _ = self._password_step(user)
+        self.assertEqual(self._code_step(client, code=code).status_code, 302)
+        other, _ = self._password_step(user)
+        self.assertEqual(self._code_step(other, code=code).status_code, 200)
+        self.assertEqual(other.get('/user/profile').status_code, 302)
+
+    def test_code_step_needs_password_step(self):
+        user = self.user()
+        secret, _codes = self._enable(user)
+        client = app.test_client()
+        response = self._code_step(client, code=self._code(secret))
+        self.assertIn('/login', response.location)
+        self.assertEqual(client.get('/user/profile').status_code, 302)
+
+    def test_code_step_expires(self):
+        user = self.user()
+        secret, _codes = self._enable(user)
+        client, _ = self._password_step(user)
+        later = time.time() + 6 * 60
+        with mock.patch('application.auth.views.time.time', return_value=later):
+            response = self._code_step(client, code=self._code(secret))
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(client.get('/user/profile').status_code, 302)
+
+    def test_recovery_code_works_once(self):
+        user = self.user()
+        _secret, codes = self._enable(user)
+        client, _ = self._password_step(user)
+        response = self._code_step(client, recovery_code=codes[0].upper())
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(client.get('/user/profile').status_code, 200)
+        self.assertEqual(len(User.objects.get(id=user.id).tfa_recovery_codes), 9)
+
+        other, _ = self._password_step(user)
+        self.assertEqual(self._code_step(other, recovery_code=codes[0]).status_code, 200)
+        self.assertEqual(other.get('/user/profile').status_code, 302)
+        self.assertEqual(self._code_step(other, recovery_code=codes[1]).status_code, 302)
+
+    def test_event_page_login_continues_to_event(self):
+        user = self.user()
+        secret, _codes = self._enable(user)
+        event = self.event()
+        client, response = self._password_step(user, path=f'/event/details?event_id={event.id}')
+        self.assertIn('/login/2fa', response.location)
+        response = self._code_step(client, code=self._code(secret))
+        self.assertIn(f'/event/details?event_id={event.id}', response.location)
+
+    def test_disable_needs_password_and_code(self):
+        user = self.user()
+        secret, codes = self._enable(user)
+        client, _ = self._password_step(user)
+        self._code_step(client, code=self._code(secret))
+        response = client.post('/user/2fa/disable', data={'password': 'falsch', 'code': codes[0]},
+                               environ_base=self._ip())
+        self.assertIn('Passwort oder Code ist falsch'.encode(), response.data)
+        # Das falsche Passwort hat keinen Code verbraucht
+        self.assertEqual(len(User.objects.get(id=user.id).tfa_recovery_codes), 10)
+        client.post('/user/2fa/disable', data={'password': PASSWORD, 'code': '000000'},
+                    environ_base=self._ip())
+        self.assertTrue(User.objects.get(id=user.id).tfa_enabled)
+        response = client.post('/user/2fa/disable', data={'password': PASSWORD, 'code': codes[0]},
+                               environ_base=self._ip())
+        self.assertEqual(response.status_code, 302)
+        user.reload()
+        self.assertFalse(user.tfa_enabled)
+        self.assertFalse(user.tfa_recovery_codes)
+        _client, response = self._password_step(user)
+        self.assertNotIn('/login/2fa', response.location)
+
+    def test_global_admin_resets_2fa(self):
+        user = self.user()
+        self._enable(user)
+        admin = self.login(self.user('admin@example.org', global_admin=True))
+        response = admin.post('/admin/user/action/', data={'action': 'reset_tfa',
+                                                           'rowid': [str(user.id)]})
+        self.assertEqual(response.status_code, 302)
+        user.reload()
+        self.assertFalse(user.tfa_enabled)
+        self.assertFalse(user.tfa_recovery_codes)
+
+    def test_member_admin_cannot_reset_2fa(self):
+        user = self.user()
+        self._enable(user)
+        admin = self.login(self.user('admin@example.org', admin=True))
+        admin.post('/admin/user/action/', data={'action': 'reset_tfa', 'rowid': [str(user.id)]})
+        admin.post(f'/admin/members/edit/?id={user.id}', data={
+            'email': user.email, 'first_name': 'Vor', 'last_name': 'Nach', 'tfa_secret': ''})
+        self.assertTrue(User.objects.get(id=user.id).tfa_enabled)
+
+    def test_wrong_codes_lock_account(self):
+        user = self.user()
+        secret, _codes = self._enable(user)
+        client, _ = self._password_step(user)
+        for _ in range(10):
+            self.assertEqual(self._code_step(client, code='000000').status_code, 200)
+        locked = self._code_step(client, code=self._code(secret))
+        self.assertIn('Zu viele Fehlversuche'.encode(), locked.data)
+        self.assertEqual(client.get('/user/profile').status_code, 302)
+        # Auch ein neuer Anlauf mit dem richtigen Passwort ist gesperrt
+        _client, response = self._password_step(user)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('Zu viele Fehlversuche'.encode(), response.data)
+
+    def test_reset_link_does_not_skip_2fa(self):
+        user = self.user()
+        self._enable(user)
+        with app.app_context():
+            token = User.objects.get(id=user.id).generate_token()
+        client = app.test_client()
+        response = client.post(f'/reset-password/{token}', data={
+            'password': NEW_PASSWORD, 'password_repeat': NEW_PASSWORD})
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(User.objects.get(id=user.id).check_password(NEW_PASSWORD))
+        self.assertEqual(client.get('/user/profile').status_code, 302)
+
+    def test_admin_enforcement_flag(self):
+        admin = self.login(self.user('admin@example.org', global_admin=True))
+        member = self.login(self.user())
+        self.assertEqual(admin.get('/user/profile').status_code, 200)
+        app.config['TFA_REQUIRED_FOR_ADMINS'] = True
+        self.addCleanup(app.config.update, TFA_REQUIRED_FOR_ADMINS=False)
+        response = admin.get('/user/profile')
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/user/2fa', response.location)
+        self.assertEqual(admin.get('/user/2fa').status_code, 200)
+        self.assertEqual(member.get('/user/profile').status_code, 200)

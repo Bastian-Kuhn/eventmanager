@@ -43,7 +43,7 @@ def hut_rooms_map():
 from application.models.user import roles
 from application.auth.forms import LoginForm
 from application import limiter
-from application.auth.views import do_login, LOGIN_LIMIT
+from application.auth.views import do_login, LOGIN_LIMIT, TFA_PENDING
 from application.events.forms import EventForm, EventRegisterForm, EventSearchForm, COMMENT_MAX, \
                                      CUSTOM_FIELD_MAX, TICKET_NAME_MAX, PHONE_MAX, EMAIL_MAX, max_length
 from application.models.config import Config
@@ -1837,7 +1837,9 @@ def page_details():
 
     if not current_user.is_authenticated:
         if login_form.validate_on_submit():
-            do_login(login_form, context)
+            next_url = url_for('EVENTS.page_details', event_id=str(event.id))
+            if do_login(login_form, context, next_url) == TFA_PENDING:
+                return redirect(url_for('auth.login_2fa'))
 
     if register_form.errors:
         flash(f"Bitte behebe die angezeigten Fehler in den Feldern {register_form.errors}", 'danger')

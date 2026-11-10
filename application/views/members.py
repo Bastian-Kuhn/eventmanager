@@ -9,7 +9,7 @@ from wtforms import PasswordField
 from flask_login import current_user
 from application.views.default import CustomModelView
 from wtforms.validators import ValidationError
-from application.models.user import roles, remove_user_references
+from application.models.user import roles, remove_user_references, TFA_FIELDS
 from markupsafe import Markup
 
 
@@ -36,6 +36,7 @@ class MemberView(CustomModelView):
                           'birthdate', 'phone', 'date_added',
                           'last_login', 'global_admin',
                           'event_registrations', 'profile_img',
+                          *TFA_FIELDS,
                          ]
 
     page_size = 100
@@ -50,6 +51,7 @@ class MemberView(CustomModelView):
     form_excluded_columns = [
         'pwdhash',
         'global_admin',
+        *TFA_FIELDS,
     ]
 
     column_formatters = {

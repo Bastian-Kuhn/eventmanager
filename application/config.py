@@ -39,6 +39,10 @@ class BaseConfig():
     # How many of the PASSWD_SEPCIAL prefixt  options must apply
     PASSWD_SPECIAL_NEEDED = 1
 
+    # Zwei-Faktor-Anmeldung ist freiwillig. True: Admins (global_admin oder
+    # admin) muessen sie nach dem Login einrichten, bevor sie weiterkommen.
+    TFA_REQUIRED_FOR_ADMINS = os.environ.get("TFA_REQUIRED_FOR_ADMINS", "").lower() in ("1", "true", "yes")
+
     ADMIN_SESSION_HOURS = 8
     PERMANENT_SESSION_LIFETIME = ADMIN_SESSION_HOURS * 60 * 60
     # How long the "Angemeldet bleiben" remember-me cookie keeps the user

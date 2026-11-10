@@ -56,3 +56,37 @@ class ResetPasswordForm(FlaskForm):
     password  = PasswordField("Neues Passwort", validators=[InputRequired(),validate_password, EqualTo('password_repeat')])
     password_repeat = PasswordField("Password widerholen", validators=[InputRequired()])
     submit = SubmitField("Senden")
+
+
+CODE_FIELD_ARGS = {'autocomplete': 'one-time-code', 'inputmode': 'numeric',
+                   'pattern': r'[0-9 ]*', 'maxlength': 7}
+
+
+class TwoFactorForm(FlaskForm):
+    """
+    Zweiter Schritt beim Login: Code aus der App oder ein Wiederherstellungscode
+    """
+    code = StringField("Code aus der Authenticator-App", render_kw=CODE_FIELD_ARGS)
+    recovery_code = StringField("Wiederherstellungscode",
+                                render_kw={'autocomplete': 'off', 'maxlength': 20,
+                                           'autocapitalize': 'none', 'spellcheck': 'false'})
+
+
+class TwoFactorSetupForm(FlaskForm):
+    """
+    Einrichtung bestaetigen
+    """
+    code = StringField("Code aus der Authenticator-App", validators=[InputRequired()],
+                       render_kw=CODE_FIELD_ARGS)
+
+
+class TwoFactorDisableForm(FlaskForm):
+    """
+    Abschalten: Passwort und ein Code
+    """
+    password = PasswordField("Passwort", validators=[InputRequired()],
+                             render_kw={'autocomplete': 'current-password'})
+    code = StringField("Code aus der App oder Wiederherstellungscode",
+                       validators=[InputRequired()],
+                       render_kw={'autocomplete': 'one-time-code', 'maxlength': 20,
+                                  'autocapitalize': 'none', 'spellcheck': 'false'})

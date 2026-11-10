@@ -3,13 +3,16 @@ User Accounts
 """
 import hashlib
 import hmac
+import re
 from datetime import datetime
 from flask import current_app
 from datetime import timedelta
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from authlib.jose import jwt, JoseError
+from mongoengine.queryset.visitor import Q
 from application import db
+from application.modules import tfa
 from application.events.models import Event
 
 roles = [
@@ -19,6 +22,10 @@ roles = [
   ('youthguide', "Jugendleiter"),
   ('attendant', "Tourenbegleiter"),
 ]
+
+# Nie im Admin-Formular: wer sie dort aendern koennte, schaltet fremde 2FA ab
+TFA_FIELDS = ('tfa_secret', 'tfa_pending_secret', 'tfa_recovery_codes', 'tfa_last_step')
+
 
 class User(db.Document, UserMixin):
     """
@@ -60,6 +67,15 @@ class User(db.Document, UserMixin):
     date_password = db.DateTimeField()
     last_login = db.DateTimeField()
     force_password_change = db.BooleanField(default=False)
+
+    # Zwei-Faktor-Anmeldung (freiwillig). Geheimnisse verschluesselt mit dem
+    # SECRET_KEY, Wiederherstellungscodes nur als Hash, siehe modules/tfa.py
+    tfa_secret = db.StringField()
+    # Waehrend der Einrichtung, bis der erste Code bestaetigt ist
+    tfa_pending_secret = db.StringField()
+    tfa_recovery_codes = db.ListField(field=db.StringField())
+    # Zuletzt genutztes Zeitfenster: ein Code gilt nur einmal
+    tfa_last_step = db.IntField()
 
     meta = {'indexes': [
         'email'
@@ -146,6 +162,70 @@ class User(db.Document, UserMixin):
         Password checker
         """
         return bool(self.pwdhash) and check_password_hash(self.pwdhash, password)
+
+    @property
+    def tfa_enabled(self):
+        """Zwei-Faktor-Anmeldung ist eingeschaltet"""
+        return bool(self.tfa_secret)
+
+    def check_tfa_code(self, code):
+        """
+        Code aus der Authenticator-App pruefen. Jeder Code gilt nur einmal:
+        das Zeitfenster wird atomar hochgezaehlt, ein zweiter Versuch mit
+        demselben Code scheitert.
+        """
+        step = tfa.matching_step(tfa.decrypt_secret(self.tfa_secret), code)
+        if step is None:
+            return False
+        used = User.objects(id=self.id, tfa_secret=self.tfa_secret) \
+            .filter(Q(tfa_last_step__lt=step) | Q(tfa_last_step=None)) \
+            .update_one(set__tfa_last_step=step)
+        if used:
+            self.tfa_last_step = step
+        return bool(used)
+
+    def use_recovery_code(self, code):
+        """Wiederherstellungscode einloesen, jeder gilt nur einmal"""
+        hashed = tfa.hash_recovery_code(code)
+        if not tfa.normalize_recovery_code(code):
+            return False
+        used = User.objects(id=self.id, tfa_recovery_codes=hashed) \
+            .update_one(pull__tfa_recovery_codes=hashed)
+        if used:
+            self.reload('tfa_recovery_codes')
+        return bool(used)
+
+    def check_tfa(self, code):
+        """Code aus der App oder ein Wiederherstellungscode"""
+        if not self.tfa_enabled:
+            return False
+        if re.fullmatch(r"\s*\d{3}\s?\d{3}\s*", code or ""):
+            return self.check_tfa_code(code)
+        return self.use_recovery_code(code)
+
+    def enable_tfa(self, code):
+        """
+        Einrichtung abschliessen, wenn der Code zum vorlaeufigen Geheimnis passt.
+        Gibt die Wiederherstellungscodes im Klartext zurueck (nur dieses eine
+        Mal sichtbar), sonst None.
+        """
+        step = tfa.matching_step(tfa.decrypt_secret(self.tfa_pending_secret), code)
+        if step is None:
+            return None
+        codes = tfa.new_recovery_codes()
+        self.tfa_secret = self.tfa_pending_secret
+        self.tfa_pending_secret = None
+        self.tfa_recovery_codes = [tfa.hash_recovery_code(c) for c in codes]
+        self.tfa_last_step = step
+        self.save()
+        return codes
+
+    def disable_tfa(self):
+        """2FA abschalten, auch fuer das Zuruecksetzen durch einen Admin"""
+        User.objects(id=self.id).update_one(
+            unset__tfa_secret=True, unset__tfa_pending_secret=True,
+            unset__tfa_recovery_codes=True, unset__tfa_last_step=True)
+        self.reload()
 
     def password_fingerprint(self):
         """

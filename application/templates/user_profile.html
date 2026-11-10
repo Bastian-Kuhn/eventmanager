@@ -34,6 +34,20 @@
     </section>
   </div>
 
+  <!-- Zwei-Faktor-Anmeldung -->
+  <div class="col-md-6 mb-4">
+    <section class="card h-100" aria-labelledby="tfa-heading">
+      <div class="card-header"><h2 class="h5 mb-0" id="tfa-heading">Zwei-Faktor-Anmeldung</h2></div>
+      <div class="card-body">
+        <p>Status: <strong>{{ 'eingeschaltet' if current_user.tfa_enabled else 'ausgeschaltet' }}</strong></p>
+        <p class="text-muted"><small>Der Login fragt dann zusätzlich einen Code aus einer
+          Authenticator-App auf deinem Handy ab.</small></p>
+        <a class="btn btn-outline-primary" href="{{ url_for('auth.tfa_settings') }}">
+          {{ 'Verwalten' if current_user.tfa_enabled else 'Einrichten' }}</a>
+      </div>
+    </section>
+  </div>
+
   <!-- Einwilligungen -->
   <div class="col-md-6 mb-4">
     <section class="card h-100" aria-labelledby="consent-heading">

@@ -5,9 +5,11 @@ Models for flask_admin
 #pylint: disable=missing-function-docstring
 #pylint: disable=no-self-use
 from datetime import datetime
+from flask import flash
+from flask_admin.actions import action
 from wtforms import PasswordField
 from flask_login import current_user
-from application.models.user import remove_user_references
+from application.models.user import User, remove_user_references, TFA_FIELDS
 from application.views.default import CustomModelView
 
 
@@ -16,8 +18,14 @@ class UserView(CustomModelView):
     Extended Admin View for Users
     """
     column_sortable_list = ("email", "global_admin")
-    column_exclude_list = ("pwdhash", 'force_password_change', 'date_changed', 'date_password')
-    form_excluded_columns = ("pwdhash", )
+    # tfa_secret bleibt in der Liste, der Formatter zeigt nur Ja/Nein
+    column_exclude_list = ("pwdhash", 'force_password_change', 'date_changed', 'date_password',
+                           'tfa_pending_secret', 'tfa_recovery_codes', 'tfa_last_step')
+    form_excluded_columns = ("pwdhash", *TFA_FIELDS)
+    column_labels = {'tfa_secret': '2FA'}
+    column_formatters = {
+        'tfa_secret': lambda _v, _c, model, _n: "Ja" if model.tfa_enabled else "Nein",
+    }
     page_size = 100
     can_set_page_size = True
     column_filters = (
@@ -58,6 +66,18 @@ class UserView(CustomModelView):
 
     def on_model_delete(self, model):
         remove_user_references(model)
+
+    @action('reset_tfa', '2FA zurücksetzen',
+            'Zwei-Faktor-Anmeldung für die gewählten Konten ausschalten? '
+            'Die Personen melden sich danach nur mit dem Passwort an.')
+    def action_reset_tfa(self, ids):
+        """Fuer Konten, deren Handy und Wiederherstellungscodes weg sind"""
+        count = 0
+        for user in User.objects(id__in=ids):
+            if user.tfa_enabled or user.tfa_pending_secret:
+                user.disable_tfa()
+                count += 1
+        flash(f"Zwei-Faktor-Anmeldung bei {count} Konten zurückgesetzt.", 'success')
 
     def is_accessible(self):
         return current_user.is_authenticated and current_user.is_global_admin()
