@@ -48,7 +48,7 @@ class TicketForm(FlaskForm):
     name = StringField("Name", default="Teilnahme", validators=[Optional()])
     description = StringField("Beschreibung", validators=[Optional()])
     price = FloatField("Preis", validators=[Optional()])
-    maximum_tickets = IntegerField("Max. pro Anmeldung", validators=[Optional()])
+    maximum_tickets = IntegerField("Max. pro Konto", validators=[Optional()])
     is_extra_ticket = BooleanField("Zusatzticket (belegt keinen Platz)", validators=[Optional()])
 
 

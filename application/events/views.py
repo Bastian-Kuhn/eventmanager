@@ -1524,8 +1524,15 @@ def delete_cost():
 #.
 #   . Event Details Page
 
+# Buchungen angemeldeter Nutzer: Limit pro Konto statt pro IP, damit ein
+# Vereinsheim-WLAN zur Buchungsoeffnung nicht ausgebremst wird
+BOOKING_LIMIT = "5/minute;30/hour"
+
+
 @EVENTS.route('/event/details', methods=['GET', 'POST'])
 @limiter.limit(LOGIN_LIMIT, methods=['POST'], exempt_when=lambda: current_user.is_authenticated)
+@limiter.limit(BOOKING_LIMIT, methods=['POST'], key_func=lambda: f"user:{current_user.get_id()}",
+               exempt_when=lambda: not current_user.is_authenticated)
 def page_details():
     """
     Detail Page for Event
@@ -1591,7 +1598,7 @@ def page_details():
               ('Name', line.name),
               ('Beschreibung', line.description),
               ('Preis Euro', line.price),
-              ('Max. pro Anmeldung', line.maximum_tickets),
+              ('Max. pro Konto', line.maximum_tickets),
             ])
         return table
 
@@ -1760,6 +1767,21 @@ def page_details():
                     ticket_stats = event.get_ticket_stats()
                     for wish in extra_wishes:
                         wanted_seats[wish[2]] = wanted_seats.get(wish[2], 0) + 1
+                    # Die Hoechstzahl pro Anmeldung gilt fuer alle Buchungen des Kontos
+                    # zusammen, sonst fuellt eine Folge von Anmeldungen die Tour
+                    already = {}
+                    for ticket in event.get_tickets_of_user(current_user):
+                        already[ticket.ticket_name] = already.get(ticket.ticket_name, 0) + 1
+                    too_many = [ticket for ticket in event_tickets
+                                if ticket.maximum_tickets and ticket.name in wanted_seats
+                                and already.get(ticket.name, 0) + wanted_seats[ticket.name]
+                                    > ticket.maximum_tickets]
+                    for ticket in too_many:
+                        flash(f"{ticket.name} kann pro Konto höchstens {ticket.maximum_tickets} "
+                              f"mal gebucht werden, du hast schon {already.get(ticket.name, 0)}.",
+                              'danger')
+                    if too_many:
+                        return render_template('event_details.html', **context)
                     # Personen belegen Plaetze der Tour, die Anmeldung bleibt zusammen:
                     # passt sie nicht komplett, geht sie komplett auf die Warteliste
                     free_places = event.free_places()

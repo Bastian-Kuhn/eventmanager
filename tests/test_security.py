@@ -210,6 +210,18 @@ class RateLimitTest(AppTestCase):
         event = self.event()
         self.assertIn(429, self._posts(f'/event/details?event_id={event.id}', 15))
 
+    def test_booking_is_limited_per_account(self):
+        event = self.event(places=50, tickets=[Ticket(name='Teilnahme', price=0.0, maximum_tickets=0)])
+        client = self.login(self.user())
+        codes = [client.post(f'/event/details?event_id={event.id}', data={
+            'comment': '', 'ticket_Teilnahme': '0', 'submit': 'Anmelden'}).status_code
+                 for _ in range(8)]
+        self.assertIn(429, codes)
+        # Ein anderes Konto hinter derselben IP bucht weiter
+        other = self.login(self.user('other@example.org'))
+        self.assertNotEqual(other.post(f'/event/details?event_id={event.id}', data={
+            'comment': '', 'ticket_Teilnahme': '0', 'submit': 'Anmelden'}).status_code, 429)
+
     def test_login_works_without_redis(self):
         with mock.patch.multiple(limiter, _storage=mock.MagicMock(),
                                  _limiter=mock.MagicMock(**{'hit.side_effect': ConnectionError})):
@@ -798,6 +810,20 @@ class BookingLogicTest(AppTestCase):
     def _book(self, client, event, count=1):
         return client.post(f'/event/details?event_id={event.id}', data={
             'comment': '', 'ticket_Teilnahme': str(count), 'submit': 'Anmelden'})
+
+    def test_maximum_counts_over_all_bookings_of_an_account(self):
+        event = self.event(places=10)
+        client = self.login(self.user())
+        self.assertEqual(self._book(client, event, 2).status_code, 302)
+        self.assertEqual(self._book(client, event, 1).status_code, 200)
+        self.assertEqual(sum(len(x.tickets) for x in Event.objects.get(id=event.id).participations), 2)
+
+    def test_second_booking_up_to_maximum(self):
+        event = self.event(places=10)
+        client = self.login(self.user())
+        self._book(client, event, 1)
+        self.assertEqual(self._book(client, event, 1).status_code, 302)
+        self.assertEqual(sum(len(x.tickets) for x in Event.objects.get(id=event.id).participations), 2)
 
     def test_waitlist_does_not_take_places(self):
         event = self.event()
