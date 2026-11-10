@@ -6,7 +6,7 @@ from datetime import datetime
 from application import limiter
 from application.models.user import User
 from application.events.models import Event, with_event_lock
-from application.auth.views import PASSWORD_LIMIT, refresh_login, read_reset_token
+from application.auth.views import PASSWORD_LIMIT, refresh_login, read_reset_token, mail_allowed
 from application.modules.email import send_email
 
 from flask import request, render_template, current_app, \
@@ -173,7 +173,7 @@ def page_user_create():
                 user.save()
             except NotUniqueError:
                 user = None
-            if user:
+            if user and mail_allowed(user.email):
                 send_email(user.email, "E-Mail-Adresse bestätigen", 'email/confirm_email',
                            user=user, token=user.generate_token(CONFIRM_TOKEN_SECONDS))
         # Gleiche Antwort auch bei vergebener Adresse, sonst laesst sich

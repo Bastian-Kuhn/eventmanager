@@ -34,6 +34,9 @@ PASSWORD_LIMIT = "10/minute"
 # gesperrt. Zeitlich begrenzt, damit niemand ein fremdes Konto dauerhaft sperrt.
 ACCOUNT_LOCK = parse("10 per 15 minutes")
 ACCOUNT_LOCK_KEY = "login-fail"
+# Pro Empfaengeradresse: Bestaetigungs- und Reset-Mails zusammen
+MAIL_LIMIT = parse("3 per hour")
+MAIL_LIMIT_KEY = "mail-to"
 
 # Unbekannte E-Mail kostet so viel Zeit wie ein falsches Passwort
 _DUMMY_HASH = generate_password_hash("kein-echtes-passwort")
@@ -58,17 +61,32 @@ def refresh_login(user):
     login_user(user, remember='remember_token' in request.cookies)
 
 
-def _account_lock(action, email):
+def _limit_per_email(action, limit, key, email):
     """
-    Fehlversuche pro E-Mail-Adresse im Speicher des Limiters. Ohne Limiter oder
-    Redis gibt es keine Sperre, der Login selbst soll daran nicht scheitern.
+    Zaehler pro E-Mail-Adresse im Speicher des Limiters. Ohne Limiter oder
+    Redis gibt es keine Grenze, Login und Mails sollen daran nicht scheitern.
     """
     if not limiter.enabled:
         return True
     try:
-        return getattr(limiter.limiter, action)(ACCOUNT_LOCK, ACCOUNT_LOCK_KEY, email)
+        return getattr(limiter.limiter, action)(limit, key, email)
     except Exception:  # pylint: disable=broad-except
         return True
+
+
+def _account_lock(action, email):
+    """
+    Fehlversuche pro E-Mail-Adresse
+    """
+    return _limit_per_email(action, ACCOUNT_LOCK, ACCOUNT_LOCK_KEY, email)
+
+
+def mail_allowed(email):
+    """
+    Zaehlt eine Mail an diese Adresse. False, wenn die Adresse in letzter
+    Zeit schon genug Mails bekommen hat, egal wer sie angefordert hat.
+    """
+    return _limit_per_email('hit', MAIL_LIMIT, MAIL_LIMIT_KEY, email)
 
 
 def do_login(login_form, context):
@@ -188,7 +206,8 @@ def request_password():
     if form.validate_on_submit():
         email = form.request_email.data.lower()
         user_result = User.objects(email=email, disabled__ne=True)
-        if user_result:
+        # Gleiche Antwort auch bei erreichtem Limit, sonst verraet es das Konto
+        if user_result and mail_allowed(email):
             existing_user = user_result[0]
             token = existing_user.generate_token()
             send_email(existing_user.email, "Neues Passwort", 'email/resetpassword',

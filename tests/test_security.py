@@ -132,6 +132,26 @@ class RegistrationTest(AppTestCase):
         self.assertTrue(User.objects.get(email='taken@example.org').check_password(PASSWORD))
         self.assertEqual(User.objects(email='taken@example.org').count(), 1)
 
+    def test_names_with_umlauts_and_separators(self):
+        for first, last in (('Jürgen', "O'Brien"), ('Anna-Lena', 'von der Heide'),
+                            ('J. R.', 'Müller-Lüdenscheidt'), ('  Eve ', 'Evil')):
+            User.drop_collection()
+            app.test_client().post('/user/create', data={**REGISTRATION, 'first_name': first,
+                                                         'last_name': last})
+            user = User.objects.get(email='eve@example.org')
+            self.assertEqual(user.last_name, last)
+        self.assertEqual(user.first_name, 'Eve')
+
+    def test_name_cannot_carry_text_or_links(self):
+        for name in ('Konto gesperrt, bitte melde dich unter www.example.com',
+                     'example.com', 'https://example.com', 'Eve<b>', 'Eve 123',
+                     'A' * 51):
+            response = app.test_client().post('/user/create', data={**REGISTRATION, 'first_name': name})
+            self.assertEqual(response.status_code, 200, name)
+            response = app.test_client().post('/user/create', data={**REGISTRATION, 'last_name': name})
+            self.assertEqual(response.status_code, 200, name)
+        self.assertEqual(User.objects.count(), 0)
+
 
 class EmailConfirmTest(AppTestCase):
     """Selbstregistrierung erst nach Bestaetigung der E-Mail-Adresse nutzbar"""
@@ -268,6 +288,25 @@ class RateLimitTest(AppTestCase):
             self.assertEqual(self._login_from(50, PASSWORD).status_code, 200)
         with mock.patch('time.time', return_value=1_000_000 + 16 * 60):
             self.assertEqual(self._login_from(51, PASSWORD).status_code, 302)
+
+    def _mails_to(self, path, data, count):
+        Config.objects(enabled=True).first() or Config(enabled=True, mail_sender='a@example.org').save()
+        with mock.patch('application.modules.email.Thread') as thread:
+            for number in range(count):
+                app.test_client().post(path, data=data,
+                                       environ_base={'REMOTE_ADDR': f'192.0.2.{number}'})
+        return thread.call_count
+
+    def test_reset_mails_are_limited_per_address(self):
+        self.user()
+        data = {'request_email': 'user@example.org', 'request_submit': 'Senden'}
+        self.assertEqual(self._mails_to('/request-password', data, 6), 3)
+
+    def test_confirm_mails_are_limited_per_address(self):
+        self.assertEqual(self._mails_to('/user/create', REGISTRATION, 6), 3)
+        # Reset-Mails an dieselbe Adresse zaehlen mit
+        data = {'request_email': 'eve@example.org', 'request_submit': 'Senden'}
+        self.assertEqual(self._mails_to('/request-password', data, 1), 0)
 
     def test_login_works_without_redis(self):
         with mock.patch.multiple(limiter, _storage=mock.MagicMock(),

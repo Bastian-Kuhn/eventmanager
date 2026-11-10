@@ -1,6 +1,8 @@
+import re
+
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField, BooleanField, DateField
-from wtforms.validators import InputRequired, Email, EqualTo
+from wtforms.validators import InputRequired, Email, EqualTo, Length, ValidationError
 
 from application.auth.forms import validate_password
 
@@ -26,12 +28,31 @@ class ChangePasswordForm(FlaskForm):
     submit_password = SubmitField("Passwort ändern")
 
 
+# Buchstaben, getrennt durch Leerzeichen, Bindestrich, Apostroph oder "Punkt
+# Leerzeichen" (Abkuerzung). Keine Ziffern, Links oder Satzzeichen: der Name
+# steht in Mails des Vereins an die angegebene Adresse.
+NAME_PATTERN = re.compile(r"[^\W\d_]+(?:(?:[ '’-]|\. )[^\W\d_]+)*\.?")
+NAME_MAX = 50
+
+
+def validate_name(_form, field):
+    """
+    Namen auf Buchstaben und uebliche Trennzeichen begrenzen
+    """
+    field.data = " ".join((field.data or "").split())
+    if not NAME_PATTERN.fullmatch(field.data):
+        raise ValidationError("Bitte nur Buchstaben, Leerzeichen, Bindestrich oder Apostroph verwenden")
+
+
+NAME_VALIDATORS = [InputRequired(), Length(max=NAME_MAX), validate_name]
+
+
 class NewUserForm(FlaskForm):
     """
     Signup Form for User
     """
-    first_name = StringField("Vorname", validators=[InputRequired()])
-    last_name = StringField("Nachname", validators=[InputRequired()])
+    first_name = StringField("Vorname", validators=NAME_VALIDATORS)
+    last_name = StringField("Nachname", validators=NAME_VALIDATORS)
     email = StringField("E-Mail", validators=[Email(), InputRequired()])
     phone = StringField("Handynummer", validators=[InputRequired()])
     birthdate = DateField("Geburstdatum", validators=[InputRequired()])
