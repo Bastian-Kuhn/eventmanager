@@ -112,3 +112,6 @@ venv.bak/
 
 # Instanz-Konfiguration auf dem Server (SECRET_KEY, APP_PORT)
 .env
+
+# Playwright-MCP Snapshots und Logs (koennen personenbezogene Daten enthalten)
+.playwright-mcp/
