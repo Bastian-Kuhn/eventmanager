@@ -37,7 +37,6 @@ def page_user_profil():
     )
     password_form = ChangePasswordForm()
 
-    is_guide = current_user.has_right('guide')
     past_events = []
     for event in current_user.event_registrations:
         # Altbestand: Verweis auf ein inzwischen geloeschtes Event
@@ -48,8 +47,8 @@ def page_user_profil():
             'event': event,
             # None = globalen Profilwert nutzen, sonst True/False als Ueberschreibung
             'override': participation.media_optin if participation else None,
-            # Nach Tourbeginn darf nur noch ein Guide die Einwilligung aendern
-            'editable': is_guide or not event.is_started(now),
+            # Nach Tourbeginn darf nur noch ein Verantwortlicher der Tour die Einwilligung aendern
+            'editable': current_user.may_manage_event(event) or not event.is_started(now),
         })
     past_events.sort(key=lambda item: item['event'].start_date or datetime.min, reverse=True)
 
@@ -126,8 +125,8 @@ def page_user_event_optin():
         flash("Event nicht gefunden", 'danger')
         return redirect(url_for('USER.page_user_profil'))
 
-    # Nach Tourbeginn darf nur noch ein Guide die Einwilligung aendern
-    if event.is_started(datetime.now()) and not current_user.has_right('guide'):
+    # Nach Tourbeginn darf nur noch ein Verantwortlicher der Tour die Einwilligung aendern
+    if event.is_started(datetime.now()) and not current_user.may_manage_event(event):
         flash("Nach Tourbeginn kann die Einwilligung nur noch von einem Guide geändert werden",
               'danger')
         return redirect(url_for('USER.page_user_profil'))

@@ -70,6 +70,12 @@ class AppTestCase(unittest.TestCase):
         }
         return Event(**{**defaults, **kwargs}).save()
 
+    def owner(self, event, email='g@example.org', role='guide'):
+        """Trainer, der als Verantwortlicher der Tour eingetragen ist"""
+        user = self.user(email, role=role)
+        Event.objects(id=event.id).update_one(push__event_owners=user)
+        return user
+
     @staticmethod
     def login(user, password=PASSWORD):
         client = app.test_client()
@@ -451,7 +457,7 @@ class CsrfTest(AppTestCase):
 
     def test_form_token_is_accepted(self):
         client = self._guide()
-        event = self.event()
+        event = self.event(event_owners=[User.objects.get(email='guide@example.org')])
         page = client.get(f'/event/admin?event_id={event.id}').data
         token = self._token(page[page.index(b'/event/delete'):])
         response = client.post('/event/delete', data={'event_id': event.id, 'csrf_token': token})
@@ -637,7 +643,9 @@ class PrivacyTest(AppTestCase):
 
     def test_guide_gets_addresses(self):
         event = self._event_with_hidden_address()
-        html = self.login(self.user('g@example.org', role='guide')).get(
+        guide = self.user('g@example.org', role='guide')
+        Event.objects(id=event.id).update_one(push__event_owners=guide)
+        html = self.login(guide).get(
             f'/event/participants?event_id={event.id}').data
         self.assertIn(b'mailto:hidden@example.org', html)
 
@@ -781,7 +789,7 @@ class CrashTest(AppTestCase):
     def test_renamed_ticket_type(self):
         event = self.event()
         self.booking(self.user(), event, ticket_name='Alter Name', confirmed=True)
-        client = self.login(self.user('g@example.org', role='guide'))
+        client = self.login(self.owner(event))
         for page in ('participants', 'billing', 'finance'):
             self.assertEqual(client.get(f'/event/{page}?event_id={event.id}').status_code, 200, page)
 
@@ -818,7 +826,7 @@ class CrashTest(AppTestCase):
         event = self.event()
         self.booking(booker, event)
         User.objects(id=booker.id).update_one(add_to_set__favorites=event)
-        client = self.login(self.user('g@example.org', role='guide'))
+        client = self.login(self.owner(event))
         client.post('/admin/event/delete/', data={'id': event.id, 'url': '/admin/event/'})
         self.assertEqual(Event.objects.count(), 0)
         booker.reload()
@@ -835,7 +843,7 @@ class CrashTest(AppTestCase):
 
     def test_export_without_confirmed(self):
         event = self.event()
-        client = self.login(self.user('g@example.org', role='guide'))
+        client = self.login(self.owner(event))
         response = client.get(f'/event/participants/export?event_id={event.id}')
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'Bucher', response.data)
@@ -844,7 +852,7 @@ class CrashTest(AppTestCase):
         event = self.event(event_name='Tour\r\nX: y ä')
         self.booking(self.user(), event, confirmed=True, name='=HYPERLINK("http://evil")',
                      comment_on_ticket='@cmd', phone_on_ticket='+49 170 1')
-        client = self.login(self.user('g@example.org', role='guide'))
+        client = self.login(self.owner(event))
         response = client.get(f'/event/participants/export?event_id={event.id}')
         self.assertEqual(response.status_code, 200)
         text = response.data.decode()
@@ -859,7 +867,7 @@ class CrashTest(AppTestCase):
         first, second = self.user('a@example.org'), self.user('b@example.org')
         self.booking(first, event, ticket_name='Bus', ticket_id='a', name='Zoe', is_extra_ticket=True)
         self.booking(second, event, ticket_name='Bus', ticket_id='b', name='Anna', is_extra_ticket=True)
-        client = self.login(self.user('g@example.org', role='guide'))
+        client = self.login(self.owner(event))
         text = client.get(f'/event/extra_tickets_export/Bus?event_id={event.id}').data.decode()
         self.assertLess(text.index('Anna'), text.index('Zoe'))
 
@@ -875,7 +883,7 @@ class CrashTest(AppTestCase):
     def test_nan_price_rejected(self):
         event = self.event()
         self.booking(self.user(), event)
-        client = self.login(self.user('g@example.org', role='guide'))
+        client = self.login(self.owner(event))
         for price in ('nan', 'inf', 'abc'):
             response = client.post('/event/change_price', data={
                 'event_id': event.id, 'ticket_id': 't1', 'new_price': price})
@@ -888,14 +896,14 @@ class CrashTest(AppTestCase):
 
     def test_unknown_ticket_id(self):
         event = self.event()
-        client = self.login(self.user('g@example.org', role='guide'))
+        client = self.login(self.owner(event))
         for url in ('/event/change_participants', '/event/change_paidstatus'):
             response = client.post(url, data={'job': 'paid', 'ticket_id': 'x', 'event_id': event.id})
             self.assertEqual(response.status_code, 404, url)
 
     def test_cost_index(self):
         event = self.event(costs=[EventCost(name='a', price=1.0), EventCost(name='b', price=2.0)])
-        client = self.login(self.user('g@example.org', role='guide'))
+        client = self.login(self.owner(event))
         client.post('/event/finance/delete_cost', data={'event_id': event.id, 'index': '-1'})
         self.assertEqual(len(Event.objects.get(id=event.id).costs), 2)
         response = client.post('/event/finance/edit_cost', data={
@@ -975,7 +983,7 @@ class BookingLogicTest(AppTestCase):
     def test_guide_added_ticket_sets_back_reference(self):
         member = self.user()
         event = self.event()
-        guide = self.login(self.user('g@example.org', role='guide'))
+        guide = self.login(self.owner(event))
         response = guide.post('/user/add_ticket', data={
             'event_id': event.id, 'user_id': member.id, 'ticket_type': 'Teilnahme', 'new_name': '',
             'new_email': '', 'new_phone': '', 'new_birthdate': '', 'new_comment': ''})
@@ -1011,7 +1019,7 @@ class BookingLogicTest(AppTestCase):
 
     def test_event_form_ignores_foreign_fields(self):
         event = self.event()
-        guide = self.user('g@example.org', role='guide')
+        guide = self.owner(event)
         self.booking(self.user(), event)
         client = self.login(guide)
         client.post(f'/event/admin?event_id={event.id}', data={
@@ -1075,13 +1083,135 @@ class CommentLengthTest(AppTestCase):
     def test_guide_add_ticket_rejects_long_comment(self):
         user = self.user()
         event = self.event()
-        client = self.login(self.user('guide@example.org', role='guide'))
+        client = self.login(self.owner(event))
         response = client.post('/user/add_ticket', data={
             'event_id': str(event.id), 'user_id': str(user.id), 'ticket_type': 'Teilnahme',
             'new_name': '', 'new_email': '', 'new_phone': '', 'new_birthdate': '',
             'new_comment': 'x' * (COMMENT_MAX + 1)})
         self.assertEqual(response.status_code, 400)
         self.assertEqual(Event.objects.get(id=event.id).participations, [])
+
+
+class TourOwnerTest(AppTestCase):
+    """Trainer und Tourenbegleiter verwalten nur Touren, bei denen sie Verantwortliche sind"""
+
+    FORM = {
+        'event_name': 'Neu', 'event_teaser': 't', 'event_category': 'None', 'event_type': 'guided',
+        'places': '5', 'min_places': '0', 'start_date': '2030-01-01T10:00', 'difficulty': 'keine',
+        'shape': 'keine', 'length_h': '0', 'length_km': '0', 'altitude_difference': '0',
+        'tickets-1-name': 'Teilnahme', 'tickets-1-maximum_tickets': '5', 'tickets-1-price': '1',
+    }
+
+    def setUp(self):
+        super().setUp()
+        self.member = self.user('m@example.org', role='member')
+        self.event_ = self.event(costs=[EventCost(name='a', price=1.0)])
+        self.booking(self.member, self.event_, confirmed=True, phone_on_ticket='0170 999')
+
+    def assert_denied(self, client, event):
+        """Jede Verwaltungsseite der Tour ist gesperrt und aendert nichts"""
+        eid = str(event.id)
+        gets = [f'/event/admin?event_id={eid}', f'/event/participants/export?event_id={eid}',
+                f'/event/billing?event_id={eid}', f'/event/finance?event_id={eid}',
+                f'/event/extra_tickets/Bus?event_id={eid}',
+                f'/event/extra_tickets_export/Bus?event_id={eid}']
+        for url in gets:
+            self.assertEqual(client.get(url).status_code, 403, url)
+        ticket = {'event_id': eid, 'ticket_id': 't1'}
+        posts = [
+            ('/event/change_participants', {**ticket, 'job': 'delete'}),
+            ('/event/change_paidstatus', {**ticket, 'job': 'paid'}),
+            ('/event/bulk_paidstatus', {'event_id': eid, 'job': 'all_paid'}),
+            ('/event/change_price', {**ticket, 'new_price': '0'}),
+            ('/event/bulk_change_price', {'event_id': eid, 'ticket_name': 'Teilnahme', 'new_price': '0'}),
+            ('/event/manage_hidden_categories', {'event_id': eid, 'action': 'hide_category',
+                                                 'category': 'x'}),
+            ('/event/finance/add_cost', {'event_id': eid, 'name': 'b', 'price': '5'}),
+            ('/event/finance/edit_cost', {'event_id': eid, 'index': '0', 'name': 'z'}),
+            ('/event/finance/mark_person_paid', {'event_id': eid, 'job': 'paid'}),
+            ('/event/finance/delete_cost', {'event_id': eid, 'index': '0'}),
+            ('/user/add_ticket', {'event_id': eid, 'user_id': str(self.member.id),
+                                  'ticket_type': 'Teilnahme', 'new_name': '', 'new_email': '',
+                                  'new_phone': '', 'new_birthdate': '', 'new_comment': ''}),
+            ('/event/admin?event_id=' + eid, self.FORM),
+            ('/event/delete', {'event_id': eid}),
+        ]
+        for url, data in posts:
+            self.assertEqual(client.post(url, data=data).status_code, 403, url)
+        # Fremde Buchungen bleiben unsichtbar und unveraendert
+        client.post('/user/change_ticket', data={
+            **ticket, 'target_user_id': str(self.member.id), 'new_name': 'X', 'new_email': '',
+            'new_phone': '', 'new_birthdate': '', 'new_comment': ''})
+        page = client.get(f'/user/booking?event_id={eid}&user_id={self.member.id}').data
+        self.assertNotIn(b'0170 999', page)
+        # Flask-Admin: weder sichtbar noch loeschbar
+        self.assertNotIn(eid.encode(), client.get('/admin/event/').data)
+        client.post('/admin/event/delete/', data={'id': eid, 'url': '/admin/event/'})
+        event.reload()
+        self.assertEqual(event.event_name, 'Tour')
+        self.assertEqual(len(event.participations), 1)
+        ticket = event.participations[0].tickets[0]
+        self.assertEqual((ticket.name_on_ticket, ticket.is_paid, ticket.custom_price),
+                         ('Vor Nach', False, None))
+        self.assertEqual([(x.name, x.is_paid) for x in event.costs], [('a', False)])
+        self.assertEqual(list(event.hidden_categories), [])
+
+    def test_own_tour_allowed(self):
+        client = self.login(self.owner(self.event_))
+        eid = self.event_.id
+        for url in ('admin', 'billing', 'finance', 'participants/export'):
+            self.assertEqual(client.get(f'/event/{url}?event_id={eid}').status_code, 200, url)
+        self.assertIn(b'0170 999', client.get(f'/event/participants?event_id={eid}').data)
+        response = client.post('/event/change_price', data={
+            'event_id': eid, 'ticket_id': 't1', 'new_price': '3'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Event.objects.get(id=eid).participations[0].tickets[0].custom_price, 3)
+        self.assertIn(str(eid).encode(), client.get('/admin/event/').data)
+
+    def test_attendant_on_own_tour_allowed(self):
+        client = self.login(self.owner(self.event_, 'a@example.org', role='attendant'))
+        self.assertEqual(client.get(f'/event/admin?event_id={self.event_.id}').status_code, 200)
+
+    def test_foreign_tour_forbidden_for_guide(self):
+        self.owner(self.event_, 'other@example.org')
+        self.assert_denied(self.login(self.user('g@example.org', role='guide')), self.event_)
+
+    def test_foreign_tour_forbidden_for_attendant(self):
+        self.owner(self.event_, 'other@example.org')
+        self.assert_denied(self.login(self.user('a@example.org', role='attendant')), self.event_)
+
+    def test_tour_without_leader_only_for_admins(self):
+        self.assert_denied(self.login(self.user('g@example.org', role='guide')), self.event_)
+        admin = self.login(self.user('admin@example.org', global_admin=True))
+        self.assertEqual(admin.get(f'/event/admin?event_id={self.event_.id}').status_code, 200)
+
+    def test_global_admin_manages_foreign_tour(self):
+        self.owner(self.event_, 'other@example.org')
+        client = self.login(self.user('admin@example.org', global_admin=True))
+        eid = self.event_.id
+        for url in ('admin', 'billing', 'finance', 'participants/export'):
+            self.assertEqual(client.get(f'/event/{url}?event_id={eid}').status_code, 200, url)
+        self.assertIn(str(eid).encode(), client.get('/admin/event/').data)
+        self.assertEqual(client.post('/event/delete', data={'event_id': eid}).status_code, 302)
+        self.assertEqual(Event.objects(id=eid).count(), 0)
+
+    def test_foreign_guide_sees_list_only_as_participant(self):
+        guide = self.user('g@example.org', role='guide')
+        client = self.login(guide)
+        eid = self.event_.id
+        self.assertEqual(client.get(f'/event/participants?event_id={eid}').status_code, 403)
+        self.booking(guide, self.event_, ticket_id='t2', confirmed=True)
+        page = client.get(f'/event/participants?event_id={eid}').data
+        self.assertNotIn(b'0170 999', page)
+        self.assertNotIn(b'participants/export', page)
+
+    def test_creator_becomes_leader(self):
+        guide = self.user('g@example.org', role='guide')
+        client = self.login(guide)
+        self.assertEqual(client.post('/create', data=self.FORM).status_code, 302)
+        event = Event.objects.get(event_name='Neu')
+        self.assertEqual([x.id for x in event.event_owners], [guide.id])
+        self.assertEqual(client.get(f'/event/admin?event_id={event.id}').status_code, 200)
 
 
 class SecurityHeaderTest(AppTestCase):

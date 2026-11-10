@@ -14,7 +14,7 @@
           <li class="nav-item">
             <a class="nav-link active" href="{{ url_for('EVENTS.page_participants', event_id=event.id) }}">Teilnehmerliste</a>
           </li>
-          {% if current_user.has_right('guide') %}
+          {% if current_user.may_manage_event(event) %}
             {% set ns = namespace(has_paid_tickets=false) %}
             {% for ticket in event.tickets %}
               {% if ticket.price and ticket.price > 0 %}
@@ -31,12 +31,12 @@
             </li>
           {% endif %}
       {% endif %}
-    {% if current_user.has_right('guide') or current_user.participate_event(event.id) %}
+    {% if current_user.may_manage_event(event) or current_user.participate_event(event.id) %}
       <li class="nav-item">
         <a class="nav-link" href="{{ url_for('EVENTS.page_mybooking', event_id=event.id) }}">Meine Buchung</a>
       </li>
     {% endif %}
-      {% if current_user.has_right('guide') %}
+      {% if current_user.may_manage_event(event) %}
       <li class="nav-item">
         <a class="nav-link" href="{{ url_for('EVENTS.page_admin', event_id=event.id) }}">Bearbeiten</a>
       </li>
@@ -54,7 +54,7 @@
     <h1>{{event.event_name}} ({{event.start_date.strftime("%d.%m.%Y") }})</h1>
 </div>
 
-{% if current_user.has_right('guide') %}
+{% if current_user.may_manage_event(event) %}
 <div class="row">
 {% if bookings['confirmed'] %}
     <a type="button" class="btn btn-secondary" href="{{ url_for('EVENTS.page_participants_export', event_id=event.id) }}">Export CSV</a>&nbsp;
@@ -118,7 +118,7 @@ Keine Teilnehmer für Export oder Mail bestätigt
           <th scope="col">Account</th>
           <th scope="col">Telefonnummer</th>
           <th scope="col">E-Mail Adressse</th>
-        {% if current_user.has_right('guide') %}
+        {% if current_user.may_manage_event(event) %}
           <th scope="col">Medien Optin</th>
           <th scope="col">Vereinsrolle</th>
           <th scope="col">Alter</th>
@@ -138,21 +138,21 @@ Keine Teilnehmer für Export oder Mail bestätigt
          </td>
          <td>{{ ticket.ticket_info.name }}</td>
          <td>
-          {% if current_user.has_right('guide') %}
+          {% if current_user.may_manage_event(event) %}
           <a href="{{ url_for('EVENTS.page_mybooking', event_id=event.id, user_id=ticket.ticket_info.bucher_user_id) }}" class="badge badge-pill badge-info" style="text-decoration: none;">{{ticket.ticket_info.bucher }}</a>
           {% else %}
           <span class="badge badge-pill badge-info">{{ticket.ticket_info.bucher }}</span>
           {% endif %}
          </td>
          <td>
-            {% if ticket.ticket_info.data_optin or current_user.has_right('guide')%}{{ticket.ticket_info.telefon}}
+            {% if ticket.ticket_info.data_optin or current_user.may_manage_event(event)%}{{ticket.ticket_info.telefon}}
             {%else%} versteckt {% endif %}
         </td>
-        <td>{% if ticket.ticket_info.data_optin or current_user.has_right('guide')%}
+        <td>{% if ticket.ticket_info.data_optin or current_user.may_manage_event(event)%}
             <a href="mailto:{{ticket.ticket_info.email}}">{{ticket.ticket_info.email}}</a>
             {%else%} versteckt {% endif %}
         </td>
-        {% if current_user.has_right('guide') %}
+        {% if current_user.may_manage_event(event) %}
           <td>{{ translate_bool(ticket.ticket_info.media_optin) }}</td>
           <td>{{ ticket.ticket_info.role }}</td>
           <td>{{ age(ticket.ticket_info.birthdate) }}</td>
@@ -192,7 +192,7 @@ Keine Teilnehmer für Export oder Mail bestätigt
 {% endfor %}
 </div>
 
-{% if current_user.has_right('guide') and extra_tickets %}
+{% if current_user.may_manage_event(event) and extra_tickets %}
 <div class="row">
 <h1>Kategorien</h1>
 </div>
@@ -237,7 +237,7 @@ Keine Teilnehmer für Export oder Mail bestätigt
            {% endif %}
          </td>
          <td>
-          {% if current_user.has_right('guide') %}
+          {% if current_user.may_manage_event(event) %}
           <a href="{{ url_for('EVENTS.page_mybooking', event_id=event.id, user_id=bucher_user_id) }}" class="badge badge-pill badge-info" style="text-decoration: none;">{{ bucher }}</a>
           {% else %}
           <span class="badge badge-pill badge-info">{{ bucher }}</span>
@@ -258,7 +258,7 @@ Keine Teilnehmer für Export oder Mail bestätigt
 {% block scripts %}
 {{super()}}
 
-{% if current_user.has_right('guide') %}
+{% if current_user.may_manage_event(event) %}
 <script type="text/javascript">
 $(document).ready(function() {
     var hiddenCategories = new Set();

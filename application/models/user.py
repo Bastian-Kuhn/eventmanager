@@ -94,13 +94,28 @@ class User(db.Document, UserMixin):
         (Rolle gesetzt) oder mit bestaetigtem Ticket. Ein frisch
         registriertes Konto mit offener Buchung sieht sie nicht.
         """
-        if self.has_right('guide'):
+        if self.may_manage_event(event):
             return True
         if not self.participate_event(event.id):
             return False
         if self.role:
             return True
         return any(ticket.confirmed for ticket in event.get_tickets_of_user(self))
+
+    def may_manage_event(self, event):
+        """
+        Tour bearbeiten und verwalten (Teilnehmer, Preise, Abrechnung, Export):
+        globale Admins, sonst nur Trainer und Tourenbegleiter, die als
+        Verantwortliche der Tour eingetragen sind. Touren ohne Verantwortliche
+        verwalten nur globale Admins.
+        """
+        if self.global_admin:
+            return True
+        if not self.has_right('guide'):
+            return False
+        # Ohne Dereferenzieren: die Liste kann DBRefs, ObjectIds oder Users enthalten
+        owners = event._data.get('event_owners') or []  # pylint: disable=protected-access
+        return str(self.id) in {str(getattr(ref, 'id', ref)) for ref in owners}
 
     def is_favorite(self, event_id):
         """

@@ -35,7 +35,7 @@
       <li class="nav-item">
         <a class="nav-link" href="{{ url_for('EVENTS.page_participants', event_id=event.id) }}">Teilnehmerliste</a>
       </li>
-      {% if current_user.has_right('guide') %}
+      {% if current_user.may_manage_event(event) %}
       <li class="nav-item">
         <a class="nav-link" href="{{ url_for('EVENTS.page_billing', event_id=event.id) }}">Abrechnung</a>
       </li>
@@ -44,14 +44,14 @@
       </li>
       {% endif %}
       {% endif %}
-    {% if current_user.has_right('guide') or current_user.participate_event(event.id) %}
+    {% if current_user.may_manage_event(event) or current_user.participate_event(event.id) %}
       <li class="nav-item">
         <a class="nav-link active" href="{{ url_for('EVENTS.page_mybooking', event_id=event.id) }}">
           {% if is_viewing_other_user %}Buchung von {{ target_user.first_name }} {{ target_user.last_name }}{% else %}Meine Buchung{% endif %}
         </a>
       </li>
     {% endif %}
-      {% if current_user.has_right('guide') %}
+      {% if current_user.may_manage_event(event) %}
       <li class="nav-item">
         <a class="nav-link" href="{{ url_for('EVENTS.page_admin', event_id=event.id) }}">Bearbeiten</a>
       </li>
@@ -90,7 +90,7 @@
 </div>
 {% endif %}
 
-{% if current_user.has_right('guide') %}
+{% if current_user.may_manage_event(event) %}
 <div class="row">
     <div class="col-sm-12">
         <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#addNewTicket">
@@ -131,7 +131,7 @@
       <th scope="col">Buchungszeit</th>
       <th scope="col">Preis</th>
       <th scope="col">Bezahlt</th>
-      {% if current_user.has_right('guide') %}
+      {% if current_user.may_manage_event(event) %}
       <th scope="col">Aktionen</th>
       {% endif %}
     </tr>
@@ -140,14 +140,14 @@
 
   {% for ticket_name, tickets in tickets_by_name.items() %}
   <tr>
-      <th scope="colgroup" colspan="{% if current_user.has_right('guide') %}11{% else %}10{% endif %}">{{ticket_name}}</th>
+      <th scope="colgroup" colspan="{% if current_user.may_manage_event(event) %}11{% else %}10{% endif %}">{{ticket_name}}</th>
   </tr>
     {% for ticket in tickets %}
       <tr>
         <td data-label="Bearbeiten">
           {% if ticket.main_name is not none %}
           {# Zusatzticket: Daten kommen vom Haupt-Ticket, nichts zu bearbeiten #}
-          {% elif current_user.has_right('guide') or target_user == current_user %}
+          {% elif current_user.may_manage_event(event) or target_user == current_user %}
           <a role="button"
                data-ticket-id="{{ ticket.ticket_id }}"
                data-name="{{ticket.name_on_ticket}}"
@@ -191,7 +191,7 @@
         </td>
         <td data-label="Buchungszeit">{{ticket.booking_date.strftime('%d.%m.%Y %H:%M')}}</td>
         <td data-label="Preis">
-        {% if current_user.has_right('guide') %}
+        {% if current_user.may_manage_event(event) %}
           <button type="button" class="editable-price btn btn-link p-0"
                 data-ticket-id="{{ ticket.ticket_id }}"
                 data-original-price="{{ '%.2f'|format(ticket.price or 0) }}"
@@ -210,7 +210,7 @@
           <span class="badge badge-danger">Nein</span>
           {% endif %}
          </td>
-         {% if current_user.has_right('guide') %}
+         {% if current_user.may_manage_event(event) %}
          <td data-label="Aktionen">
             <div class="d-flex flex-wrap gap-1">
             {% if not ticket.is_paid %}
@@ -288,7 +288,7 @@
 </div>
 
 <!-- Modal for adding new ticket (Guide only) -->
-{% if current_user.has_right('guide') %}
+{% if current_user.may_manage_event(event) %}
 <div class="modal" tabindex="-1" role="dialog" id="addNewTicket">
   <div class="modal-dialog modal-dialog-centered" role="document">
     <div class="modal-content">

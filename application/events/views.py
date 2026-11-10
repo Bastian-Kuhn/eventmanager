@@ -192,7 +192,10 @@ def save_event_form(event, form):
         if field in form_data:
             setattr(event, field, form_data[field])
 
-    if current_user not in event.event_owners and form_data.get('add_guide'):
+    # Wer kein globaler Admin ist, wird immer Verantwortlicher: sonst koennte er
+    # die eben angelegte Tour nicht mehr bearbeiten
+    if current_user not in event.event_owners and \
+            (form_data.get('add_guide') or not current_user.is_global_admin()):
         event.event_owners.append(current_user)
 
 
@@ -288,7 +291,7 @@ def ajax_mybooking():
     event = Event.objects.get(id=event_id)
     
     # Determine which user's tickets we should be editing
-    if current_user.has_right('guide') and target_user_id:
+    if current_user.may_manage_event(event) and target_user_id:
         target_user = User.objects.get(id=target_user_id)
         ticket = event.get_booked_ticket(ticket_id, target_user)
     else:
@@ -318,10 +321,10 @@ def ajax_add_ticket():
     """
     Add new ticket for a user (Guide only)
     """
-    if not current_user.has_right('guide'):
+    event = Event.objects(id=request.form['event_id']).first()
+    if not event or not current_user.may_manage_event(event):
         return {'success': False, 'message': 'Keine Berechtigung'}, 403
-        
-    event_id = request.form['event_id']
+
     user_id = request.form['user_id']
     ticket_type = request.form['ticket_type']
     new_name = request.form['new_name']
@@ -334,7 +337,6 @@ def ajax_add_ticket():
                 'message': f'Der Kommentar darf höchstens {COMMENT_MAX} Zeichen lang sein'}, 400
 
     try:
-        event = Event.objects.get(id=event_id)
         target_user = User.objects.get(id=user_id)
         
         # Check if ticket type exists
@@ -401,7 +403,7 @@ def ajax_ticketdata(event_id):
     event = Event.objects.get(id=event_id)
     
     # Determine which user's tickets to search through
-    if current_user.has_right('guide') and target_user_id:
+    if current_user.may_manage_event(event) and target_user_id:
         target_user = User.objects.get(id=target_user_id)
         tickets = event.get_tickets_of_user(target_user)
     else:
@@ -446,7 +448,7 @@ def page_mybooking():
     
     # Determine which user's booking to show
     target_user = current_user
-    if user_id and current_user.has_right('guide'):
+    if user_id and current_user.may_manage_event(event):
         target_user = User.objects.get(id=user_id)
     
     for parti in event.participations:
@@ -670,16 +672,24 @@ def event_populate(event):
 
     return event
 
+def get_managed_event(event_id):
+    """
+    Tour laden, die der angemeldete User verwalten darf, sonst 403.
+    Trainer und Tourenbegleiter verwalten nur ihre eigenen Touren.
+    """
+    event = Event.objects(id=event_id).first()
+    if not event or not current_user.may_manage_event(event):
+        abort(403)
+    return event
+
 @EVENTS.route('/event/admin', methods=['GET', 'POST'])
 @login_required
 def page_admin():
     """
     Admin Page
     """
-    if not current_user.has_right('guide'):
-        abort(403)
     event_id = request.args.get('event_id')
-    event = Event.objects.get(id=event_id)
+    event = get_managed_event(event_id)
 
     try:
         extra_categories = [(x.name.lower(), x.name) for x in Config.objects(enabled=True)[0].event_categories_full]
@@ -725,10 +735,7 @@ def page_delete():
     """
     Event endgueltig loeschen (inkl. Anmeldungen und Huettenbuchung)
     """
-    if not current_user.has_right('guide'):
-        abort(403)
-
-    event = Event.objects.get(id=request.form['event_id'])
+    event = get_managed_event(request.form['event_id'])
     event_name = event.event_name
 
     # Rueckreferenzen auf den Usern entfernen, sonst zeigen sie auf ein
@@ -751,14 +758,11 @@ def change_participation():
     """
     Helper
     """
-    if not current_user.has_right('guide'):
-        abort(403)
-
     job = request.form['job']
     ticket_id = request.form['ticket_id']
     event_id = request.form['event_id']
 
-    event = Event.objects.get(id=event_id)
+    event = get_managed_event(event_id)
     ticket = event.get_booked_ticket(ticket_id)
     if not ticket:
         return {'success': False, 'message': 'Ticket nicht gefunden'}, 404
@@ -793,16 +797,11 @@ def manage_hidden_categories():
     """
     Manage global hidden categories
     """
-    if not current_user.has_right('guide'):
-        return jsonify({'success': False, 'error': 'Not authorized'})
-
+    event = get_managed_event(request.form.get('event_id'))
     action = request.form.get('action')
-    event_id = request.form.get('event_id')
     category = request.form.get('category')
 
     try:
-        event = Event.objects.get(id=event_id)
-        
         # Initialize hidden_categories if it doesn't exist
         if not event.hidden_categories:
             event.hidden_categories = []
@@ -945,11 +944,8 @@ def page_participants_export():
     if not current_user.is_authenticated:
         return redirect(url_for('auth.login'))
 
-    if not current_user.has_right('guide'):
-        abort(403)
-
     event_id = request.args.get('event_id')
-    event = Event.objects.get(id=event_id)
+    event = get_managed_event(event_id)
     participants = get_participants(event)['confirmed']
     io_output = io.StringIO()
     writer = csv.writer(io_output, delimiter=';' )
@@ -991,7 +987,6 @@ def page_participants():
     """
     Participants Page
     """
-
     event_id = request.args.get('event_id')
 
     if not current_user.is_authenticated:
@@ -1008,7 +1003,7 @@ def page_participants():
     # Teilnehmern ohne Datenfreigabe
     emails = []
     participants = get_participants(event)
-    if current_user.has_right('guide'):
+    if current_user.may_manage_event(event):
         for part in participants['confirmed']:
             email = part['ticket_info']['email']
             if email and email not in emails:
@@ -1045,14 +1040,11 @@ def change_paidstatus():
     """
     Helper to mark Tickets paid
     """
-    if not current_user.has_right('guide'):
-        abort(403)
-
     job = request.form['job']
     ticket_id = request.form['ticket_id']
     event_id = request.form['event_id']
 
-    event = Event.objects.get(id=event_id)
+    event = get_managed_event(event_id)
     ticket = event.get_booked_ticket(ticket_id)
     if not ticket:
         return {'success': False, 'message': 'Ticket nicht gefunden'}, 404
@@ -1085,13 +1077,10 @@ def bulk_paidstatus():
     """
     Alle Tickets eines Events auf bezahlt/unbezahlt setzen
     """
-    if not current_user.has_right('guide'):
-        abort(403)
-
     job = request.form['job']
     event_id = request.form['event_id']
 
-    event = Event.objects.get(id=event_id)
+    event = get_managed_event(event_id)
     new_state = job == 'all_paid'
     for parti in event.participations:
         for ticket in parti.tickets:
@@ -1109,19 +1098,16 @@ def bulk_change_price():
     """
     Preis eines Ticket-Typs fuer alle Buchungen setzen
     """
-    if not current_user.has_right('guide'):
-        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
-
     event_id = request.form.get('event_id')
     ticket_name = request.form.get('ticket_name')
     new_price = request.form.get('new_price')
+
+    event = get_managed_event(event_id)
 
     try:
         new_price = parse_price(new_price)
     except (ValueError, TypeError):
         return jsonify({'success': False, 'message': 'Invalid price format'}), 400
-
-    event = Event.objects.get(id=event_id)
 
     # Ticket-Definition anpassen, damit auch zukuenftige Buchungen den neuen Preis haben
     for ticket_def in event.tickets:
@@ -1145,20 +1131,17 @@ def change_price():
     """
     Helper to change ticket prices for guides
     """
-    if not current_user.has_right('guide'):
-        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
-        
     event_id = request.form.get('event_id')
     ticket_id = request.form.get('ticket_id')
     new_price = request.form.get('new_price')
     
+    event = get_managed_event(event_id)
+
     try:
         new_price = parse_price(new_price)
     except (ValueError, TypeError):
         return jsonify({'success': False, 'message': 'Invalid price format'}), 400
-    
-    event = Event.objects.get(id=event_id)
-    
+
     # Find the ticket and update its custom price
     for parti in event.participations:
         for ticket in parti.tickets:
@@ -1179,10 +1162,7 @@ def page_extra_tickets(category):
     if not current_user.is_authenticated:
         return redirect(url_for('auth.login'))
 
-    if not current_user.has_right('guide'):
-        abort(403)
-
-    event = Event.objects.get(id=event_id)
+    event = get_managed_event(event_id)
     context = {}
 
     participants = get_participants(event)
@@ -1215,11 +1195,8 @@ def page_extra_tickets_export(category):
     if not current_user.is_authenticated:
         return redirect(url_for('auth.login'))
 
-    if not current_user.has_right('guide'):
-        abort(403)
-
     event_id = request.args.get('event_id')
-    event = Event.objects.get(id=event_id)
+    event = get_managed_event(event_id)
     
     participants = get_participants(event)
     
@@ -1276,16 +1253,12 @@ def page_billing():
     """
     Participants Page
     """
-
     event_id = request.args.get('event_id')
 
     if not current_user.is_authenticated:
         return redirect(url_for('auth.login'))
 
-    if not current_user.has_right('guide'):
-        abort(403)
-
-    event = Event.objects.get(id=event_id)
+    event = get_managed_event(event_id)
     event.ensure_booking_refs()
     context = {}
 
@@ -1358,10 +1331,7 @@ def page_finance():
     if not current_user.is_authenticated:
         return redirect(url_for('auth.login'))
 
-    if not current_user.has_right('guide'):
-        abort(403)
-
-    event = Event.objects.get(id=event_id)
+    event = get_managed_event(event_id)
     participants = get_participants(event)
 
     received = 0
@@ -1440,11 +1410,8 @@ def add_cost():
     """
     Kostenposition zum Event hinzufuegen
     """
-    if not current_user.has_right('guide'):
-        abort(403)
-
     event_id = request.form['event_id']
-    event = Event.objects.get(id=event_id)
+    event = get_managed_event(event_id)
 
     cost = EventCost()
     cost.name = request.form.get('name')
@@ -1465,11 +1432,8 @@ def edit_cost():
     """
     Kostenposition bearbeiten (inkl. Bezahlt-Status)
     """
-    if not current_user.has_right('guide'):
-        abort(403)
-
     event_id = request.form['event_id']
-    event = Event.objects.get(id=event_id)
+    event = get_managed_event(event_id)
 
     cost = cost_from_form(event)
     if not cost:
@@ -1493,14 +1457,11 @@ def mark_person_paid():
     """
     Alle Ausgaben einer Person als bezahlt/offen markieren
     """
-    if not current_user.has_right('guide'):
-        abort(403)
-
     event_id = request.form['event_id']
     person = request.form.get('person', '')
     job = request.form['job']
 
-    event = Event.objects.get(id=event_id)
+    event = get_managed_event(event_id)
     new_state = job == 'paid'
     for cost in event.costs:
         if (cost.person or '') == person:
@@ -1515,11 +1476,8 @@ def delete_cost():
     """
     Kostenposition entfernen
     """
-    if not current_user.has_right('guide'):
-        abort(403)
-
     event_id = request.form['event_id']
-    event = Event.objects.get(id=event_id)
+    event = get_managed_event(event_id)
 
     cost = cost_from_form(event)
     if cost:
