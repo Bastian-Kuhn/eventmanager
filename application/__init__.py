@@ -19,6 +19,7 @@ from flask_request_id_header.middleware import RequestID
 from flask_admin import Admin
 from flask_admin.menu import MenuLink
 from flask_bootstrap import Bootstrap
+from flask_mail import Mail
 from flask_mongoengine import MongoEngine
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -98,49 +99,53 @@ db = MongoEngine(app)
 
 
 
-from application.models.config import Config
-from application.views.config import ConfigModelView
+from application.models.section import Section, current_section
+from application.views.section import SectionView
 
-# Config + Logo (GridFS) nicht bei jedem Request neu laden und kodieren - am
-# Buchungsstichtag laufen hunderte Requests gleichzeitig. Aenderungen im Admin
-# greifen damit nach spaetestens CONFIG_CACHE_SECONDS.
-CONFIG_CACHE_SECONDS = 60
-_config_cache = {'expires': 0, 'values': {}}
+# Logo (GridFS) nicht bei jedem Request neu laden und kodieren, am
+# Buchungsstichtag laufen hunderte Requests gleichzeitig. Ein neues Logo
+# greift damit nach spaetestens LOGO_CACHE_SECONDS.
+LOGO_CACHE_SECONDS = 60
+_logo_cache = {}
 
-def load_runtime_config():
-    """Liest die Laufzeit-Config aus dem Config-Doc"""
+def section_logo(section):
+    """Logo der Sektion als data-URL, leer ohne Logo"""
+    key = str(section.id or section.slug)
+    now = time.monotonic()
+    cached = _logo_cache.get(key)
+    if cached and cached[0] > now:
+        return cached[1]
     try:
-        user_config = Config.objects(enabled=True)[0]
-    except:
-        return {'style_nav_background_color': 'grey'}
-    values = {
-        'style_nav_background_color': user_config.nav_background_color,
-        'homepage_link': user_config.homepage_link,
-        'media_consent_text': user_config.media_consent_text,
-        'MAIL_SENDER': user_config.mail_sender,
-        'MAIL_SERVER': user_config.mail_server,
-        'MAIL_USE_TLS': False,
-        'MAIL_USERNAME': user_config.mail_username,
-        'MAIL_PORT': 465,
-        'MAIL_USE_SSL': True,
-        'MAIL_SUBJECT_PREFIX': user_config.mail_subject_prefix,
-        'MAIL_PASSWORD': user_config.mail_password,
-    }
+        logo = "data:image/png;base64," + base64.b64encode(section.logo_image.read()).decode('utf-8')
+    except Exception:  # pylint: disable=broad-except
+        logo = ''  # kein Logo hinterlegt
+    _logo_cache[key] = (now + LOGO_CACHE_SECONDS, logo)
+    return logo
+
+@app.context_processor
+def inject_section():
+    """
+    Design der Sektion fuer die Templates. Bewusst nicht in app.config: das
+    teilen sich alle Threads, parallele Requests verschiedener Sektionen
+    wuerden sich gegenseitig ueberschreiben.
+    """
     try:
-        values['style_brand_logo'] = "data:image/png;base64,"+base64.b64encode(user_config.logo_image.read()).decode('utf-8')
-    except:
-        pass  # kein Logo hinterlegt
-    return values
+        section = current_section()
+    except DoesNotExist:
+        return {'site': {}}
+    return {'site': {
+        'name': section.name,
+        'nav_color': section.nav_background_color or 'grey',
+        'homepage_link': section.homepage_link,
+        'logo': section_logo(section),
+        'media_consent_text': section.media_consent_text,
+    }}
 
 @app.before_request
-def prepare_config():
-    if request.endpoint == 'static':
-        return
-    now = time.monotonic()
-    if _config_cache['expires'] < now:
-        _config_cache['values'] = load_runtime_config()
-        _config_cache['expires'] = now + CONFIG_CACHE_SECONDS
-    app.config.update(_config_cache['values'])
+def require_section():
+    """Unbekannte Adresse ohne Default-Sektion: 404 statt einer fremden Sektion"""
+    if request.endpoint != 'static':
+        current_section()
 
 # Nur Regeln, die nichts brechen: Inline-Skripte und das Einbetten in fremde
 # Seiten bleiben erlaubt, bis geklaert ist, was davon gebraucht wird.
@@ -204,6 +209,10 @@ limiter = Limiter(client_key, app=app, storage_uri=app.config['REDIS_URL'],
 limiter.request_filter(lambda: request.method.upper() == 'OPTIONS')
 
 bootstrap = Bootstrap(app)
+
+# Flask-Mail liest beim Bauen jeder Nachricht app.extensions['mail']. Die
+# Zugangsdaten kommen pro Sektion, siehe modules/email.py
+Mail(app)
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -336,7 +345,7 @@ admin.add_view(HutView(Hut, name="Hütten"))
 admin.add_view(HutBookingView(HutBooking, name="Hüttenbuchungen"))
 admin.add_view(MemberView(User, name="Mitglieder", endpoint="Members"))
 admin.add_view(UserView(User, category='System'))
-admin.add_view(ConfigModelView(Config, category='System'))
+admin.add_view(SectionView(Section, name='Sektionen', category='System'))
 admin.add_view(LogView(LogEntry, name="Log", category="System"))
 
 admin.add_link(MenuLink(name='Zum Frontend', category='', url="/"))

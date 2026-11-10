@@ -46,7 +46,7 @@ from application import limiter
 from application.auth.views import do_login, LOGIN_LIMIT, TFA_PENDING
 from application.events.forms import EventForm, EventRegisterForm, EventSearchForm, COMMENT_MAX, \
                                      CUSTOM_FIELD_MAX, TICKET_NAME_MAX, PHONE_MAX, EMAIL_MAX, max_length
-from application.models.config import Config
+from application.models.section import current_section
 from application.models.user import User
 from application.events.models import OwnedTicket, new_booking_ref
 
@@ -71,14 +71,11 @@ def get_categories():
     Return Dict with Categories
     """
     categrories_detailed = {}
-    try:
-        for cat in Config.objects.get(enabled=True).event_categories_full:
-            categrories_detailed[cat.name.lower()] = {
-                                                        'color': cat.color,
-                                                        'name': cat.name,
-                                                    }
-    except:
-        pass
+    for cat in current_section().event_categories_full:
+        categrories_detailed[cat.name.lower()] = {
+                                                    'color': cat.color,
+                                                    'name': cat.name,
+                                                }
     return categrories_detailed
 
 def difficult_to_icon(level, icon_type):
@@ -715,10 +712,7 @@ def page_admin():
     event_id = request.args.get('event_id')
     event = get_managed_event(event_id)
 
-    try:
-        extra_categories = [(x.name.lower(), x.name) for x in Config.objects(enabled=True)[0].event_categories_full]
-    except:
-        extra_categories = []
+    extra_categories = [(x.name.lower(), x.name) for x in current_section().event_categories_full]
     categories = [(None, "Keine")] + extra_categories
 
     if request.form:
@@ -1536,10 +1530,7 @@ def page_details():
         Event Reg Form
         """
 
-    try:
-        extra_categories = [(x.name.lower(), x.name) for x in Config.objects(enabled=True)[0].event_categories_full]
-    except:
-        extra_categories = []
+    extra_categories = [(x.name.lower(), x.name) for x in current_section().event_categories_full]
     categories = [(None, "Alle")] + extra_categories
     # Add Custom Fields to Registration Form
     custom_fields = event.custom_fields
@@ -1858,10 +1849,7 @@ def page_create():
 
     event_id = request.args.get('event_id')
     event = None
-    try:
-        extra_categories = [(x.name.lower(), x.name) for x in Config.objects(enabled=True)[0].event_categories_full]
-    except:
-        extra_categories = []
+    extra_categories = [(x.name.lower(), x.name) for x in current_section().event_categories_full]
     categories = [(None, "Keine")] + extra_categories
 
     if event_id and not request.form:

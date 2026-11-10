@@ -169,7 +169,7 @@ class EmailConfirmTest(AppTestCase):
     """Selbstregistrierung erst nach Bestaetigung der E-Mail-Adresse nutzbar"""
 
     def _register(self, **data):
-        Config.objects(enabled=True).first() or Config(enabled=True, mail_sender='a@example.org').save()
+        Config.objects(enabled=True).first() or Config(enabled=True, mail_sender='a@example.org', mail_server='smtp.example.org').save()
         with mock.patch('application.modules.email.Thread') as thread:
             app.test_client().post('/user/create', data={**REGISTRATION, **data})
         message = thread.call_args.kwargs['args'][1]
@@ -302,7 +302,7 @@ class RateLimitTest(AppTestCase):
             self.assertEqual(self._login_from(51, PASSWORD).status_code, 302)
 
     def _mails_to(self, path, data, count):
-        Config.objects(enabled=True).first() or Config(enabled=True, mail_sender='a@example.org').save()
+        Config.objects(enabled=True).first() or Config(enabled=True, mail_sender='a@example.org', mail_server='smtp.example.org').save()
         with mock.patch('application.modules.email.Thread') as thread:
             for number in range(count):
                 app.test_client().post(path, data=data,
@@ -426,7 +426,7 @@ class ResetTokenTest(AppTestCase):
 
     def test_mail_without_subject_prefix_and_with_name(self):
         self.user()
-        Config(enabled=True, mail_subject_prefix=None, mail_sender='a@example.org').save()
+        Config(enabled=True, mail_subject_prefix=None, mail_sender='a@example.org', mail_server='smtp.example.org').save()
         with mock.patch('application.modules.email.Thread') as thread:
             response = app.test_client().post('/request-password', data={
                 'request_email': 'user@example.org', 'request_submit': 'Senden'})
