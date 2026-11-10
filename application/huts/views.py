@@ -25,7 +25,6 @@ WEEKDAYS_DE = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
 # Die Huetten-Verwaltung ist davon ausgenommen.
 MAX_NIGHTS = 14
 MAX_OPEN_BOOKINGS = 3
-MEMBER_ROLES = ('member', 'guide', 'youthguide', 'attendant')
 
 
 def _parse_date(value):
@@ -118,8 +117,6 @@ def _booking_state(hut, user, range_active, is_blocked, free):
         return False, None
     if not (hut.allow_self_booking or hut.can_manage(user)):
         return False, "Diese Hütte wird nur über die Hütten-Verwaltung belegt."
-    if not _is_member(hut, user):
-        return False, MEMBER_HINT
     if not range_active:
         return False, None
     if is_blocked:
@@ -127,15 +124,6 @@ def _booking_state(hut, user, range_active, is_blocked, free):
     if hut.has_capacity() and free <= 0:
         return False, "In diesem Zeitraum ausgebucht."
     return True, None
-
-
-MEMBER_HINT = ("Selbst buchen können nur geprüfte Vereinsmitglieder. "
-               "Bitte wende dich an die Hütten-Verwaltung.")
-
-
-def _is_member(hut, user):
-    """Selbstbuchung nur fuer gepruefte Mitglieder; die Verwaltung darf immer."""
-    return user.role in MEMBER_ROLES or hut.can_manage(user)
 
 
 def _limit_error(hut, user, from_date, to_date):
@@ -321,9 +309,6 @@ def book_hut(hut_id):
 
     if not (hut.allow_self_booking or hut.can_manage(current_user)):
         flash("Diese Hütte wird nur über die Hütten-Verwaltung belegt.", 'danger')
-        return redirect(back)
-    if not _is_member(hut, current_user):
-        flash(MEMBER_HINT, 'danger')
         return redirect(back)
     if not (from_date and to_date and from_date < to_date):
         flash("Bitte einen gültigen Zeitraum wählen (Abreise nach Anreise).", 'danger')

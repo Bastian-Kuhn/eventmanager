@@ -252,7 +252,7 @@ class RateLimitTest(AppTestCase):
 
     def test_hut_booking_is_limited_per_account(self):
         hut = Hut(name='H', rooms=[HutRoom(name='Lager', places=2)]).save()
-        client = self.login(self.user(role='member'))
+        client = self.login(self.user())
         codes = [client.post(f'/huetten/{hut.id}/book', data={}).status_code for _ in range(8)]
         self.assertIn(429, codes)
 
@@ -677,7 +677,7 @@ class HutTest(AppTestCase):
     def setUp(self):
         super().setUp()
         self.hut = Hut(name='H', rooms=[HutRoom(name='Lager', places=2)]).save()
-        self.client = self.login(self.user(role='member'))
+        self.client = self.login(self.user())
         self.start = date.today() + timedelta(days=3)
 
     def _book(self, nights=1, **form):
@@ -685,11 +685,11 @@ class HutTest(AppTestCase):
                 'to_date': (self.start + timedelta(days=nights)).isoformat(), 'places': '1', **form}
         return self.client.post(f'/huetten/{self.hut.id}/book', data=data)
 
-    def test_unchecked_account_cannot_book(self):
+    def test_every_account_can_book(self):
         for number, role in enumerate((None, 'no_member')):
             self.client = self.login(self.user(f'u{number}@example.org', role=role))
             self._book()
-            self.assertEqual(HutBooking.objects.count(), 0, role)
+            self.assertEqual(HutBooking.objects.count(), number + 1, role)
 
     def test_maximum_nights(self):
         self._book(nights=MAX_NIGHTS + 1)
