@@ -44,7 +44,8 @@ from application.models.user import roles
 from application.auth.forms import LoginForm
 from application import limiter
 from application.auth.views import do_login, LOGIN_LIMIT
-from application.events.forms import EventForm, EventRegisterForm, EventSearchForm, COMMENT_MAX
+from application.events.forms import EventForm, EventRegisterForm, EventSearchForm, COMMENT_MAX, \
+                                     CUSTOM_FIELD_MAX, TICKET_NAME_MAX, PHONE_MAX, EMAIL_MAX, max_length
 from application.models.config import Config
 from application.models.user import User
 from application.events.models import OwnedTicket, new_booking_ref
@@ -272,6 +273,27 @@ def save_event_form(event, form):
 #   . Event My Booking Page
 
 
+# Formularfeld: (Bezeichnung, Hoechstlaenge, Attribut im Ticket)
+TICKET_INPUTS = {
+    'new_name': ('Der Name', TICKET_NAME_MAX, 'name_on_ticket'),
+    'new_email': ('Die E-Mail-Adresse', EMAIL_MAX, 'email_on_ticket'),
+    'new_phone': ('Die Handynummer', PHONE_MAX, 'phone_on_ticket'),
+    'new_comment': ('Der Kommentar', COMMENT_MAX, 'comment_on_ticket'),
+}
+
+
+def ticket_input_error(ticket=None):
+    """
+    Fehlertext, wenn eine Ticket-Eingabe zu lang ist. Aeltere lange Werte
+    des Tickets duerfen unveraendert mitgespeichert werden.
+    """
+    for key, (label, limit, attr) in TICKET_INPUTS.items():
+        value = request.form.get(key, '')
+        if len(value) > limit and value != getattr(ticket, attr, None):
+            return f'{label} darf höchstens {limit} Zeichen lang sein'
+    return None
+
+
 @EVENTS.route('/user/change_ticket', methods=['POST'])
 @login_required
 @with_event_lock
@@ -299,10 +321,9 @@ def ajax_mybooking():
         ticket = event.get_booked_ticket(ticket_id, current_user)
     
     if ticket:
-        # Aeltere lange Kommentare duerfen unveraendert mitgespeichert werden
-        if len(new_comment) > COMMENT_MAX and new_comment != ticket.comment_on_ticket:
-            return {'msg': 'error',
-                    'error': f'Der Kommentar darf höchstens {COMMENT_MAX} Zeichen lang sein'}, 400
+        error = ticket_input_error(ticket)
+        if error:
+            return {'msg': 'error', 'error': error}, 400
         ticket.name_on_ticket = new_name
         ticket.phone_on_ticket = new_phone
         ticket.email_on_ticket = new_email
@@ -332,9 +353,9 @@ def ajax_add_ticket():
     new_phone = request.form['new_phone']
     new_birthdate = request.form['new_birthdate']
     new_comment = request.form['new_comment']
-    if len(new_comment) > COMMENT_MAX:
-        return {'success': False,
-                'message': f'Der Kommentar darf höchstens {COMMENT_MAX} Zeichen lang sein'}, 400
+    error = ticket_input_error()
+    if error:
+        return {'success': False, 'message': error}, 400
 
     try:
         target_user = User.objects.get(id=user_id)
@@ -488,6 +509,9 @@ def page_mybooking():
         'target_user': target_user,
         'is_viewing_other_user': target_user != current_user,
         'comment_max': COMMENT_MAX,
+        'name_max': TICKET_NAME_MAX,
+        'phone_max': PHONE_MAX,
+        'email_max': EMAIL_MAX,
     }
 
 
@@ -1521,7 +1545,9 @@ def page_details():
     custom_fields = event.custom_fields
     for idx, field in enumerate(custom_fields):
         setattr(EventRegForm, f"custom_{idx}",
-                    StringField(field.field_name, validators=[InputRequired()]))
+                    StringField(field.field_name,
+                                validators=[InputRequired(), max_length(CUSTOM_FIELD_MAX)],
+                                render_kw={'maxlength': CUSTOM_FIELD_MAX}))
 
 
     ticket_stats = event.get_ticket_stats()

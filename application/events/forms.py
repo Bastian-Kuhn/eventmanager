@@ -92,9 +92,21 @@ class EventForm(FlaskForm):
             raise ValidationError("Mindestens ein Ticket darf kein Zusatzticket sein.")
 
 
-# Kommentare liegen in jedem gebuchten Ticket im Event-Dokument, das
-# MongoDB auf 16 MB begrenzt
+# Freitext der Teilnehmer liegt in jedem gebuchten Ticket im Event-Dokument,
+# das MongoDB auf 16 MB begrenzt. Grenzen grosszuegig, kein echter Wert stoesst an.
 COMMENT_MAX = 1000
+CUSTOM_FIELD_MAX = 500
+TICKET_NAME_MAX = 100
+PHONE_MAX = 50
+EMAIL_MAX = 254  # RFC 5321
+CLUB_ID_MAX = 50
+
+
+def max_length(limit):
+    """
+    Laengenpruefung mit deutscher Fehlermeldung
+    """
+    return Length(max=limit, message=f"Höchstens {limit} Zeichen erlaubt")
 
 
 class EventRegisterForm(FlaskForm):
@@ -103,7 +115,7 @@ class EventRegisterForm(FlaskForm):
     """
     class Meta:
         csrf = False
-    comment = TextAreaField("Kommentar", validators=[Optional(), Length(max=COMMENT_MAX)],
+    comment = TextAreaField("Kommentar", validators=[Optional(), max_length(COMMENT_MAX)],
                             render_kw={'maxlength': COMMENT_MAX,
                                        'aria-describedby': 'comment_hint'})
     #custom_fields = FieldList(FormField(EventCustomField), min_entries=1)

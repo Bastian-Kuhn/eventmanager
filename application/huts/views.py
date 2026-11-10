@@ -11,6 +11,7 @@ from flask_login import current_user, login_required
 from redis.exceptions import LockError
 
 from application import limiter
+from application.events.forms import COMMENT_MAX
 from application.events.views import BOOKING_LIMIT
 from application.huts.models import Hut, HutBooking, hut_lock
 from application.modules.sanitize import is_local_path
@@ -184,6 +185,7 @@ def page_hut_detail(hut_id):
         'booked_places': booked,
         'can_book': can_book,
         'book_hint': book_hint,
+        'comment_max': COMMENT_MAX,
         'sel_from': from_date,
         'sel_to': to_date,
         'pickable': True,
@@ -322,6 +324,9 @@ def book_hut(hut_id):
         return redirect(back)
     if not set(rooms) <= {room.name for room in hut.rooms}:
         flash("Bitte nur Zimmer dieser Hütte wählen.", 'danger')
+        return redirect(back)
+    if comment and len(comment) > COMMENT_MAX:
+        flash(f"Der Kommentar darf höchstens {COMMENT_MAX} Zeichen lang sein.", 'danger')
         return redirect(back)
 
     confirmed = not hut.requires_approval

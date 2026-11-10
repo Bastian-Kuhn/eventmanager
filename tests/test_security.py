@@ -16,8 +16,10 @@ from limits.storage import MemoryStorage
 from limits.strategies import FixedWindowRateLimiter
 
 from application import app, limiter
-from application.events.models import Event, EventCost, EventParticipation, OwnedTicket, Ticket
-from application.events.forms import COMMENT_MAX
+from application.events.models import CustomFieldDefintion, Event, EventCost, EventParticipation, \
+    OwnedTicket, Ticket
+from application.events.forms import COMMENT_MAX, CUSTOM_FIELD_MAX, EMAIL_MAX, PHONE_MAX, \
+    TICKET_NAME_MAX
 from application.events.views import difficult_to_icon
 from application.huts.models import Hut, HutBooking, HutRoom
 from application.huts.views import MAX_NIGHTS, MAX_OPEN_BOOKINGS
@@ -1090,6 +1092,103 @@ class CommentLengthTest(AppTestCase):
             'new_comment': 'x' * (COMMENT_MAX + 1)})
         self.assertEqual(response.status_code, 400)
         self.assertEqual(Event.objects.get(id=event.id).participations, [])
+
+
+class InputLengthTest(AppTestCase):
+    """Weitere Freitexte bei Buchung und Registrierung sind begrenzt"""
+
+    def _change(self, client, event, user, **form):
+        data = {'event_id': str(event.id), 'ticket_id': 't1', 'new_name': 'Vor Nach',
+                'new_email': user.email, 'new_phone': '1', 'new_birthdate': '',
+                'new_comment': '', **form}
+        return client.post('/user/change_ticket', data=data)
+
+    def test_booking_rejects_long_custom_field(self):
+        event = self.event(custom_fields=[CustomFieldDefintion(field_name='Allergien')])
+        client = self.login(self.user())
+        data = {'comment': '', 'ticket_Teilnahme': '1', 'submit': 'Anmelden'}
+        response = client.post(f'/event/details?event_id={event.id}',
+                               data={**data, 'custom_0': 'x' * (CUSTOM_FIELD_MAX + 1)})
+        page = response.get_data(as_text=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(f'Höchstens {CUSTOM_FIELD_MAX} Zeichen erlaubt', page)
+        self.assertIn('aria-describedby="custom_0-error"', page)
+        self.assertIn('id="custom_0-error"', page)
+        self.assertEqual(Event.objects.get(id=event.id).participations, [])
+        response = client.post(f'/event/details?event_id={event.id}',
+                               data={**data, 'custom_0': 'x' * CUSTOM_FIELD_MAX})
+        self.assertEqual(response.status_code, 302)
+
+    def test_comment_error_keeps_hint(self):
+        event = self.event()
+        client = self.login(self.user())
+        page = client.post(f'/event/details?event_id={event.id}', data={
+            'comment': 'x' * (COMMENT_MAX + 1), 'ticket_Teilnahme': '1',
+            'submit': 'Anmelden'}).get_data(as_text=True)
+        self.assertIn('aria-describedby="comment_hint comment-error"', page)
+        self.assertIn('aria-invalid="true"', page)
+
+    def test_change_ticket_rejects_long_contact_data(self):
+        user = self.user()
+        event = self.event()
+        self.booking(user, event)
+        client = self.login(user)
+        for field, limit in (('new_name', TICKET_NAME_MAX), ('new_email', EMAIL_MAX),
+                             ('new_phone', PHONE_MAX)):
+            response = self._change(client, event, user, **{field: 'x' * (limit + 1)})
+            self.assertEqual(response.status_code, 400, field)
+            self.assertIn(f'höchstens {limit} Zeichen', response.get_json()['error'])
+        self.assertEqual(Event.objects.get(id=event.id).participations[0].tickets[0]
+                         .name_on_ticket, 'Vor Nach')
+        self.assertEqual(self._change(client, event, user, new_name='y' * TICKET_NAME_MAX)
+                         .status_code, 200)
+
+    def test_existing_long_name_stays_editable(self):
+        user = self.user()
+        event = self.event()
+        old = 'x' * (TICKET_NAME_MAX + 20)
+        self.booking(user, event, name=old)
+        client = self.login(user)
+        self.assertIn(old, client.get(f'/user/booking?event_id={event.id}').get_data(as_text=True))
+        response = self._change(client, event, user, new_name=old, new_comment='neu')
+        self.assertEqual(response.status_code, 200)
+        ticket = Event.objects.get(id=event.id).participations[0].tickets[0]
+        self.assertEqual((ticket.name_on_ticket, ticket.comment_on_ticket), (old, 'neu'))
+
+    def test_guide_add_ticket_rejects_long_email(self):
+        user = self.user()
+        event = self.event()
+        client = self.login(self.owner(event))
+        response = client.post('/user/add_ticket', data={
+            'event_id': str(event.id), 'user_id': str(user.id), 'ticket_type': 'Teilnahme',
+            'new_name': '', 'new_email': 'x' * (EMAIL_MAX + 1), 'new_phone': '',
+            'new_birthdate': '', 'new_comment': ''})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(Event.objects.get(id=event.id).participations, [])
+
+    def test_registration_rejects_long_contact_data(self):
+        long_email = 'a' * 64 + '@' + 'b' * 63 + '.' + 'c' * 63 + '.' + 'd' * 63 + '.org'
+        for field, value in (('email', long_email), ('phone', '1' * (PHONE_MAX + 1)),
+                             ('club_id', '1' * 51)):
+            response = app.test_client().post('/user/create', data={**REGISTRATION, field: value})
+            self.assertEqual(response.status_code, 200, field)
+            self.assertIn(f'id="{field}-error"', response.get_data(as_text=True))
+        self.assertEqual(User.objects.count(), 0)
+        page = app.test_client().get('/user/create').get_data(as_text=True)
+        self.assertIn(f'maxlength="{EMAIL_MAX}"', page)
+
+    def test_hut_booking_rejects_long_comment(self):
+        hut = Hut(name='H', rooms=[HutRoom(name='Lager', places=2)]).save()
+        client = self.login(self.user())
+        start = date.today() + timedelta(days=3)
+        data = {'from_date': start.isoformat(), 'to_date': (start + timedelta(days=1)).isoformat(),
+                'places': '1'}
+        client.post(f'/huetten/{hut.id}/book', data={**data, 'comment': 'x' * (COMMENT_MAX + 1)})
+        self.assertEqual(HutBooking.objects.count(), 0)
+        client.post(f'/huetten/{hut.id}/book', data={**data, 'comment': 'x' * COMMENT_MAX})
+        self.assertEqual(HutBooking.objects.count(), 1)
+        page = client.get(f'/huetten/{hut.id}', query_string=data).get_data(as_text=True)
+        self.assertIn(f'maxlength="{COMMENT_MAX}"', page)
 
 
 class TourOwnerTest(AppTestCase):

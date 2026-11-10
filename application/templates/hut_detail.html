@@ -114,7 +114,8 @@
         </div>
         <div class="form-group mb-2">
           <label for="comment">Kommentar (optional)</label>
-          <input type="text" class="form-control" id="comment" name="comment">
+          <input type="text" class="form-control" id="comment" name="comment" maxlength="{{ comment_max }}" aria-describedby="comment_hint">
+          <small id="comment_hint" class="form-text text-muted">Höchstens {{ comment_max }} Zeichen.</small>
         </div>
         <button type="submit" class="btn btn-success">{{ 'Anfragen' if hut.requires_approval else 'Jetzt buchen' }}</button>
         {% if hut.requires_approval %}<span class="hp-hint ml-2">Buchung wird nach Freigabe bestätigt.</span>{% endif %}

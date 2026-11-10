@@ -2,9 +2,10 @@ import re
 
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField, BooleanField, DateField
-from wtforms.validators import InputRequired, Email, EqualTo, Length, ValidationError
+from wtforms.validators import InputRequired, Email, EqualTo, ValidationError
 
 from application.auth.forms import validate_password
+from application.events.forms import max_length, PHONE_MAX, EMAIL_MAX, CLUB_ID_MAX
 
 
 class ConsentForm(FlaskForm):
@@ -44,19 +45,22 @@ def validate_name(_form, field):
         raise ValidationError("Bitte nur Buchstaben, Leerzeichen, Bindestrich oder Apostroph verwenden")
 
 
-NAME_VALIDATORS = [InputRequired(), Length(max=NAME_MAX), validate_name]
+NAME_VALIDATORS = [InputRequired(), max_length(NAME_MAX), validate_name]
 
 
 class NewUserForm(FlaskForm):
     """
     Signup Form for User
     """
-    first_name = StringField("Vorname", validators=NAME_VALIDATORS)
-    last_name = StringField("Nachname", validators=NAME_VALIDATORS)
-    email = StringField("E-Mail", validators=[Email(), InputRequired()])
-    phone = StringField("Handynummer", validators=[InputRequired()])
+    first_name = StringField("Vorname", validators=NAME_VALIDATORS, render_kw={'maxlength': NAME_MAX})
+    last_name = StringField("Nachname", validators=NAME_VALIDATORS, render_kw={'maxlength': NAME_MAX})
+    email = StringField("E-Mail", validators=[Email(), InputRequired(), max_length(EMAIL_MAX)],
+                        render_kw={'maxlength': EMAIL_MAX})
+    phone = StringField("Handynummer", validators=[InputRequired(), max_length(PHONE_MAX)],
+                        render_kw={'maxlength': PHONE_MAX})
     birthdate = DateField("Geburstdatum", validators=[InputRequired()])
-    club_id = StringField("Mitgliedsnummer")
+    club_id = StringField("Mitgliedsnummer", validators=[max_length(CLUB_ID_MAX)],
+                          render_kw={'maxlength': CLUB_ID_MAX})
     media_optin = BooleanField("Ich willige ein, dass von mir Fotos und Videos angefertigt und "
                                "– wie in der folgenden Erklärung beschrieben – veröffentlicht werden dürfen")
     data_optin = BooleanField("Ich bin einverstanden das meine Kontaktdaten mit anderen Mitgliedern geteilt werden")

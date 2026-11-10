@@ -262,13 +262,13 @@
       <input type="password" style="display: none;">
       <div class="position-relative">
         <label for="new_name">Name des Teilnehmers</label>
-        <input id="new_name" name="new_name" class="form-control" placeholder="Name des Teilnehmers" autocomplete="nope">
+        <input id="new_name" name="new_name" class="form-control" placeholder="Name des Teilnehmers" autocomplete="nope" maxlength="{{ name_max }}">
         <div id="suggestions" class="list-group position-absolute w-100" role="listbox" aria-label="Namensvorschläge" style="z-index: 1050; display: none; max-height: 200px; overflow-y: auto;"></div>
       </div>
       <label for="new_phone" class="mt-2">Handynummer</label>
-      <input id="new_phone" name="new_phone" class="form-control" placeholder="Handynummer" autocomplete="new-password">
+      <input id="new_phone" name="new_phone" class="form-control" placeholder="Handynummer" autocomplete="new-password" maxlength="{{ phone_max }}">
       <label for="new_email" class="mt-2">E-Mail Adresse</label>
-      <input id="new_email" name="new_email" type="email" class="form-control" placeholder="E-Mail Adresse" autocomplete="new-password">
+      <input id="new_email" name="new_email" type="email" class="form-control" placeholder="E-Mail Adresse" autocomplete="new-password" maxlength="{{ email_max }}">
       <label for="new_birthdate" class="mt-2">Geburtsdatum</label>
       <input id="new_birthdate" name="new_birthdate" class="form-control" type="date" placeholder="Geburtsdatum" autocomplete="new-password">
       <label for="new_comment" class="mt-2">Kommentar</label>
@@ -311,13 +311,13 @@
         </div>
         <div class="position-relative">
           <label for="add_new_name">Name des Teilnehmers</label>
-          <input id="add_new_name" name="new_name" class="form-control" placeholder="Name des Teilnehmers" autocomplete="nope" required>
+          <input id="add_new_name" name="new_name" class="form-control" placeholder="Name des Teilnehmers" autocomplete="nope" required maxlength="{{ name_max }}">
           <div id="add_suggestions" class="list-group position-absolute w-100" role="listbox" aria-label="Namensvorschläge" style="z-index: 1050; display: none; max-height: 200px; overflow-y: auto;"></div>
         </div>
         <label for="add_new_phone" class="mt-2">Handynummer</label>
-        <input id="add_new_phone" name="new_phone" class="form-control" placeholder="Handynummer" autocomplete="new-password">
+        <input id="add_new_phone" name="new_phone" class="form-control" placeholder="Handynummer" autocomplete="new-password" maxlength="{{ phone_max }}">
         <label for="add_new_email" class="mt-2">E-Mail Adresse</label>
-        <input id="add_new_email" name="new_email" type="email" class="form-control" placeholder="E-Mail Adresse" autocomplete="new-password">
+        <input id="add_new_email" name="new_email" type="email" class="form-control" placeholder="E-Mail Adresse" autocomplete="new-password" maxlength="{{ email_max }}">
         <label for="add_new_birthdate" class="mt-2">Geburtsdatum</label>
         <input id="add_new_birthdate" name="new_birthdate" class="form-control" type="date" placeholder="Geburtsdatum" autocomplete="new-password">
         <label for="add_new_comment" class="mt-2">Kommentar</label>
@@ -460,8 +460,9 @@
                 } else {
                     alert('Fehler beim Hinzufügen des Tickets: ' + (res.message || 'Unbekannter Fehler'));
                 }
-            }).fail(function() {
-                alert('Fehler beim Hinzufügen des Tickets. Bitte versuchen Sie es erneut.');
+            }).fail(function(xhr) {
+                var res = xhr.responseJSON || {};
+                alert('Fehler beim Hinzufügen des Tickets: ' + (res.message || 'Bitte versuchen Sie es erneut.'));
             });
         });
 
