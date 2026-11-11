@@ -397,3 +397,27 @@
     .event-info { grid-template-columns: 1fr; gap: 0; }
     .event-info dd { margin-bottom: .6rem; }
 }
+
+/* Reiter der Tourseiten: Unterstrich statt Kasten, auf dem Handy wischen.
+   overflow-y hidden, sonst zeigt der Browser neben den Reitern einen Scrollbalken. */
+.main-container .nav-tabs {
+    flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; border-bottom: 1px solid #dee2e6; gap: .25rem; margin-bottom: .5rem;
+}
+.main-container .nav-tabs::-webkit-scrollbar { display: none; }
+.main-container .nav-tabs .nav-item { margin-bottom: 0; }
+.main-container .nav-tabs .nav-link {
+    white-space: nowrap; border: 0; border-bottom: 3px solid transparent; border-radius: 0;
+    color: #495057; padding: .6rem .9rem; font-weight: 500;
+}
+.main-container .nav-tabs .nav-link:hover,
+.main-container .nav-tabs .nav-link:focus { color: #212529; border-bottom-color: #ced4da; background: none; }
+.main-container .nav-tabs .nav-link.active { color: #212529; background: none; border-bottom-color: #212529; }
+
+/* Anmeldekasten auf der Detailseite */
+.event-booking { border-radius: .75rem; margin-top: 1rem; }
+.event-booking .card-body { padding: 1.5rem; }
+.event-booking legend { font-size: 1.1rem; font-weight: 600; }
+.event-booking hr { margin: 1.25rem 0; }
+.event-booking input[type=submit] { padding: .6rem 1.5rem; font-weight: 600; }
+@media (max-width: 575.98px) { .event-booking .card-body { padding: 1rem; } .event-booking input[type=submit] { width: 100%; } }

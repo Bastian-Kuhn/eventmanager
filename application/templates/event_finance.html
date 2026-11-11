@@ -52,7 +52,7 @@
         <a class="nav-link" href="{{ url_for('EVENTS.page_billing', event_id=event.id) }}">Abrechnung</a>
       </li>
       <li class="nav-item">
-        <a class="nav-link active" href="{{ url_for('EVENTS.page_finance', event_id=event.id) }}">Finanzen</a>
+        <a class="nav-link active" aria-current="page" href="{{ url_for('EVENTS.page_finance', event_id=event.id) }}">Finanzen</a>
       </li>
       {% endif %}
     {% if current_user.may_manage_event(event) or current_user.participate_event(event.id) %}

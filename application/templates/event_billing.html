@@ -53,7 +53,7 @@
       {% if current_user.may_manage_event(event) %}
 
       <li class="nav-item">
-        <a class="nav-link active" href="{{ url_for('EVENTS.page_billing', event_id=event.id) }}">Abrechnung</a>
+        <a class="nav-link active" aria-current="page" href="{{ url_for('EVENTS.page_billing', event_id=event.id) }}">Abrechnung</a>
       </li>
       <li class="nav-item">
         <a class="nav-link" href="{{ url_for('EVENTS.page_finance', event_id=event.id) }}">Finanzen</a>

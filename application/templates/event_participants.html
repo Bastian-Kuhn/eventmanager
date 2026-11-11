@@ -12,7 +12,7 @@
     {% if current_user.is_authenticated %}
         {% if current_user.may_see_participants(event) %}
           <li class="nav-item">
-            <a class="nav-link active" href="{{ url_for('EVENTS.page_participants', event_id=event.id) }}">Teilnehmerliste</a>
+            <a class="nav-link active" aria-current="page" href="{{ url_for('EVENTS.page_participants', event_id=event.id) }}">Teilnehmerliste</a>
           </li>
           {% if current_user.may_manage_event(event) %}
             {% set ns = namespace(has_paid_tickets=false) %}

@@ -3,9 +3,6 @@
 
 {% block page_content %}
 <style>
-/* Tabs auf Mobile horizontal scrollbar statt umbrechen */
-.nav-tabs { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-.nav-tabs .nav-link { white-space: nowrap; }
 /* Bilder aus dem Editor haben oft Kamera-Aufloesung */
 .event-description img { max-width: 100%; height: auto; }
 </style>
@@ -15,7 +12,7 @@
 
     <ul class="nav nav-tabs">
       <li class="nav-item">
-        <a class="nav-link active" href="{{ url_for('EVENTS.page_details', event_id=event.id) }}">Übersicht</a>
+        <a class="nav-link active" aria-current="page" href="{{ url_for('EVENTS.page_details', event_id=event.id) }}">Übersicht</a>
       </li>
     {% if current_user.is_authenticated %}
        {% if current_user.may_see_participants(event) %}
@@ -130,13 +127,10 @@
       </div>
     </div>
  {% else %}
-    <div class="card">
-      <div class="card-header">
-        Anmeldung
-      </div>
+    <section class="card event-booking" aria-labelledby="booking-title">
       <div class="card-body">
-        <h5 class="card-title">Verbindliche Anmeldung zum Event</h5>
-        <p class="card-text">Melde dich hier verbindlich zu unserem Event an</p>
+        <h2 id="booking-title" class="h4">Anmelden</h2>
+        <p class="text-muted">Die Anmeldung ist verbindlich.</p>
         {% if current_user.participate_event(event_id) %}
         <div class="alert alert-warning" role="alert">
           Du hast dich bereits für dieses Event Angemeldet. Stelle sicher das du wirklich noch zusätzliche Plätze buchen willst.
@@ -148,22 +142,7 @@
             {{ wtf.form_errors(regform, hiddens='only') }}
 
             <fieldset class="form-group">
-             <legend>Kommentare:</legend>
-                {{ wtf.form_field(regform.comment) }}
-                <small id="comment_hint" class="form-text text-muted">Höchstens {{ regform.comment.flags.maxlength }} Zeichen.</small>
-            </fieldset>
-            {% if event_custom_fields %}
-            <hr>
-            <fieldset class="form-group">
-             <legend>Weitere Daten:</legend>
-            {% for idx, field in event_custom_fields %}
-                {{ wtf.form_field(regform|attr('custom_'+idx)) }}
-            {% endfor %}
-            </fieldset>
-            {% endif %}
-            <hr>
-            <fieldset class="form-group">
-             <legend>Plätze:</legend>
+             <legend>Plätze</legend>
             {% for ticket_id in event_ticket_ids %}
                 {{ wtf.form_field(regform|attr('ticket_'+ticket_id)) }}
             {% endfor %}
@@ -171,7 +150,7 @@
             {% if person_slots %}
             <hr>
             <fieldset class="form-group" id="extras-per-person">
-             <legend>Zusatztickets pro Person:</legend>
+             <legend>Zusatztickets pro Person</legend>
              <p class="small mb-2">Wähle für jede Person ihre Zusatztickets. Sie werden automatisch auf diese Person ausgestellt.</p>
              {% for slot in person_slots %}
              {% set field_name = 'extra_%s_%s'|format(slot.main_idx, slot.slot) %}
@@ -192,25 +171,37 @@
              {% endfor %}
             </fieldset>
             {% endif %}
+            {% if event_custom_fields %}
             <hr>
             <fieldset class="form-group">
-             <legend>Bildfreigabe:</legend>
+             <legend>Weitere Angaben</legend>
+            {% for idx, field in event_custom_fields %}
+                {{ wtf.form_field(regform|attr('custom_'+idx)) }}
+            {% endfor %}
+            </fieldset>
+            {% endif %}
+            <hr>
+            <div class="form-group">
+                {{ wtf.form_field(regform.comment) }}
+                <small id="comment_hint" class="form-text text-muted">Höchstens {{ regform.comment.flags.maxlength }} Zeichen.</small>
+            </div>
+            <hr>
+            <fieldset class="form-group">
+             <legend>Bildfreigabe</legend>
              <p class="mb-2">
                Deine aktuelle Foto-/Video-Einwilligung:
-               <strong>{{ 'Ja' if current_user.media_optin else 'Nein' }}</strong> –
-               ändern kannst du das in deinem
+               <strong>{{ 'Ja' if current_user.media_optin else 'Nein' }}</strong>.
+               Ändern kannst du das in deinem
                <a href="{{ url_for('USER.page_user_profil') }}">Profil</a>.
              </p>
              {% include '_media_consent.html' %}
             </fieldset>
             <hr>
-            {{ wtf.form_field(regform.submit) }}
+            {{ wtf.form_field(regform.submit, button_map={'submit': 'primary'}) }}
         </form>
 
       </div>
-    </div>
-
-    </p>
+    </section>
  {% endif %}
 
 {% else %}

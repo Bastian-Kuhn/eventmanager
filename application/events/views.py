@@ -1638,10 +1638,11 @@ def page_details():
         places = ticket_stats['max'][ticket.name] - ticket_stats.get(ticket.name, 0)
         preisinfo = ""
         if ticket.price > 0:
-            preisinfo = f"(je Anmeldung: {ticket.price}  €)"
+            from application import format_euro  # pylint: disable=import-outside-toplevel
+            preisinfo = f"(je Anmeldung: {format_euro(ticket.price)})"
         description = f": {ticket.description}" if ticket.description else ""
         setattr(EventRegForm, f"ticket_{ticket.name}",
-            SelectField(Markup("<b>{}</b> {} {}").format(ticket.name, description, preisinfo),
+            SelectField(Markup("<b>{}</b>{} {}").format(ticket.name, description, preisinfo),
                         choices=choices))
 
 

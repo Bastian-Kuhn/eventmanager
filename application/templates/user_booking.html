@@ -3,9 +3,6 @@
 
 {% block page_content %}
 <style>
-/* Tabs auf Mobile horizontal scrollbar statt umbrechen */
-.nav-tabs { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-.nav-tabs .nav-link { white-space: nowrap; }
 /* Breite Buchungstabelle auf Mobile als gestapelte Karten */
 @media (max-width: 767px) {
   .stack-table thead { display: none; }
@@ -46,7 +43,7 @@
       {% endif %}
     {% if current_user.may_manage_event(event) or current_user.participate_event(event.id) %}
       <li class="nav-item">
-        <a class="nav-link active" href="{{ url_for('EVENTS.page_mybooking', event_id=event.id) }}">
+        <a class="nav-link active" aria-current="page" href="{{ url_for('EVENTS.page_mybooking', event_id=event.id) }}">
           {% if is_viewing_other_user %}Buchung von {{ target_user.first_name }} {{ target_user.last_name }}{% else %}Meine Buchung{% endif %}
         </a>
       </li>
