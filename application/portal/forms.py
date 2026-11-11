@@ -89,11 +89,12 @@ class SettingsForm(FlaskForm):
     categories = FieldList(FormField(CategoryForm), label="Kategorien")
     media_consent_text = TextAreaField("Einwilligungstext Foto/Video (HTML, leer = Standardtext)",
                                        validators=[Optional(), max_length(20000)], render_kw={'rows': 8})
-    mail_server = StringField("Eigener Mailserver (leer = Versand über Tourenanmeldung)",
+    own_mail = BooleanField("Eigenen Mailserver verwenden")
+    mail_server = StringField("Mailserver (SMTP mit SSL, Port 465)",
                               validators=[Optional(), max_length(200)], render_kw={'maxlength': 200})
     mail_username = StringField("Benutzer Mailserver", validators=[Optional(), max_length(200)])
     mail_password = PasswordField("Passwort Mailserver (leer = unverändert)", validators=[Optional(), max_length(200)],
                                   render_kw={'autocomplete': 'new-password'})
     mail_use_tls = BooleanField("TLS am Mailserver aktivieren")
-    mail_sender = StringField("Absender", validators=[Optional(), Email(), max_length(EMAIL_MAX)])
+    mail_sender = StringField("Absender (leer = Benutzer)", validators=[Optional(), Email(), max_length(EMAIL_MAX)])
     submit = SubmitField("Speichern")

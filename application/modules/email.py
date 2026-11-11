@@ -12,6 +12,15 @@ def send_async_email(app, msg, mail):
             msg.send(connection)
 
 
+def has_own_mail(section):
+    """
+    Eigener Mailserver nur, wenn einer eingetragen ist und ein Benutzer auch
+    sein Passwort hat (ohne Benutzer: Relay ohne Login). Sonst Plattform.
+    """
+    return bool(section is not None and (section.mail_server or '').strip()
+                and (section.mail_password or not section.mail_username))
+
+
 def mail_state(app, section):
     """
     SMTP-Einstellungen der Sektion als eigener Flask-Mail-State. Nicht ueber
@@ -59,7 +68,9 @@ def send_email(to, subject, template, **kwargs):
     """
     app = current_app._get_current_object()  # pylint: disable=protected-access
     section = section_or_none()
-    if section is not None and section.mail_server:
+    if has_own_mail(section):
+        if not section.mail_sender and section.mail_username:
+            kwargs.setdefault('SENDER', section.mail_username)
         return send_email_inner(to, subject, template, app, mail_state(app, section),
                                 section=section, **kwargs)
     sender = PlatformSender(app, section.name if section is not None else None)

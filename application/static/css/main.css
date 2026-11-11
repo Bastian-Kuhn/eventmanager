@@ -360,3 +360,7 @@
 .auth-card .btn-primary { width: 100%; padding: .6rem; font-weight: 600; margin-top: .5rem; }
 .auth-links { display: flex; flex-direction: column; gap: .5rem; margin: 1.25rem 0 0; padding-top: 1rem; border-top: 1px solid #e9ecef; }
 @media (max-width: 575.98px) { .auth-wrap { padding-top: .5rem; } .auth-card { padding: 1.5rem 1.25rem; } }
+
+/* Portal: Mailfelder nur bei eigenem Mailserver */
+.mail-settings:not(:has(#own_mail:checked)) .own-mail-fields { display: none; }
+.own-mail-fields { border-left: 3px solid #dee2e6; padding-left: 1rem; margin-top: .5rem; }

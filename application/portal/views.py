@@ -16,7 +16,7 @@ from application.models.config import Category
 from application.models.section import Section
 from application.models.user import Membership, User
 from application.modules import billing as stripe_billing
-from application.modules.email import send_email
+from application.modules.email import has_own_mail, send_email
 from application.auth.views import mail_allowed
 from application.portal.forms import RegisterForm, RegisterLoggedInForm, SettingsForm
 from application.portal.terms import label_forms, terms
@@ -131,6 +131,20 @@ def register():
     return render_template('portal_register.html', form=form, logged_in=logged_in)
 
 
+def _own_mail_complete(form, section):
+    """Mit eigenem Mailserver: Server noetig, zu einem Benutzer auch das Passwort"""
+    if not form.own_mail.data:
+        return True
+    ok = True
+    if not (form.mail_server.data or '').strip():
+        form.mail_server.errors.append("Für den eigenen Mailserver bitte ausfüllen")
+        ok = False
+    if (form.mail_username.data or '').strip() and not (form.mail_password.data or section.mail_password):
+        form.mail_password.errors.append("Zum Benutzer bitte das Passwort eintragen")
+        ok = False
+    return ok
+
+
 def _logo_bytes(upload):
     """Hochgeladenes Logo pruefen, verkleinert als PNG zurueck, sonst None"""
     data = upload.read(LOGO_MAX_BYTES + 1)
@@ -155,11 +169,13 @@ def settings(slug):
     section = _managed_section(slug)
     form = label_forms(SettingsForm(obj=section), terms())
     if request.method == 'GET':
+        form.own_mail.data = has_own_mail(section)
+    if request.method == 'GET':
         for category in section.event_categories_full:
             form.categories.append_entry({'name': category.name, 'color': category.color})
         for _ in range(EMPTY_CATEGORY_ROWS):
             form.categories.append_entry({'name': '', 'color': '#5aaa28'})
-    if form.validate_on_submit():
+    if form.validate_on_submit() and _own_mail_complete(form, section):
         if form.logo.data:
             logo = _logo_bytes(form.logo.data)
             if logo is None:
@@ -169,11 +185,19 @@ def settings(slug):
             section.logo_image.replace(logo, content_type='image/png', filename='logo.png')
         old_members = section.member_count
         for field in ('name', 'member_count', 'nav_background_color', 'homepage_link',
-                      'media_consent_text', 'mail_server', 'mail_username', 'mail_sender'):
+                      'media_consent_text'):
             setattr(section, field, getattr(form, field).data or None)
-        section.mail_use_tls = bool(form.mail_use_tls.data)
-        if form.mail_password.data:
-            section.mail_password = form.mail_password.data
+        if form.own_mail.data:
+            for field in ('mail_server', 'mail_username', 'mail_sender'):
+                setattr(section, field, (getattr(form, field).data or '').strip() or None)
+            section.mail_use_tls = bool(form.mail_use_tls.data)
+            if form.mail_password.data:
+                section.mail_password = form.mail_password.data
+        else:
+            # Versand ueber die Plattform: alte Zugangsdaten nicht liegen lassen
+            section.mail_server = section.mail_username = section.mail_password = None
+            section.mail_sender = None
+            section.mail_use_tls = False
         section.event_categories_full = [
             Category(name=entry.form.name.data.strip(), color=entry.form.color.data or '#5aaa28')
             for entry in form.categories if (entry.form.name.data or '').strip()]

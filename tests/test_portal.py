@@ -172,7 +172,7 @@ class PortalTest(unittest.TestCase):
     def test_settings_change_design_categories_and_logo(self):
         self.register()
         section = Section.objects.get(slug='neu')
-        section.mail_password = 'geheim'
+        section.mail_server, section.mail_password = 'smtp.neu.example.org', 'geheim'
         section.save()
         admin = self.user('a@example.org', (section, {'admin': True, 'role': 'guide'}))
         client = self.login(admin)
@@ -183,7 +183,8 @@ class PortalTest(unittest.TestCase):
             'name': 'Sektion Neu', 'member_count': '300', 'nav_background_color': '#112233',
             'categories-0-name': 'Skitour', 'categories-0-color': '#0000ff',
             'categories-1-name': '', 'categories-1-color': '#5aaa28',
-            'logo': (png, 'logo.png'), 'submit': 'Speichern'})
+            'logo': (png, 'logo.png'), 'own_mail': 'y', 'mail_server': 'smtp.neu.example.org',
+            'submit': 'Speichern'})
         self.assertEqual(response.status_code, 302, response.get_data(as_text=True)[:3000])
         section.reload()
         self.assertEqual(section.nav_background_color, '#112233')
@@ -289,6 +290,46 @@ class PortalTest(unittest.TestCase):
             self.login(admin).post('/portal/sektion/neu', base_url=PORTAL, data={
                 'name': 'Sektion Neu', 'member_count': '1200', 'submit': 'Speichern'})
         stripe.Subscription.modify.assert_called_once_with('sub_1', items=[{'id': 'si_1', 'quantity': 5}])
+
+    def test_incomplete_own_mail_falls_back_to_platform(self):
+        self.register()
+        section = Section.objects.get(slug='neu')
+        section.mail_server, section.mail_sender = 'smtp.neu.example.org', 'neu@example.org'
+        section.mail_username = 'neu'
+        section.save()
+        with mock.patch('application.modules.email.Thread') as thread:
+            self.client_post_registration()
+        self.assertEqual(thread.call_args.kwargs['args'][2].server, 'smtp.example.org')
+
+    def client_post_registration(self):
+        return app.test_client().post('/user/create', base_url='https://neu.example.org', data={
+            'first_name': 'Eve', 'last_name': 'Neu', 'email': 'eve@example.org', 'phone': '1',
+            'birthdate': '1990-01-01', 'password': PASSWORD, 'password_repeat': PASSWORD,
+            'submit': 'Registrieren'})
+
+    def test_settings_own_mail_toggle(self):
+        self.register()
+        section = Section.objects.get(slug='neu')
+        admin = self.user('a@example.org', (section, {'admin': True, 'role': 'guide'}))
+        client = self.login(admin)
+        base = {'name': 'Sektion Neu', 'member_count': '900', 'submit': 'Speichern'}
+        response = client.post('/portal/sektion/neu', base_url=PORTAL, data={
+            **base, 'own_mail': 'y', 'mail_server': 'smtp.neu.example.org', 'mail_username': 'neu'})
+        self.assertEqual(response.status_code, 200)
+        response = client.post('/portal/sektion/neu', base_url=PORTAL, data={**base, 'own_mail': 'y'})
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(section.reload().mail_server)
+        response = client.post('/portal/sektion/neu', base_url=PORTAL, data={
+            **base, 'own_mail': 'y', 'mail_server': 'smtp.neu.example.org',
+            'mail_username': 'neu', 'mail_password': 'geheim'})
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(section.reload().mail_password, 'geheim')
+        page = client.get('/portal/sektion/neu', base_url=PORTAL).get_data(as_text=True)
+        self.assertRegex(page, r'<input[^>]*checked[^>]*id="own_mail"|<input[^>]*id="own_mail"[^>]*checked')
+        client.post('/portal/sektion/neu', base_url=PORTAL, data=base)
+        section.reload()
+        self.assertIsNone(section.mail_server)
+        self.assertIsNone(section.mail_password)
 
     def test_section_mail_without_own_server_uses_platform(self):
         self.register()

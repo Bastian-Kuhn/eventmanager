@@ -40,10 +40,12 @@ class SectionTest(unittest.TestCase):
         self.alpha = Section(slug='alpha', name='Sektion Alpha', hostnames=['Alpha.Example.org'],
                              nav_background_color='#111111', mail_server='smtp.alpha.example.org',
                              mail_sender='alpha@example.org', mail_subject_prefix='[Alpha]',
+                             mail_username='alpha', mail_password='geheim',
                              event_categories_full=[Category(name='Skitour', color='#0000ff')]).save()
         self.beta = Section(slug='beta', name='Sektion Beta', hostnames=['beta.example.org'],
                             nav_background_color='#222222', mail_server='smtp.beta.example.org',
-                            mail_sender='beta@example.org').save()
+                            mail_sender='beta@example.org', mail_username='beta',
+                            mail_password='geheim').save()
 
     @staticmethod
     def get(host, path='/login'):

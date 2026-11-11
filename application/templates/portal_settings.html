@@ -48,15 +48,18 @@
       <legend class="h5">Foto- und Videoeinwilligung</legend>
       {{ wtf.form_field(form.media_consent_text) }}
     </fieldset>
-    <fieldset class="mb-4">
+    <fieldset class="mb-4 mail-settings">
       <legend class="h5">Mailversand</legend>
       <p class="text-muted">Ohne eigenen Mailserver verschickt Tourenanmeldung die Mails im Namen
-        {{ t.gen }}.</p>
-      {{ wtf.form_field(form.mail_server) }}
-      {{ wtf.form_field(form.mail_username) }}
-      {{ wtf.form_field(form.mail_password) }}
-      {{ wtf.form_field(form.mail_use_tls) }}
-      {{ wtf.form_field(form.mail_sender) }}
+        {{ t.gen }} von einer Adresse der Plattform.</p>
+      {{ wtf.form_field(form.own_mail, aria_controls='own-mail-fields') }}
+      <div id="own-mail-fields" class="own-mail-fields">
+        {{ wtf.form_field(form.mail_server) }}
+        {{ wtf.form_field(form.mail_username) }}
+        {{ wtf.form_field(form.mail_password) }}
+        {{ wtf.form_field(form.mail_use_tls) }}
+        {{ wtf.form_field(form.mail_sender) }}
+      </div>
     </fieldset>
     {{ wtf.form_field(form.submit, button_map={'submit': 'primary'}) }}
   </form>
