@@ -207,6 +207,27 @@ class EmailConfirmTest(AppTestCase):
             'password': NEW_PASSWORD, 'password_repeat': NEW_PASSWORD, 'submit': 'x'})
         self.assertTrue(self._login_works(NEW_PASSWORD))
 
+    def _resend(self, email='eve@example.org'):
+        """Bestaetigungsmail neu anfordern, gibt den Link oder None zurueck"""
+        with mock.patch('application.modules.email.Thread') as thread:
+            response = app.test_client().post('/user/confirm-resend', data={
+                'request_email': email, 'request_submit': 'x'})
+        self.assertEqual(response.status_code, 302)
+        if not thread.called:
+            return None
+        message = thread.call_args.kwargs['args'][1]
+        return re.search(r'/user/confirm/[^\s<]+', message.html).group(0)
+
+    def test_resend_confirmation(self):
+        self._register()
+        link = self._resend('Eve@Example.org')
+        self.assertIsNotNone(link)
+        app.test_client().post(link, data={'password': PASSWORD, 'submit': 'x'})
+        self.assertTrue(self._login_works())
+        # Bestaetigt oder unbekannt: keine Mail, aber dieselbe Antwort
+        self.assertIsNone(self._resend())
+        self.assertIsNone(self._resend('nobody@example.org'))
+
     def test_existing_accounts_keep_working(self):
         self.user('eve@example.org')
         User.objects(email='eve@example.org').update_one(unset__email_unconfirmed=True)

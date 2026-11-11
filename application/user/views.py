@@ -6,6 +6,7 @@ from datetime import datetime
 from application import limiter
 from application.models.user import User
 from application.events.models import Event, with_event_lock
+from application.auth.forms import RequestPasswordForm
 from application.auth.views import PASSWORD_LIMIT, refresh_login, read_reset_token, mail_allowed
 from application.modules.email import send_email
 
@@ -192,6 +193,26 @@ def page_user_create():
     }
 
     return render_template('user_create.html', **context)
+
+
+@USER.route('/user/confirm-resend', methods=['POST', 'GET'])
+@limiter.limit("5/minute;20/hour", methods=['POST'])
+def page_user_confirm_resend():
+    """
+    Bestaetigungsmail erneut anfordern, falls die erste nicht ankam
+    """
+    form = RequestPasswordForm(request.form)
+    if form.validate_on_submit():
+        email = form.request_email.data.lower()
+        user = User.objects(email=email, email_unconfirmed=True, disabled__ne=True).first()
+        # Gleiche Antwort fuer jede Adresse, sonst verraet es, wer ein Konto hat
+        if user and mail_allowed(email):
+            send_email(user.email, "E-Mail-Adresse bestätigen", 'email/confirm_email',
+                       user=user, token=user.generate_token(CONFIRM_TOKEN_SECONDS))
+        flash("Falls zu dieser Adresse ein unbestätigtes Konto gehört, haben wir den "
+              "Bestätigungslink erneut geschickt. Schau auch im Spam-Ordner nach.", 'info')
+        return redirect(url_for('auth.login'))
+    return render_template('confirm_resend.html', form=form)
 
 
 @USER.route('/user/confirm/<token>', methods=['POST', 'GET'])

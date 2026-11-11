@@ -1,0 +1,6 @@
+{% extends 'auth_card.html' %}
+{% set button_map = {'request_submit': 'primary'} %}
+{% block title %}Bestätigungsmail erneut senden{% endblock %}
+{% block card_title %}Bestätigungsmail erneut senden{% endblock %}
+{% block card_intro %}<p class="text-muted">Gib die E-Mail-Adresse ein, mit der du dich registriert hast. Wir schicken dir den Link zur Bestätigung noch einmal.</p>{% endblock %}
+{% block card_links %}<p class="auth-links"><a href="{{ url_for('auth.login') }}">Zurück zur Anmeldung</a></p>{% endblock %}

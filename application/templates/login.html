@@ -7,6 +7,7 @@
 {% block card_links %}
 <p class="auth-links">
   <a href="{{ url_for('auth.request_password') }}">Passwort vergessen?</a>
+  <a href="{{ url_for('USER.page_user_confirm_resend') }}">Bestätigungsmail erneut senden</a>
   {% if not portal %}<span>Noch kein Konto? <a href="{{ url_for('USER.page_user_create') }}">Registrieren</a></span>{% endif %}
 </p>
 {% endblock %}

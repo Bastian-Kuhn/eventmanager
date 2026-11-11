@@ -167,7 +167,8 @@ def do_login(login_form, context, next_url=None):  # pylint: disable=unused-argu
 
     if existing_user.email_unconfirmed:
         flash("Bitte bestätige zuerst deine E-Mail-Adresse über den Link, "
-              "den wir dir nach der Registrierung geschickt haben.", 'danger')
+              "den wir dir nach der Registrierung geschickt haben. Keine Mail bekommen? "
+              "Unter „Bestätigungsmail erneut senden“ forderst du sie neu an.", 'danger')
         return False
 
     if existing_user.tfa_enabled:
