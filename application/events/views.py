@@ -78,6 +78,84 @@ def get_categories():
                                                 }
     return categrories_detailed
 
+def level_index(level):
+    """Stufe 0 bis 5 aus einem Wert von difficulties, unbekannt = None"""
+    keys = [x[0] for x in difficulties]
+    return keys.index(level) if level in keys else None
+
+
+def _number(value):
+    """Freitext-Zahl huebsch: 1.0 als 1, 2.5 als 2,5, sonst wie eingegeben"""
+    text = str(value).strip()
+    try:
+        number = float(text.replace(',', '.'))
+    except ValueError:
+        return text
+    return str(int(number)) if number.is_integer() else f"{number:g}".replace('.', ',')
+
+
+def details_overview(event, numbers, free_places, guide_level):
+    """Aufbereitete Daten fuer die Detailseite: Kopf, Kacheln, Tickets, Infos"""
+    category = next((c for c in current_section().event_categories_full
+                     if c.name.lower() == (event.event_category or '')), None)
+    start, end = event.start_date, event.end_date
+    if start and end and start.date() == end.date():
+        when = f"{WEEKDAYS[start.weekday()]}, {start:%d.%m.%Y}, {start:%H:%M} bis {end:%H:%M} Uhr"
+    elif start and end:
+        when = f"{WEEKDAYS[start.weekday()]}, {start:%d.%m.%Y %H:%M} bis {WEEKDAYS[end.weekday()]}, {end:%d.%m.%Y %H:%M} Uhr"
+    elif start:
+        when = f"{WEEKDAYS[start.weekday()]}, {start:%d.%m.%Y}, {start:%H:%M} Uhr"
+    else:
+        when = None
+
+    facts = []
+    if free_places is not None:
+        facts.append(('fa-ticket-alt', 'Freie Plätze', 'ausgebucht' if free_places <= 0 else str(free_places)))
+    facts.append(('fa-users', 'Anmeldungen', str(numbers['confirmed'])))
+    if numbers['waitlist']:
+        facts.append(('fa-list-ol', 'Warteliste', str(numbers['waitlist'])))
+    if event.event_type != 'notour':
+        for icon, label, value, unit in (('fa-road', 'Länge', event.length_km, 'km'),
+                                         ('fa-level-up-alt', 'Höhenmeter', event.altitude_difference, 'm'),
+                                         ('fa-clock', 'Dauer', event.length_h, 'Std.')):
+            if value:
+                facts.append((icon, label, f"{_number(value)} {unit}"))
+
+    levels = []
+    if event.event_type != 'notour':
+        names = dict(difficulties)
+        for label, value in (('Technik', event.difficulty), ('Kondition', event.shape)):
+            index = level_index(value)
+            if index:
+                levels.append((label, index, names.get(value, '').capitalize()))
+
+    info = []
+    for owner in event.event_owners:
+        if isinstance(owner, User):
+            role = roles_dict.get(owner.role, '') or 'Verantwortlich'
+            info.append((role, f"{owner.first_name} {owner.last_name}", owner.email))
+    if getattr(event, 'hut', None):
+        hut = event.hut.name + (f" ({event.hut.region})" if event.hut.region else '')
+        info.append(('Hütte', hut, None))
+    if event.min_places:
+        info.append(('Mindestteilnehmer', str(event.min_places), None))
+    if numbers['wait_for_confirm']:
+        info.append(('Noch unbestätigt', str(numbers['wait_for_confirm']), None))
+    if event.booking_from or event.booking_until:
+        span = ' bis '.join(x for x in (
+            f"ab {event.booking_from:%d.%m.%Y %H:%M}" if event.booking_from else '',
+            f"{event.booking_until:%d.%m.%Y %H:%M}" if event.booking_until else '') if x)
+        info.append(('Anmeldung', span.replace('ab  bis', 'bis'), None))
+
+    tickets = [{'name': t.name, 'description': t.description, 'price': t.price or 0,
+                'max': t.maximum_tickets, 'extra': t.is_extra_ticket} for t in event.tickets]
+    return {'category': category, 'when': when, 'facts': facts, 'levels': levels,
+            'info': info, 'tickets': tickets, 'guide_level': guide_level}
+
+
+WEEKDAYS = ('Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So')
+
+
 def difficult_to_icon(level, icon_type):
     """
     Format Intod Images
@@ -1658,6 +1736,8 @@ def page_details():
 
     event_details_list += [(x, y[0], y[1]) for x, y in event_details.items()]
 
+    overview = details_overview(event, numbers, free_places, higest_level)
+
     now = datetime.now()
     registration_enabled = True
     if event.booking_until and event.booking_from:
@@ -1674,6 +1754,7 @@ def page_details():
         'person_slots': person_slots,
         'event_id': event_id,
         'event_details' : event_details_list,
+        'overview': overview,
         'LoginForm': login_form,
         'regform': register_form,
     }

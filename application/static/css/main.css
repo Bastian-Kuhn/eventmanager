@@ -364,3 +364,36 @@
 /* Portal: Mailfelder nur bei eigenem Mailserver */
 .mail-settings:not(:has(#own_mail:checked)) .own-mail-fields { display: none; }
 .own-mail-fields { border-left: 3px solid #dee2e6; padding-left: 1rem; margin-top: .5rem; }
+
+/* Detailseite einer Tour */
+.event-head { margin: 1.25rem 0 1rem; }
+.event-head h1 { font-weight: 700; margin: .4rem 0 .25rem; }
+.event-cat { display: inline-flex; align-items: center; gap: .4rem; font-size: .9rem; padding: .2rem .7rem;
+    border: 1px solid #ced4da; border-radius: 999px; }
+.event-when { color: #495057; font-size: 1.05rem; margin: 0; }
+.event-facts { list-style: none; padding: 0; margin: 0 0 1.25rem; display: grid; gap: .75rem;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+.event-facts li { border: 1px solid #e3e6ea; border-radius: .75rem; padding: .8rem 1rem; display: flex; flex-direction: column; gap: .15rem; background: #fff; }
+.event-facts i { color: #6c757d; }
+.event-fact-value { font-size: 1.2rem; font-weight: 600; line-height: 1.2; }
+.event-fact-label { color: #6c757d; font-size: .85rem; }
+.event-level { display: inline-flex; gap: 3px; }
+.event-level span { width: 14px; height: 6px; border-radius: 3px; background: #dee2e6; }
+.event-level span.on { background: #495057; }
+.event-description { margin-bottom: 1rem; }
+.event-note { display: flex; gap: .75rem; align-items: flex-start; border-radius: .75rem; }
+.event-note i { margin-top: .2rem; }
+.event-columns { display: grid; gap: 1.5rem; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); margin: 1.5rem 0; }
+.event-tickets { list-style: none; padding: 0; margin: 0; }
+.event-tickets li { display: flex; justify-content: space-between; gap: 1rem; padding: .75rem 0; border-bottom: 1px solid #e9ecef; }
+.event-tickets li:first-child { border-top: 1px solid #e9ecef; }
+.event-price { font-weight: 600; white-space: nowrap; }
+.event-info { display: grid; grid-template-columns: max-content 1fr; gap: .5rem 1rem; margin: 0; }
+.event-info dt { font-weight: 500; color: #6c757d; }
+.event-info dd { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 575.98px) {
+    .event-head h1 { font-size: 1.6rem; }
+    .event-facts { grid-template-columns: repeat(2, 1fr); }
+    .event-info { grid-template-columns: 1fr; gap: 0; }
+    .event-info dd { margin-bottom: .6rem; }
+}

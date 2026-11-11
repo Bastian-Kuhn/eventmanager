@@ -785,7 +785,7 @@ class CrashTest(AppTestCase):
         event = self.event(event_owners=[owner])
         response = app.test_client().get(f'/event/details?event_id={event.id}')
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b'Verantwortlicher', response.data)
+        self.assertIn('<dt>Verantwortlich</dt>', response.data.decode())
 
     def test_event_without_end_date(self):
         event = self.event(end_date=None)
@@ -975,7 +975,7 @@ class BookingLogicTest(AppTestCase):
             OwnedTicket(ticket_name='Teilnahme', confirmed=False),
         ], user=self.user())])
         html = app.test_client().get(f'/event/details?event_id={event.id}').data.decode()
-        match = re.search(r'Freie Plätze insgesamt</th>\s*<td>(\d+)</td>', html)
+        match = re.search(r'event-fact-value">(\d+)</span><span class="event-fact-label">Freie Plätze', html)
         self.assertEqual(match.group(1), '3')
 
     def test_custom_price_zero(self):
