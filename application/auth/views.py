@@ -327,7 +327,7 @@ def request_password():
         flash("Ein Link zum zurückseten deines Passworts wurde an dich gesendet.", 'info')
         return redirect("/")
 
-    return render_template('formular.html', form=form)
+    return render_template('password_request.html', form=form)
 
 
 def read_reset_token(token):

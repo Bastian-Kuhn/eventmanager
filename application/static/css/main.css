@@ -352,3 +352,11 @@
     .category-chips::-webkit-scrollbar { display: none; }
 }
 .filter-panel { background: #f1f3f5; border-radius: .75rem; padding: 1rem 1rem 0; margin-bottom: 1rem; }
+
+/* Anmelden und Passwort vergessen */
+.auth-wrap { display: flex; justify-content: center; padding: 2rem 0 1rem; }
+.auth-card { width: 100%; max-width: 420px; background: #fff; border: 1px solid #dee2e6; border-radius: .75rem;
+    padding: 2rem 1.75rem; box-shadow: 0 4px 16px rgba(0, 0, 0, .06); }
+.auth-card .btn-primary { width: 100%; padding: .6rem; font-weight: 600; margin-top: .5rem; }
+.auth-links { display: flex; flex-direction: column; gap: .5rem; margin: 1.25rem 0 0; padding-top: 1rem; border-top: 1px solid #e9ecef; }
+@media (max-width: 575.98px) { .auth-wrap { padding-top: .5rem; } .auth-card { padding: 1.5rem 1.25rem; } }

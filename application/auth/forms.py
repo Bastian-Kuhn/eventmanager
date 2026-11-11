@@ -50,7 +50,7 @@ class LoginForm(FlaskForm):
 
 class RequestPasswordForm(FlaskForm):
     request_email = StringField("E-Mail", [InputRequired(), Email()])
-    request_submit   = SubmitField("Senden")
+    request_submit   = SubmitField("Link schicken")
 
 class ResetPasswordForm(FlaskForm):
     password  = PasswordField("Neues Passwort", validators=[InputRequired(),validate_password, EqualTo('password_repeat')])

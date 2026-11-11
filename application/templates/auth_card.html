@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% import 'bootstrap/wtf.html' as wtf %}
+{# Schmale Karte fuer Anmelden, Passwort vergessen und Passwort setzen #}
+{% block page_content %}
+<main class="auth-wrap">
+  <div class="auth-card">
+    <h1 class="h4">{% block card_title %}{% endblock %}</h1>
+    {% block card_intro %}{% endblock %}
+    {% block card_form %}{{ wtf.quick_form(form, button_map=button_map or {}) }}{% endblock %}
+    {% block card_links %}{% endblock %}
+  </div>
+</main>
+{% endblock %}

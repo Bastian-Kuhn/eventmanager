@@ -1,23 +1,12 @@
-{% extends 'base.html' %}
-{% import 'bootstrap/wtf.html' as wtf %}
-
-{% block page_content %}
-<div class="row">
-    <div class="col-md-12">
-      <div class="login-form">
-          <h3>Login</h3>
-          <p>
-          Bitte E-Mail und Passwort eingeben
-          </p>
-
-          {{ wtf.quick_form(LoginForm) }}
-      </div>
-  </div>
-</div>
-<hr>
-<a class="nav-link" href="{{ url_for('auth.request_password') }}">Passwort vergessen</a>
-{% endblock %}
-
-{% block scripts %}
-    {{super()}}
+{% extends 'auth_card.html' %}
+{% set form = LoginForm %}
+{% set button_map = {'login_submit': 'primary'} %}
+{% block title %}Anmelden{% endblock %}
+{% block card_title %}Anmelden{% endblock %}
+{% block card_intro %}<p class="text-muted">Mit deiner E-Mail-Adresse und deinem Passwort.</p>{% endblock %}
+{% block card_links %}
+<p class="auth-links">
+  <a href="{{ url_for('auth.request_password') }}">Passwort vergessen?</a>
+  {% if not portal %}<span>Noch kein Konto? <a href="{{ url_for('USER.page_user_create') }}">Registrieren</a></span>{% endif %}
+</p>
 {% endblock %}
