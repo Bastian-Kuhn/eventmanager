@@ -24,7 +24,7 @@
     <div class="alert alert-info d-flex flex-wrap justify-content-between align-items-center" role="status">
       <p class="mb-2 mb-sm-0 mr-3"><strong>{{ other.name }}</strong> möchte die Touren mit {{ section.name }} teilen.
         Nach deiner Bestätigung sehen und buchen die Mitglieder beider Seiten die Touren der anderen.</p>
-      <form method="post" action="{{ url_for('PORTAL.accept_partner', slug=section.slug) }}">
+      <form method="post" action="{{ url_for('PORTAL.partner_change', slug=section.slug) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="partner_id" value="{{ other.pk }}">
         <button type="submit" class="btn btn-primary btn-sm">Bestätigen und {{ other.name }} hinzufügen</button>
@@ -43,6 +43,7 @@
         <div class="mt-2 mt-sm-0">
           <a class="btn btn-outline-primary btn-sm" href="{{ url_for('PORTAL.settings', slug=section.slug) }}">Einstellungen</a>
           <a class="btn btn-outline-primary btn-sm" href="{{ url_for('PORTAL.billing', slug=section.slug) }}">Abrechnung</a>
+          <a class="btn btn-outline-primary btn-sm" href="{{ url_for('PORTAL.partners', slug=section.slug) }}">Touren teilen</a>
         </div>
       </li>
       {% endfor %}

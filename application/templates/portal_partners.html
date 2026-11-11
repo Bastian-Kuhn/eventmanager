@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+{% block title %}Touren teilen: {{ section.name }}{% endblock %}
+
+{% macro partner_button(other, action, text, label, primary=false) %}
+<form method="post" action="{{ url_for('PORTAL.partner_change', slug=section.slug) }}" class="d-inline">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="partner_id" value="{{ other.pk }}">
+  <input type="hidden" name="action" value="{{ action }}">
+  <button type="submit" class="btn btn-sm {{ 'btn-primary' if primary else 'btn-outline-secondary' }}"
+          aria-label="{{ label }}">{{ text }}</button>
+</form>
+{% endmacro %}
+
+{% block page_content %}
+<main class="container py-3" style="max-width: 760px">
+  <h1 class="h3">Touren teilen: {{ section.name }}</h1>
+  <p>
+    <a href="{{ url_for('PORTAL.settings', slug=section.slug) }}">Einstellungen</a> ·
+    <a href="{{ url_for('PORTAL.billing', slug=section.slug) }}">Abrechnung</a>
+  </p>
+  <p class="text-muted">Mitglieder der Partner sehen und buchen eure Touren auf ihrer eigenen Seite, ihr seht
+    und bucht ihre. Geteilt wird erst, wenn beide Seiten einander eingetragen haben. Verwaltet wird jede Tour
+    nur bei {{ t.gen }}, der sie gehört. Einzelne Touren nehmt ihr im Tourformular aus.</p>
+
+  {% if requests %}
+  <section class="mb-4" aria-labelledby="requests-heading">
+    <h2 class="h5" id="requests-heading">Anfragen an euch</h2>
+    <ul class="list-group">
+      {% for other in requests %}
+      <li class="list-group-item d-flex flex-wrap justify-content-between align-items-center">
+        <span class="mr-3">{{ other.name }} möchte mit euch teilen</span>
+        {{ partner_button(other, 'add', 'Bestätigen', 'Anfrage von ' ~ other.name ~ ' bestätigen', true) }}
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  <section class="mb-4" aria-labelledby="active-heading">
+    <h2 class="h5" id="active-heading">Partner</h2>
+    {% if active %}
+    <ul class="list-group">
+      {% for other in active %}
+      <li class="list-group-item d-flex flex-wrap justify-content-between align-items-center">
+        <span class="mr-3">{{ other.name }}</span>
+        {{ partner_button(other, 'remove', 'Beenden', 'Teilen mit ' ~ other.name ~ ' beenden') }}
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-muted">Ihr teilt eure Touren noch mit niemandem.</p>
+    {% endif %}
+  </section>
+
+  {% if outgoing %}
+  <section class="mb-4" aria-labelledby="outgoing-heading">
+    <h2 class="h5" id="outgoing-heading">Eure offenen Anfragen</h2>
+    <ul class="list-group">
+      {% for other in outgoing %}
+      <li class="list-group-item d-flex flex-wrap justify-content-between align-items-center">
+        <span class="mr-3">{{ other.name }}, wartet auf Zustimmung</span>
+        {{ partner_button(other, 'remove', 'Zurückziehen', 'Anfrage an ' ~ other.name ~ ' zurückziehen') }}
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  <section aria-labelledby="search-heading">
+    <h2 class="h5" id="search-heading">Partner hinzufügen</h2>
+    <form method="get" action="{{ url_for('PORTAL.partners', slug=section.slug) }}" role="search" class="mb-3">
+      <label for="partner-search">Name {{ t.gen }}</label>
+      <div class="input-group">
+        <input type="search" class="form-control" id="partner-search" name="q" value="{{ query }}"
+               minlength="2" maxlength="100" autocomplete="off" aria-describedby="partner-search-hint">
+        <div class="input-group-append"><button type="submit" class="btn btn-outline-primary">Suchen</button></div>
+      </div>
+      <small id="partner-search-hint" class="form-text text-muted">Mindestens zwei Zeichen.</small>
+    </form>
+    {% if query and query|length < 2 %}
+    <p class="text-muted">Bitte mindestens zwei Zeichen eingeben.</p>
+    {% elif query and not results %}
+    <p class="text-muted">Nichts gefunden zu „{{ query }}“.</p>
+    {% elif results %}
+    <ul class="list-group" aria-label="Suchergebnisse">
+      {% for other in results %}
+      {% set key = other.pk|string %}
+      <li class="list-group-item d-flex flex-wrap justify-content-between align-items-center">
+        <span class="mr-3">{{ other.name }}</span>
+        {% if key in own and key in incoming %}<span class="text-muted">Partner</span>
+        {% elif key in own %}<span class="text-muted">Anfrage gestellt</span>
+        {% elif key in incoming %}{{ partner_button(other, 'add', 'Bestätigen', 'Anfrage von ' ~ other.name ~ ' bestätigen', true) }}
+        {% else %}{{ partner_button(other, 'add', 'Anfrage senden', 'Anfrage an ' ~ other.name ~ ' senden', true) }}{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% if more %}<p class="small text-muted mt-2">Es gibt mehr Treffer, bitte genauer suchen.</p>{% endif %}
+    {% endif %}
+  </section>
+</main>
+{% endblock %}

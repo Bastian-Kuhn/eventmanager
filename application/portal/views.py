@@ -69,18 +69,55 @@ def partner_requests(section):
     return list(Section.objects(partner_sections=section.pk, pk__nin=own).order_by('name'))
 
 
+PARTNER_SEARCH_LIMIT = 20
+
+
+def _partner_ids(section):
+    return {ref_id(ref) for ref in section._data.get('partner_sections') or []}  # pylint: disable=protected-access
+
+
+@PORTAL.route('/sektion/<slug>/partner')
+@login_required
+def partners(slug):
+    """Touren teilen: Partner, Anfragen in beide Richtungen und Suche nach weiteren"""
+    section = _managed_section(slug)
+    own = _partner_ids(section)
+    incoming = {str(other.pk): other for other in Section.objects(partner_sections=section.pk)}
+    chosen = list(Section.objects(pk__in=list(own)).order_by('name'))
+    query = (request.args.get('q') or '').strip()[:100]
+    results = []
+    if len(query) >= 2:
+        results = list(Section.objects(name__icontains=query, pk__ne=section.pk)
+                       .order_by('name').limit(PARTNER_SEARCH_LIMIT + 1))
+    return render_template(
+        'portal_partners.html', section=section, query=query,
+        active=[other for other in chosen if str(other.pk) in incoming],
+        outgoing=[other for other in chosen if str(other.pk) not in incoming],
+        requests=[other for key, other in sorted(incoming.items(), key=lambda x: x[1].name)
+                  if key not in own],
+        results=results[:PARTNER_SEARCH_LIMIT], more=len(results) > PARTNER_SEARCH_LIMIT,
+        own=own, incoming=incoming)
+
+
 @PORTAL.route('/sektion/<slug>/partner', methods=['POST'])
 @login_required
-def accept_partner(slug):
-    """Anfrage einer anderen Sektion bestaetigen: ab jetzt teilen beide"""
+def partner_change(slug):
+    """Partner eintragen (Anfrage oder Bestaetigung) oder austragen"""
     section = _managed_section(slug)
-    other = Section.objects(pk=request.form.get('partner_id'), partner_sections=section.pk).first() \
-        if ObjectId.is_valid(request.form.get('partner_id') or '') else None
+    partner_id = request.form.get('partner_id') or ''
+    other = Section.objects(pk=partner_id, pk__ne=section.pk).first() if ObjectId.is_valid(partner_id) else None
     if other is None:
         abort(404)
-    Section.objects(pk=section.pk).update_one(add_to_set__partner_sections=other.pk)
-    flash(f"{section.name} und {other.name} teilen ab jetzt ihre Touren.", 'success')
-    return redirect(url_for('PORTAL.index'))
+    agreed = ref_id(section.pk) in _partner_ids(other)
+    if request.form.get('action') == 'remove':
+        Section.objects(pk=section.pk).update_one(pull__partner_sections=other.pk)
+        flash(f"Ihr teilt eure Touren nicht mehr mit {other.name}." if agreed
+              else f"Anfrage an {other.name} zurückgezogen.", 'success')
+    else:
+        Section.objects(pk=section.pk).update_one(add_to_set__partner_sections=other.pk)
+        flash(f"{section.name} und {other.name} teilen ab jetzt ihre Touren." if agreed
+              else f"Anfrage an {other.name} gestellt. Geteilt wird, sobald {other.name} zustimmt.", 'success')
+    return redirect(url_for('PORTAL.partners', slug=section.slug))
 
 
 def _new_host(slug):
@@ -185,9 +222,7 @@ def _logo_bytes(upload):
 
 
 def _settings_page(form, section):
-    # Wer diese Sektion selbst eingetragen hat: dort ist das Teilen beidseitig
-    incoming = {str(other.pk) for other in Section.objects(partner_sections=section.pk)}
-    return render_template('portal_settings.html', form=form, section=section, incoming=incoming,
+    return render_template('portal_settings.html', form=form, section=section,
                            address=section_address(section), logo=section_logo(section))
 
 
@@ -197,11 +232,8 @@ def settings(slug):
     """Einstellungen einer Sektion"""
     section = _managed_section(slug)
     form = label_forms(SettingsForm(obj=section), terms())
-    form.partner_sections.choices = [(str(other.pk), other.name) for other in
-                                     Section.objects(pk__ne=section.pk).order_by('name')]
     if request.method == 'GET':
         form.own_mail.data = has_own_mail(section)
-        form.partner_sections.data = [ref_id(ref) for ref in section._data.get('partner_sections') or []]  # pylint: disable=protected-access
     if request.method == 'GET':
         for category in section.event_categories_full:
             form.categories.append_entry({'name': category.name, 'color': category.color})
@@ -232,7 +264,6 @@ def settings(slug):
         section.event_categories_full = [
             Category(name=entry.form.name.data.strip(), color=entry.form.color.data or '#5aaa28')
             for entry in form.categories if (entry.form.name.data or '').strip()]
-        section.partner_sections = list(Section.objects(pk__in=form.partner_sections.data or []))
         section.save()
         if section.member_count != old_members:
             try:

@@ -196,31 +196,41 @@ class PortalTest(unittest.TestCase):
         self.assertIn('#112233', page)
         self.assertIn('Skitour', page)
 
-    def test_settings_choose_partner_sections(self):
+    def test_partner_page_search_request_and_end(self):
         self.register()
         section = Section.objects.get(slug='neu')
-        admin = self.user('a@example.org', (section, {'admin': True}))
-        client = self.login(admin)
-        response = client.post('/portal/sektion/neu', base_url=PORTAL, data={
-            'name': 'Sektion Neu', 'member_count': '300', 'partner_sections': str(self.dav.pk),
-            'submit': 'Speichern'})
-        self.assertEqual(response.status_code, 302, response.get_data(as_text=True)[:3000])
-        section.reload()
-        self.assertEqual([p.pk for p in section.partner_sections], [self.dav.pk])
+        for idx in range(25):
+            Section(slug=f'verein{idx}', name=f'Verein {idx:02d}').save()
+        client = self.login(self.user('a@example.org', (section, {'admin': True})))
+        url = '/portal/sektion/neu/partner'
+        page = client.get(url, base_url=PORTAL).get_data(as_text=True)
+        self.assertIn('Ihr teilt eure Touren noch mit niemandem', page)
+        # Suche statt Liste aller: hoechstens 20 Treffer, nie die eigene Sektion
+        page = client.get(url + '?q=verein', base_url=PORTAL).get_data(as_text=True)
+        self.assertEqual(page.count('Anfrage senden'), 20)
+        self.assertIn('Es gibt mehr Treffer', page)
+        page = client.get(url + '?q=Neu', base_url=PORTAL).get_data(as_text=True)
+        self.assertIn('Nichts gefunden', page)
+        page = client.get(url + '?q=.*', base_url=PORTAL).get_data(as_text=True)
+        self.assertIn('Nichts gefunden', page)
+        # Anfrage, dann Zustimmung der anderen Seite, dann beenden
+        self.assertEqual(client.post(url, base_url=PORTAL, data={'partner_id': str(self.dav.pk)}).status_code, 302)
+        page = client.get(url, base_url=PORTAL).get_data(as_text=True)
+        self.assertIn('DAV, wartet auf Zustimmung', page)
         with app.app_context():
             self.assertEqual(section.partners(), [])
-        page = client.get('/portal/sektion/neu', base_url=PORTAL).get_data(as_text=True)
-        self.assertIn('wartet auf Zustimmung von DAV', page)
         self.dav.update(set__partner_sections=[section])
+        page = client.get(url, base_url=PORTAL).get_data(as_text=True)
+        self.assertIn('Teilen mit DAV beenden', page)
         with app.app_context():
-            self.assertEqual([p.slug for p in section.partners()], ['dav'])
-        page = client.get('/portal/sektion/neu', base_url=PORTAL).get_data(as_text=True)
-        self.assertIn('aktiv, beide teilen', page)
-        # Fremde ids landen nicht in der Liste
-        response = client.post('/portal/sektion/neu', base_url=PORTAL, data={
-            'name': 'Sektion Neu', 'member_count': '300', 'partner_sections': str(section.pk),
-            'submit': 'Speichern'})
-        self.assertEqual(response.status_code, 200)
+            self.assertEqual([p.slug for p in Section.objects.get(slug='neu').partners()], ['dav'])
+        # Einstellungen speichern laesst die Partner stehen
+        client.post('/portal/sektion/neu', base_url=PORTAL, data={
+            'name': 'Sektion Neu', 'member_count': '300', 'submit': 'Speichern'})
+        self.assertEqual([p.pk for p in Section.objects.get(slug='neu').partner_sections], [self.dav.pk])
+        client.post(url, base_url=PORTAL, data={'partner_id': str(self.dav.pk), 'action': 'remove'})
+        self.assertEqual(Section.objects.get(slug='neu').partner_sections, [])
+        self.assertEqual(client.post(url, base_url=PORTAL, data={'partner_id': 'kaputt'}).status_code, 404)
 
     def test_partner_request_notice_and_accept(self):
         self.register()

@@ -7,6 +7,7 @@
   <p>
     {% if address %}Adresse: <a href="{{ address }}">{{ address }}</a> ·{% endif %}
     <a href="{{ url_for('PORTAL.billing', slug=section.slug) }}">Abrechnung</a>
+    · <a href="{{ url_for('PORTAL.partners', slug=section.slug) }}">Touren teilen</a>
   </p>
   <form method="post" enctype="multipart/form-data" novalidate>
     {{ form.hidden_tag() }}
@@ -48,26 +49,6 @@
       <legend class="h5">Foto- und Videoeinwilligung</legend>
       {{ wtf.form_field(form.media_consent_text) }}
     </fieldset>
-    {% if form.partner_sections.choices %}
-    <fieldset class="mb-4" aria-describedby="partner-hint">
-      <legend class="h5">Touren teilen</legend>
-      <p id="partner-hint" class="text-muted">Mitglieder der gewählten {{ t.many }} sehen und buchen eure Touren
-        auf ihrer eigenen Seite, sobald die andere Seite euch ebenfalls einträgt. Verwaltet werden die Touren
-        nur bei euch. Einzelne Touren nehmt ihr im Tourformular aus.</p>
-      {% set chosen = form.partner_sections.data or [] %}
-      {% for value, label in form.partner_sections.choices %}
-      <div class="form-check">
-        <input class="form-check-input" type="checkbox" name="partner_sections" id="partner-{{ value }}"
-               value="{{ value }}"{% if value in chosen %} checked{% endif %}>
-        <label class="form-check-label" for="partner-{{ value }}">{{ label }}
-          {% if value in chosen and value in incoming %}<span class="text-muted">(aktiv, beide teilen)</span>
-          {% elif value in chosen %}<span class="text-muted">(wartet auf Zustimmung von {{ label }})</span>
-          {% elif value in incoming %}<span class="text-muted">(möchte mit euch teilen)</span>{% endif %}</label>
-      </div>
-      {% endfor %}
-      {% for error in form.partner_sections.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
-    </fieldset>
-    {% endif %}
     <fieldset class="mb-4 mail-settings">
       <legend class="h5">Mailversand</legend>
       <p class="text-muted">Ohne eigenen Mailserver verschickt Tourenanmeldung die Mails im Namen
