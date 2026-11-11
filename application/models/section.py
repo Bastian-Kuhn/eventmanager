@@ -57,6 +57,7 @@ class Section(db.Document):
     subscription_status = db.StringField()  # Status laut Stripe
     current_period_end = db.DateTimeField()
     cancel_at_period_end = db.BooleanField(default=False)
+    billing_interval = db.StringField()  # 'month' oder 'year' laut Stripe
 
     meta = {
         'strict': False,

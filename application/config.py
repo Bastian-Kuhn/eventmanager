@@ -96,9 +96,12 @@ class BaseConfig():
     STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
     # Preis je Einheit (10 Euro im Monat), Menge = angefangene MEMBERS_PER_UNIT
     STRIPE_PRICE_SECTION = os.environ.get("STRIPE_PRICE_SECTION", "")
+    # Jahresabo, gleiche Menge, 108 Euro im Jahr je Einheit. Leer = nur monatlich
+    STRIPE_PRICE_SECTION_YEARLY = os.environ.get("STRIPE_PRICE_SECTION_YEARLY", "")
     STRIPE_PORTAL_CONFIGURATION = os.environ.get("STRIPE_PORTAL_CONFIGURATION", "")
     MEMBERS_PER_UNIT = 250
     PRICE_PER_UNIT_EUR = 10  # nur zur Anzeige, der Preis steht in Stripe
+    PRICE_PER_UNIT_YEARLY_EUR = 108  # 10 % unter zwoelf Monaten
 
     # Mailserver der Plattform fuer Sektionen ohne eigenen und fuers Portal
     PLATFORM_MAIL_SERVER = os.environ.get("PLATFORM_MAIL_SERVER", "")

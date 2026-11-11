@@ -11,11 +11,12 @@
     <dl class="row">
       <dt class="col-sm-5">Mitglieder laut Angabe</dt><dd class="col-sm-7">{{ section.member_count or 1 }}</dd>
       <dt class="col-sm-5">Preis</dt>
-      <dd class="col-sm-7">{{ price|euro }} im Monat ({{ units }} × {{ unit_price }}&nbsp;€ je angefangene {{ per_unit }} Mitglieder)</dd>
+      <dd class="col-sm-7">{{ price|euro }} im Monat ({{ units }} × {{ unit_price }}&nbsp;€ je angefangene {{ per_unit }} Mitglieder)
+        {% if yearly %}<br>oder {{ yearly_price|euro }} im Jahr ({{ units }} × {{ unit_price_yearly }}&nbsp;€, 10&nbsp;% günstiger){% endif %}</dd>
       <dt class="col-sm-5">Status</dt>
       <dd class="col-sm-7">
         {% if section.is_paid %}
-          Abo läuft{% if section.cancel_at_period_end and section.current_period_end %}, gekündigt zum {{ section.current_period_end.strftime('%d.%m.%Y') }}{% elif section.current_period_end %}, nächste Abrechnung {{ section.current_period_end.strftime('%d.%m.%Y') }}{% endif %}
+          Abo läuft{% if section.billing_interval == 'year' %}, jährlich{% elif section.billing_interval == 'month' %}, monatlich{% endif %}{% if section.cancel_at_period_end and section.current_period_end %}, gekündigt zum {{ section.current_period_end.strftime('%d.%m.%Y') }}{% elif section.current_period_end %}, nächste Abrechnung {{ section.current_period_end.strftime('%d.%m.%Y') }}{% endif %}
           {% if section.subscription_status == 'past_due' %}<br><strong>Die letzte Zahlung ist fehlgeschlagen.</strong>{% endif %}
         {% elif section.in_trial(now) %}
           Testphase bis {{ section.trial_until.strftime('%d.%m.%Y') }}
@@ -34,7 +35,22 @@
     {% else %}
       <form method="post" action="{{ url_for('PORTAL.checkout', slug=section.slug) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        {% if yearly %}
+        <fieldset class="mb-3">
+          <legend class="h6">Zahlweise</legend>
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="interval" id="interval-month" value="month" checked>
+            <label class="form-check-label" for="interval-month">Monatlich, {{ price|euro }} im Monat</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="interval" id="interval-year" value="year">
+            <label class="form-check-label" for="interval-year">Jährlich, {{ yearly_price|euro }} im Jahr (10&nbsp;% günstiger)</label>
+          </div>
+        </fieldset>
+        <button class="btn btn-primary" type="submit">Abo abschließen</button>
+        {% else %}
         <button class="btn btn-primary" type="submit">Abo abschließen ({{ price|euro }} im Monat)</button>
+        {% endif %}
       </form>
     {% endif %}
   {% endif %}

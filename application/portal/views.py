@@ -224,8 +224,11 @@ def billing(slug):
     return render_template('portal_billing.html', section=section,
                            billing_enabled=stripe_billing.billing_enabled(),
                            units=stripe_billing.units(section), price=stripe_billing.monthly_price(section),
+                           yearly_price=stripe_billing.yearly_price(section),
+                           yearly=stripe_billing.yearly_available(),
                            per_unit=current_app.config['MEMBERS_PER_UNIT'],
                            unit_price=current_app.config['PRICE_PER_UNIT_EUR'],
+                           unit_price_yearly=current_app.config['PRICE_PER_UNIT_YEARLY_EUR'],
                            now=datetime.now())
 
 
@@ -237,7 +240,8 @@ def checkout(slug):
     if section.is_paid:
         return redirect(url_for('PORTAL.billing', slug=slug))
     try:
-        return redirect(stripe_billing.create_checkout(section, current_user), code=303)
+        interval = 'year' if request.form.get('interval') == 'year' else 'month'
+        return redirect(stripe_billing.create_checkout(section, current_user, interval), code=303)
     except stripe_billing.BillingError as exc:
         flash(str(exc), 'danger')
         return redirect(url_for('PORTAL.billing', slug=slug))

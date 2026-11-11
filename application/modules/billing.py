@@ -1,8 +1,8 @@
 """
 Abrechnung der Sektionen ueber Stripe, angelehnt an Cairn.
 
-Eine Sektion hat hoechstens ein Abo mit einem Preis (STRIPE_PRICE_SECTION,
-10 Euro im Monat). Menge = angefangene MEMBERS_PER_UNIT Mitglieder laut
+Eine Sektion hat hoechstens ein Abo, monatlich (STRIPE_PRICE_SECTION,
+10 Euro) oder jaehrlich (STRIPE_PRICE_SECTION_YEARLY, 108 Euro). Menge = angefangene MEMBERS_PER_UNIT Mitglieder laut
 Angabe der Sektion. Den Status schreibt nur der Webhook (apply_subscription),
 Checkout und Kundenportal laufen bei Stripe.
 
@@ -47,14 +47,23 @@ def monthly_price(section):
     return units(section) * current_app.config.get('PRICE_PER_UNIT_EUR', 10)
 
 
+def yearly_price(section):
+    return units(section) * current_app.config.get('PRICE_PER_UNIT_YEARLY_EUR', 108)
+
+
+def yearly_available():
+    return bool(current_app.config.get('STRIPE_PRICE_SECTION_YEARLY'))
+
+
 def _metadata(section):
     return {'section_id': str(section.pk), 'section_slug': section.slug}
 
 
-def create_checkout(section, admin):
+def create_checkout(section, admin, interval='month'):
     """Stripe Checkout fuer das Abo der Sektion, gibt die URL zurueck"""
     stripe = _stripe()
-    price = current_app.config.get('STRIPE_PRICE_SECTION')
+    key = 'STRIPE_PRICE_SECTION_YEARLY' if interval == 'year' else 'STRIPE_PRICE_SECTION'
+    price = current_app.config.get(key)
     if not price:
         raise BillingError("Kein Preis fuer Sektionen eingerichtet.")
     kwargs = {'customer': section.stripe_customer_id} if section.stripe_customer_id \
@@ -141,6 +150,10 @@ def apply_subscription(subscription, deleted=False):
     section.subscription_status = 'canceled' if deleted else (subscription.get('status') or '')
     section.current_period_end = _to_datetime(subscription.get('current_period_end'))
     section.cancel_at_period_end = bool(subscription.get('cancel_at_period_end'))
+    items = (subscription.get('items') or {}).get('data') or []
+    recurring = ((items[0].get('price') or {}).get('recurring') or {}) if items else {}
+    if recurring.get('interval'):
+        section.billing_interval = recurring['interval']
     if subscription.get('customer'):
         section.stripe_customer_id = subscription['customer']
     section.save()

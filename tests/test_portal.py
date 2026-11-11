@@ -252,6 +252,27 @@ class PortalTest(unittest.TestCase):
         self.assertEqual(kwargs['metadata']['section_id'], str(section.pk))
         self.assertEqual(kwargs['customer_email'], 'a@example.org')
 
+    def test_yearly_checkout_uses_yearly_price(self):
+        app.config.update(SUBSCRIPTIONS_ENABLED=True, STRIPE_PRICE_SECTION_YEARLY='price_year')
+        try:
+            self.register()
+            section = Section.objects.get(slug='neu')
+            client = self.login(self.user('a@example.org', (section, {'admin': True})))
+            page = client.get('/portal/sektion/neu/abrechnung', base_url=PORTAL).get_data(as_text=True)
+            self.assertIn('432,00', page)
+            stripe = mock.MagicMock()
+            stripe.checkout.Session.create.return_value = {'url': 'https://checkout.stripe.example/y'}
+            with mock.patch.object(billing, '_stripe', return_value=stripe):
+                client.post('/portal/sektion/neu/abrechnung/abo', base_url=PORTAL, data={'interval': 'year'})
+            self.assertEqual(stripe.checkout.Session.create.call_args.kwargs['line_items'],
+                             [{'price': 'price_year', 'quantity': 4}])
+            billing.apply_subscription({'id': 'sub_9', 'status': 'active', 'customer': 'cus_9',
+                                        'metadata': {'section_id': str(section.pk)},
+                                        'items': {'data': [{'price': {'recurring': {'interval': 'year'}}}]}})
+            self.assertEqual(section.reload().billing_interval, 'year')
+        finally:
+            app.config['STRIPE_PRICE_SECTION_YEARLY'] = ''
+
     def test_webhook_activates_and_ignores_stale_events(self):
         self.register()
         section = Section.objects.get(slug='neu')
