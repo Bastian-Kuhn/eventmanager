@@ -197,7 +197,7 @@ class IsolationTest(unittest.TestCase):
         beta = self.user('nur-beta@example.org', (self.beta, {'role': 'guide'}))
         User.objects(id=beta.id).update_one(set__first_name='Nurbeta')
         client = self.login(admin, A)
-        for path in ('/admin/event/new/', '/admin/hutbooking/new/', '/admin/hut/new/'):
+        for path in ('/admin/hutbooking/new/', '/admin/hut/new/'):
             status, page = self.text(client, path)
             self.assertEqual(status, 200, path)
             self.assertNotIn('Nurbeta', page, path)

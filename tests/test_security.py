@@ -847,13 +847,31 @@ class CrashTest(AppTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(Event.objects.get(id=event.id).participations), 1)
 
-    def test_deleted_event_via_admin(self):
+    def test_admin_event_list_is_read_only(self):
         booker = self.user()
         event = self.event()
         self.booking(booker, event)
         User.objects(id=booker.id).update_one(add_to_set__favorites=event)
         client = self.login(self.owner(event))
+        page = client.get('/admin/event/').get_data(as_text=True)
+        self.assertIn(f'/event/admin?event_id={event.id}', page)
+        self.assertIn(f'/event/participants?event_id={event.id}', page)
+        self.assertNotIn('/admin/event/edit/', page)
+        self.assertNotIn('/admin/event/delete/', page)
+        for path in ('/admin/event/new/', f'/admin/event/edit/?id={event.id}'):
+            self.assertNotEqual(client.get(path).status_code, 200, path)
         client.post('/admin/event/delete/', data={'id': event.id, 'url': '/admin/event/'})
+        client.post(f'/admin/event/edit/?id={event.id}', data={'event_name': 'Kaputt'})
+        self.assertEqual(Event.objects.get(id=event.id).event_name, event.event_name)
+        self.assertEqual(len(Event.objects.get(id=event.id).participations), 1)
+
+    def test_deleted_event_via_frontend(self):
+        booker = self.user()
+        event = self.event()
+        self.booking(booker, event)
+        User.objects(id=booker.id).update_one(add_to_set__favorites=event)
+        client = self.login(self.owner(event))
+        client.post('/event/delete', data={'event_id': event.id})
         self.assertEqual(Event.objects.count(), 0)
         booker.reload()
         self.assertEqual(booker.to_mongo().get('event_registrations', []), [])
