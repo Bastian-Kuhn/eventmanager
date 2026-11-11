@@ -17,6 +17,7 @@ from application.models.config import Category
 from application.models.section import Section, ref_id
 from application.models.user import Membership, User
 from application.modules import billing as stripe_billing
+from application.modules import section_delete
 from application.modules.email import has_own_mail, send_email
 from application.auth.views import mail_allowed
 from application.portal.forms import RegisterForm, RegisterLoggedInForm, SettingsForm
@@ -276,6 +277,31 @@ def settings(slug):
         flash("Einstellungen gespeichert", 'success')
         return redirect(url_for('PORTAL.settings', slug=section.slug))
     return _settings_page(form, section)
+
+
+@PORTAL.route('/sektion/<slug>/loeschen', methods=['GET', 'POST'])
+@login_required
+def delete(slug):
+    """Sektion mit allen Daten loeschen, nur globale Admins, mit Kurzname als Bestaetigung"""
+    if not current_user.is_global_admin():
+        abort(404)
+    section = Section.objects(slug=slug).first()
+    if section is None:
+        abort(404)
+    blocked = section_delete.blocked_reason(section)
+    if request.method == 'POST' and not blocked:
+        if (request.form.get('confirm') or '').strip() != section.slug:
+            flash("Der Kurzname stimmt nicht, nichts wurde gelöscht.", 'danger')
+        else:
+            name = section.name
+            counts = section_delete.delete_section(section)
+            current_app.logger.warning("Sektion %s (%s) geloescht von %s: %s",
+                                       slug, name, current_user.email, counts)
+            flash(f"{name} ist gelöscht, mit {counts['events']} Touren, {counts['huts']} Hütten "
+                  f"und {counts['users_deleted']} Konten.", 'success')
+            return redirect(url_for('PORTAL.index'))
+    return render_template('portal_delete.html', section=section, blocked=blocked,
+                           counts=section_delete.contents(section))
 
 
 @PORTAL.route('/sektion/<slug>/abrechnung')

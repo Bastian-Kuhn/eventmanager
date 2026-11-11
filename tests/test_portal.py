@@ -14,7 +14,8 @@ from mongomock.gridfs import enable_gridfs_integration
 from PIL import Image
 
 from application import app, limiter
-from application.events.models import Event
+from application.events.models import Event, EventParticipation
+from application.huts.models import Hut, HutBooking
 from application.models.config import Config
 from application.models.section import Section
 from application.models.user import Membership, User
@@ -47,7 +48,7 @@ class PortalTest(unittest.TestCase):
     """Portal unter sektion.example.org, Sektionen unter <kurzname>.example.org"""
 
     def setUp(self):
-        for model in (User, Section, Config, Event):
+        for model in (User, Section, Config, Event, Hut, HutBooking):
             model.drop_collection()
         app.redis = mock.MagicMock()
         limiter.enabled = False
@@ -252,6 +253,74 @@ class PortalTest(unittest.TestCase):
         self.assertEqual([p.pk for p in section.partner_sections], [self.dav.pk])
         page = client.get('/portal/', base_url=PORTAL).get_data(as_text=True)
         self.assertNotIn('möchte die Touren', page)
+
+    def test_global_admin_deletes_section_with_everything(self):
+        self.register()
+        neu = Section.objects.get(slug='neu')
+        event = Event(event_name='Neutour', section=neu, start_date=datetime.now()).save()
+        other_event = Event(event_name='Davtour', section=self.dav, start_date=datetime.now()).save()
+        hut = Hut(name='Neuhuette', section=neu).save()
+        HutBooking(hut=hut, section=neu, name='Gruppe').save()
+        only_neu = self.user('only@example.org', (neu, {'role': 'member'}))
+        both = self.user('both@example.org', (neu, {'role': 'guide'}), (self.dav, {'role': 'member'}))
+        guest = self.user('guest@example.org', (self.dav, {'role': 'member'}))
+        for user in (only_neu, guest):
+            User.objects(id=user.id).update_one(add_to_set__event_registrations=event)
+            Event.all_objects(id=event.id).update_one(push__participations=EventParticipation(user=user))
+        User.objects(id=both.id).update_one(add_to_set__event_registrations=other_event)
+        Event.all_objects(id=other_event.id).update_one(push__participations=EventParticipation(user=only_neu))
+        self.dav.update(set__partner_sections=[neu])
+        root = self.user('root@example.org', (neu, {'admin': True}), global_admin=True)
+        url = '/portal/sektion/neu/loeschen'
+
+        # Nur globale Admins, auch ein Admin der Sektion nicht
+        admin = self.user('a@example.org', (neu, {'admin': True}))
+        self.assertEqual(self.login(admin).get(url, base_url=PORTAL).status_code, 404)
+        self.assertNotIn('Weiter zum Löschen', self.login(admin).get('/portal/sektion/neu', base_url=PORTAL)
+                         .get_data(as_text=True))
+        client = self.login(root)
+        self.assertIn('Weiter zum Löschen', client.get('/portal/sektion/neu', base_url=PORTAL).get_data(as_text=True))
+        page = client.get(url, base_url=PORTAL).get_data(as_text=True)
+        self.assertIn('1 Touren', page)
+        self.assertIn('3 Konten, die nur in Sektion Neu', page)  # Ada, a und only
+        # Falscher Kurzname: nichts passiert
+        client.post(url, base_url=PORTAL, data={'confirm': 'dav'})
+        self.assertEqual(Section.objects(slug='neu').count(), 1)
+        self.assertEqual(Event.all_objects(id=event.id).count(), 1)
+
+        response = client.post(url, base_url=PORTAL, data={'confirm': 'neu'})
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Section.objects(slug='neu').count(), 0)
+        self.assertEqual(Event.all_objects(section=neu.pk).count(), 0)
+        self.assertEqual(Hut.all_objects.count(), 0)
+        self.assertEqual(HutBooking.all_objects.count(), 0)
+        self.assertEqual(User.objects(email__in=['only@example.org', 'ada@example.org', 'a@example.org']).count(), 0)
+        both.reload()
+        self.assertEqual([m.section.pk for m in both.memberships], [self.dav.pk])
+        self.assertTrue(both.participate_event(other_event.id))
+        guest.reload()
+        self.assertFalse(guest.participate_event(event.id))
+        root.reload()
+        self.assertEqual(root.memberships, [])
+        self.dav.reload()
+        self.assertEqual(self.dav.partner_sections, [])
+        # Buchung des geloeschten Kontos bei der anderen Sektion bleibt fuer die Abrechnung
+        self.assertEqual(len(Event.all_objects.get(id=other_event.id).participations), 1)
+
+    def test_delete_blocked_for_default_and_running_subscription(self):
+        self.register()
+        root = self.user('root@example.org', global_admin=True)
+        client = self.login(root)
+        page = client.get('/portal/sektion/dav/loeschen', base_url=PORTAL).get_data(as_text=True)
+        self.assertIn('Standardsektion kann nicht gelöscht werden', page)
+        client.post('/portal/sektion/dav/loeschen', base_url=PORTAL, data={'confirm': 'dav'})
+        self.assertEqual(Section.objects(slug='dav').count(), 1)
+        Section.objects(slug='neu').update_one(set__subscription_status='active')
+        client.post('/portal/sektion/neu/loeschen', base_url=PORTAL, data={'confirm': 'neu'})
+        self.assertEqual(Section.objects(slug='neu').count(), 1)
+        Section.objects(slug='neu').update_one(set__cancel_at_period_end=True)
+        client.post('/portal/sektion/neu/loeschen', base_url=PORTAL, data={'confirm': 'neu'})
+        self.assertEqual(Section.objects(slug='neu').count(), 0)
 
     def test_settings_reject_bad_color(self):
         self.register()
