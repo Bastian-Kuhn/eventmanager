@@ -53,7 +53,7 @@ class SectionTest(unittest.TestCase):
         alpha = self.get('alpha.example.org').get_data(as_text=True)
         beta = self.get('beta.example.org:443').get_data(as_text=True)
         self.assertIn('#111111', alpha)
-        self.assertIn('alt="Sektion Alpha"', alpha)
+        self.assertIn('site-brand" href="/">Sektion Alpha<', alpha)
         self.assertIn('#222222', beta)
         self.assertNotIn('#111111', beta)
 

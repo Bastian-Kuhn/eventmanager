@@ -108,7 +108,7 @@ class PortalTest(unittest.TestCase):
         self.assertEqual(message.sender, 'Tourenanmeldung <noreply@example.org>')
         self.assertIn('https://sektion.example.org/user/confirm/', message.html)
         page = app.test_client().get('/login', base_url='https://neu.example.org')
-        self.assertIn('alt="Sektion Neu"', page.get_data(as_text=True))
+        self.assertIn('site-brand" href="/">Sektion Neu<', page.get_data(as_text=True))
 
     def test_register_refuses_existing_account(self):
         self.user('ada@example.org')

@@ -3,11 +3,11 @@
 {% block title %}Tourenportal{% endblock %}
 
 {% block navbar %}
-<nav id="top-nav" class="navbar navbar-expand-lg sticky-top {{ 'navbar-dark' if portal else 'navbar-light' }}" style="background-color: {{ site.nav_color }}">
+<nav id="top-nav" class="navbar navbar-expand-lg sticky-top {{ 'navbar-dark' if portal or site.nav_dark else 'navbar-light' }}" style="background-color: {{ site.nav_color }}">
   {% if portal %}
   <a class="navbar-brand portal-brand" href="{{ url_for('PORTAL.index') }}"><i class="fas fa-map-signs" aria-hidden="true"></i> Tourenanmeldung</a>
   {% else %}
-  <a class="navbar-brand" href="{{ site.homepage_link }}"> <img src="{{ site.logo }}" height="60" alt="{{ site.name or 'Startseite' }}"></a>
+  <a class="navbar-brand site-brand" href="{{ site.homepage_link or '/' }}">{% if site.logo %}<img src="{{ site.logo }}" height="60" alt="{{ site.name or 'Startseite' }}">{% else %}{{ site.name or 'Startseite' }}{% endif %}</a>
   {% endif %}
   <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
     <span class="navbar-toggler-icon"></span>
@@ -26,18 +26,14 @@
       {% endif %}
     </ul>
     {% else %}
-    <ul class="navbar-nav mr-auto">
-      <li class="nav-item"><a class="nav-link" href="/">Startseite</a></li>
+    <ul class="navbar-nav mr-auto site-nav">
+      <li class="nav-item"><a class="nav-link" href="/">Touren</a></li>
       {% if hut_count == 1 %}
       <li class="nav-item"><a class="nav-link" href="{{ url_for('HUTS.page_hut_detail', hut_id=single_hut_id) }}">Hütte</a></li>
       {% elif hut_count > 1 %}
       <li class="nav-item"><a class="nav-link" href="{{ url_for('HUTS.page_huts') }}">Hütten</a></li>
       {% endif %}
-      {% if not current_user.is_authenticated %}
-      <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.login') }}">Login</a></li>
-      <li class="nav-item"><a class="nav-link" href="{{ url_for('USER.page_user_create') }}">Registrieren</a></li>
-      <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.request_password') }}">Passwort vergessen</a></li>
-      {% else %}
+      {% if current_user.is_authenticated %}
       <li class="nav-item"><a class="nav-link" href="{{ url_for('EVENTS.page_list', filter='my_events') }}">Meine Touren</a></li>
           {% if current_user.has_right('guide') %}
           <li class="nav-item"><a class="nav-link" href="{{ url_for('EVENTS.page_create') }}">Tour erstellen</a></li>
@@ -48,19 +44,21 @@
           {% if current_user.is_admin() %}
           <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.index') }}">Admin</a></li>
           {% endif %}
-      <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.logout') }}">Logout</a></li>
       {% endif %}
     </ul>
-    {% endif %}
-    {% if current_user.is_authenticated and not portal %}
-    <ul class="navbar-nav ml-auto">
+    <ul class="navbar-nav ml-auto align-items-lg-center site-nav">
+      {% if current_user.is_authenticated %}
       <li class="nav-item">
-        <a class="nav-link" href="{{ url_for('USER.page_user_profil') }}"
-           title="Profil" aria-label="Profil">
+        <a class="nav-link" href="{{ url_for('USER.page_user_profil') }}">
           <i class="fas fa-user-circle" aria-hidden="true"></i>
           <span>Profil</span>
         </a>
       </li>
+      <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.logout') }}">Logout</a></li>
+      {% else %}
+      <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.login') }}">Anmelden</a></li>
+      <li class="nav-item ml-lg-2"><a class="btn btn-sm site-cta {{ 'btn-light' if site.nav_dark else 'btn-dark' }}" href="{{ url_for('USER.page_user_create') }}">Registrieren</a></li>
+      {% endif %}
     </ul>
     {% endif %}
   </div>

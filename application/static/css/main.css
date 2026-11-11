@@ -317,3 +317,14 @@
     .portal-hero { padding: 2.25rem 1rem; border-radius: .5rem; }
     .portal-hero h1 { font-size: 1.75rem; }
 }
+
+/* Kopf der Sektionsseiten: Schrift schwarz oder weiss je nach Navfarbe */
+#top-nav { box-shadow: 0 2px 8px rgba(0, 0, 0, .12); }
+#top-nav .site-nav .nav-link { font-weight: 500; padding-left: .75rem; padding-right: .75rem; }
+.navbar-light .site-nav .nav-link { color: #111; }
+.navbar-dark .site-nav .nav-link { color: #fff; }
+#top-nav .site-nav .nav-link:hover,
+#top-nav .site-nav .nav-link:focus { text-decoration: underline; text-underline-offset: .25em; }
+#top-nav .site-cta { font-weight: 600; padding: .35rem .9rem; }
+@media (max-width: 991.98px) { #top-nav .site-cta { margin: .5rem 0; } }
+#top-nav .site-brand { font-weight: 600; }

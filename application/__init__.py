@@ -122,6 +122,20 @@ def section_logo(section):
     _logo_cache[key] = (now + LOGO_CACHE_SECONDS, logo)
     return logo
 
+def dark_background(color):
+    """True, wenn auf der Farbe weisse Schrift besser lesbar ist als schwarze"""
+    value = (color or '').lstrip('#')
+    if len(value) == 3:
+        value = ''.join(c * 2 for c in value)
+    try:
+        channels = [int(value[i:i + 2], 16) / 255 for i in (0, 2, 4)]
+    except ValueError:
+        return False
+    linear = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in channels]
+    luminance = 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+    # Kontrast zu Weiss gegen Kontrast zu Schwarz
+    return 1.05 / (luminance + 0.05) > (luminance + 0.05) / 0.05
+
 @app.context_processor
 def inject_section():
     """
@@ -138,6 +152,7 @@ def inject_section():
     return {'site': {
         'name': section.name,
         'nav_color': section.nav_background_color or 'grey',
+        'nav_dark': dark_background(section.nav_background_color),
         'homepage_link': section.homepage_link,
         'logo': section_logo(section),
         'media_consent_text': section.media_consent_text,
