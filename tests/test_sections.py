@@ -107,6 +107,9 @@ class SectionTest(unittest.TestCase):
             app.test_client().post('/user/create', data=REGISTRATION, base_url='https://beta.example.org')
         message = thread.call_args.kwargs['args'][1]
         self.assertTrue(re.search(r'https://beta\.example\.org/user/confirm/', message.html))
+        # Textteil fuer Spamfilter, mit demselben Link
+        self.assertTrue(re.search(r'https://beta\.example\.org/user/confirm/', message.body))
+        self.assertNotIn('<', message.body)
 
     def test_only_global_admins_manage_sections(self):
         from tests.test_security import AppTestCase  # pylint: disable=import-outside-toplevel

@@ -1,9 +1,27 @@
 # Version 1.1
+import html
+import re
 from threading import Thread
 from flask import current_app, render_template
 from flask_mail import Connection, Mail, Message
 from email.utils import formataddr
 from application.models.section import section_or_none
+
+
+def html_to_text(markup):
+    """
+    Textteil aus dem HTML der Mail. Ohne ihn werten Spamfilter die Mail ab
+    (MPART_ALT_DIFF). Links bleiben als Adresse in Klammern erhalten.
+    """
+    text = re.sub(r'(?is)<(script|style|head)\b.*?</\1>', '', markup)
+    text = re.sub(r'(?is)<a\b[^>]*href=["\']([^"\']+)["\'][^>]*>(.*?)</a>',
+                  lambda m: m.group(2) if m.group(1) in m.group(2) else f"{m.group(2)} ({m.group(1)})", text)
+    text = re.sub(r'(?i)<br\s*/?>', '\n', text)
+    text = re.sub(r'(?i)</(p|div|h[1-6]|li|tr|table)>', '\n\n', text)
+    text = re.sub(r'(?i)<li\b[^>]*>', '- ', text)
+    text = html.unescape(re.sub(r'<[^>]+>', '', text))
+    lines = [re.sub(r'[ \t]+', ' ', line).strip() for line in text.splitlines()]
+    return re.sub(r'\n{3,}', '\n\n', '\n'.join(lines)).strip() + '\n'
 
 
 def send_async_email(app, msg, mail):
@@ -93,6 +111,7 @@ def send_email_inner(to, subject, template, app, mail, section, **kwargs):
         )
         # msg.body = render_template(template + '.txt', **kwargs)
         msg.html = render_template(template + '.html', **kwargs)
+        msg.body = html_to_text(msg.html)
         if 'attachment_file' in kwargs:
             msg.attach(
                 kwargs['attachment_name'],
