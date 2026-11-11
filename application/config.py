@@ -99,6 +99,10 @@ class BaseConfig():
     # Jahresabo, gleiche Menge, 108 Euro im Jahr je Einheit. Leer = nur monatlich
     STRIPE_PRICE_SECTION_YEARLY = os.environ.get("STRIPE_PRICE_SECTION_YEARLY", "")
     STRIPE_PORTAL_CONFIGURATION = os.environ.get("STRIPE_PORTAL_CONFIGURATION", "")
+    # Stripe Tax im Checkout. Erst einschalten, wenn im Stripe-Dashboard Steuersitz
+    # und Registrierungen eingetragen sind, vorher lehnt Stripe den Checkout ab.
+    # Rechnungsadresse und USt-IdNr. fragt Checkout so oder so ab.
+    STRIPE_AUTOMATIC_TAX = os.environ.get("STRIPE_AUTOMATIC_TAX", "").lower() in ("1", "true", "yes")
     MEMBERS_PER_UNIT = 250
     PRICE_PER_UNIT_EUR = 10  # nur zur Anzeige, der Preis steht in Stripe
     PRICE_PER_UNIT_YEARLY_EUR = 108  # 10 % unter zwoelf Monaten

@@ -314,6 +314,48 @@ class PortalTest(unittest.TestCase):
         self.assertEqual(kwargs['line_items'], [{'price': 'price_1', 'quantity': 4}])
         self.assertEqual(kwargs['metadata']['section_id'], str(section.pk))
         self.assertEqual(kwargs['customer_email'], 'a@example.org')
+        # Rechnungsadresse und USt-IdNr., Stripe Tax nur mit Schalter
+        self.assertEqual(kwargs['billing_address_collection'], 'required')
+        self.assertEqual(kwargs['tax_id_collection'], {'enabled': True})
+        self.assertNotIn('customer_update', kwargs)
+        self.assertNotIn('automatic_tax', kwargs)
+        section.update(set__stripe_customer_id='cus_1')
+        app.config['STRIPE_AUTOMATIC_TAX'] = True
+        self.addCleanup(app.config.update, STRIPE_AUTOMATIC_TAX=False)
+        with mock.patch.object(billing, '_stripe', return_value=stripe):
+            client.post('/portal/sektion/neu/abrechnung/abo', base_url=PORTAL)
+        kwargs = stripe.checkout.Session.create.call_args.kwargs
+        self.assertEqual(kwargs['customer'], 'cus_1')
+        self.assertEqual(kwargs['customer_update'], {'address': 'auto', 'name': 'auto'})
+        self.assertEqual(kwargs['automatic_tax'], {'enabled': True})
+
+    def test_billing_page_lists_invoices(self):
+        app.config['SUBSCRIPTIONS_ENABLED'] = True
+        self.register()
+        section = Section.objects.get(slug='neu')
+        client = self.login(self.user('a@example.org', (section, {'admin': True})))
+        page = client.get('/portal/sektion/neu/abrechnung', base_url=PORTAL).get_data(as_text=True)
+        self.assertNotIn('Rechnungen</h2>', page)
+        section.update(set__stripe_customer_id='cus_1')
+        stripe = mock.MagicMock()
+        stripe.Invoice.list.return_value = {'data': [
+            {'number': 'RE-0002', 'created': 1767225600, 'total': 4000, 'currency': 'eur', 'status': 'paid',
+             'hosted_invoice_url': 'https://invoice.stripe.example/2', 'invoice_pdf': 'https://invoice.stripe.example/2.pdf'},
+            {'number': None, 'created': 1767225600, 'total': 4000, 'currency': 'eur', 'status': 'draft'},
+        ]}
+        with mock.patch.object(billing, '_stripe', return_value=stripe):
+            page = client.get('/portal/sektion/neu/abrechnung', base_url=PORTAL).get_data(as_text=True)
+        stripe.Invoice.list.assert_called_once_with(customer='cus_1', limit=12)
+        self.assertIn('RE-0002', page)
+        self.assertIn('40,00', page)
+        self.assertIn('Bezahlt', page)
+        self.assertIn('https://invoice.stripe.example/2.pdf', page)
+        self.assertEqual(page.count('<tr>'), 2)  # Kopf und eine Rechnung, der Entwurf fehlt
+        stripe.Invoice.list.side_effect = RuntimeError('Stripe weg')
+        with mock.patch.object(billing, '_stripe', return_value=stripe):
+            response = client.get('/portal/sektion/neu/abrechnung', base_url=PORTAL)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('konnten gerade nicht geladen werden', response.get_data(as_text=True))
 
     def test_yearly_checkout_uses_yearly_price(self):
         app.config.update(SUBSCRIPTIONS_ENABLED=True, STRIPE_PRICE_SECTION_YEARLY='price_year')

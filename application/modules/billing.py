@@ -68,6 +68,7 @@ def create_checkout(section, admin, interval='month'):
         raise BillingError("Kein Preis fuer Sektionen eingerichtet.")
     kwargs = {'customer': section.stripe_customer_id} if section.stripe_customer_id \
         else {'customer_email': admin.email}
+    kwargs.update(_checkout_tax_params(bool(section.stripe_customer_id)))
     session = stripe.checkout.Session.create(
         mode='subscription',
         client_reference_id=str(section.pk),
@@ -79,6 +80,58 @@ def create_checkout(section, admin, interval='month'):
         **kwargs,
     )
     return session['url']
+
+
+def _checkout_tax_params(existing_customer):
+    """
+    Was Checkout fuer die Rechnung abfragt: Rechnungsadresse und optional die
+    USt-IdNr. Bei einem schon vorhandenen Kunden schreibt customer_update beides
+    dorthin (verlangt Stripe dann). Stripe Tax nur mit STRIPE_AUTOMATIC_TAX:
+    Stripe lehnt es ab, solange im Konto Steuersitz und Registrierungen fehlen.
+    Nur hier: das Abo behaelt automatic_tax, sync_quantity braucht nichts.
+    """
+    params = {
+        'billing_address_collection': 'required',
+        'tax_id_collection': {'enabled': True},
+    }
+    if existing_customer:
+        params['customer_update'] = {'address': 'auto', 'name': 'auto'}
+    if current_app.config.get('STRIPE_AUTOMATIC_TAX'):
+        params['automatic_tax'] = {'enabled': True}
+    return params
+
+
+def list_invoices(section, limit=12):
+    """
+    Letzte Rechnungen der Sektion bei Stripe, neueste zuerst. [] ohne
+    Abrechnung oder Kunde, None wenn Stripe nicht antwortet (die Seite sagt
+    das dann und laeuft weiter).
+    """
+    if not billing_enabled() or not section.stripe_customer_id:
+        return []
+    try:
+        rows = list(_stripe().Invoice.list(customer=section.stripe_customer_id, limit=limit)['data'])
+    except Exception as exc:  # pylint: disable=broad-except
+        log.warning("billing: Rechnungen fuer %s nicht geladen: %s", section.slug, exc)
+        return None
+    invoices = []
+    for invoice in rows:
+        if invoice.get('status') == 'draft':
+            continue  # noch nicht ausgestellt: keine Nummer, kein PDF
+        invoices.append({
+            'number': invoice.get('number') or '',
+            'date': _to_datetime(invoice.get('created')),
+            'amount': (invoice.get('total') or 0) / 100,
+            'currency': (invoice.get('currency') or 'eur').upper(),
+            'status': INVOICE_STATUS.get(invoice.get('status'), invoice.get('status') or ''),
+            'url': invoice.get('hosted_invoice_url') or '',
+            'pdf': invoice.get('invoice_pdf') or '',
+        })
+    return invoices
+
+
+INVOICE_STATUS = {'paid': 'Bezahlt', 'open': 'Offen', 'void': 'Storniert',
+                  'uncollectible': 'Uneinbringlich'}
 
 
 def create_portal(section):

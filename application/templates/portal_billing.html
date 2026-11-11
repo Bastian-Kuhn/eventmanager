@@ -54,5 +54,41 @@
       </form>
     {% endif %}
   {% endif %}
+
+  {% if section.stripe_customer_id and billing_enabled %}
+  <section class="mt-4" aria-labelledby="invoices-heading">
+    <h2 class="h5" id="invoices-heading">Rechnungen</h2>
+    {% if invoices is none %}
+      <p class="text-muted">Die Rechnungen konnten gerade nicht geladen werden.</p>
+    {% elif not invoices %}
+      <p class="text-muted">Noch keine Rechnungen.</p>
+    {% else %}
+      <div class="table-responsive">
+        <table class="table table-sm">
+          <caption class="sr-only">Rechnungen {{ section.name }}</caption>
+          <thead>
+            <tr><th scope="col">Nummer</th><th scope="col">Datum</th><th scope="col" class="text-right">Betrag</th>
+              <th scope="col">Status</th><th scope="col"><span class="sr-only">Dokumente</span></th></tr>
+          </thead>
+          <tbody>
+            {% for invoice in invoices %}
+            <tr>
+              <td class="text-nowrap">{{ invoice.number }}</td>
+              <td class="text-nowrap">{{ invoice.date.strftime('%d.%m.%Y') if invoice.date else '' }}</td>
+              <td class="text-right text-nowrap">{% if invoice.currency == 'EUR' %}{{ invoice.amount|euro }}{% else %}{{ '%.2f'|format(invoice.amount) }} {{ invoice.currency }}{% endif %}</td>
+              <td>{{ invoice.status }}</td>
+              <td class="text-right text-nowrap">
+                {% if invoice.url %}<a href="{{ invoice.url }}" target="_blank" rel="noopener" aria-label="Rechnung {{ invoice.number }} ansehen (neues Fenster)">Ansehen</a>{% endif %}
+                {% if invoice.pdf %}<a href="{{ invoice.pdf }}" target="_blank" rel="noopener" class="ml-2" aria-label="Rechnung {{ invoice.number }} als PDF (neues Fenster)">PDF</a>{% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="small text-muted">Stripe stellt die Rechnungen aus und schickt jede auch per E-Mail.</p>
+    {% endif %}
+  </section>
+  {% endif %}
 </main>
 {% endblock %}
