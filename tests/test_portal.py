@@ -346,6 +346,26 @@ class PortalTest(unittest.TestCase):
         self.assertEqual(client.post('/portal/freigabe', base_url=PORTAL,
                                      data={'user_id': str(ada.id)}).status_code, 404)
 
+    def test_global_admin_sees_own_and_all_sections_apart(self):
+        self.register()
+        root = self.user('root@example.org', (self.dav, {'admin': True}), global_admin=True)
+        client = self.login(root)
+        page = client.get('/portal/', base_url=PORTAL).get_data(as_text=True)
+        mine, _, everything = page.partition('id="all-heading"')
+        self.assertIn('Einstellungen DAV', mine)
+        self.assertNotIn('Einstellungen Sektion Neu', mine)
+        self.assertIn('Alle Sektionen (2)', page)
+        self.assertIn('Einstellungen Sektion Neu', everything)
+        page = client.get('/portal/?q=neu', base_url=PORTAL).get_data(as_text=True)
+        everything = page.partition('id="all-heading"')[2]
+        self.assertIn('Sektion Neu', everything)
+        self.assertNotIn('Einstellungen DAV', everything)
+        # Sektionsadmins sehen keine fremden und keine Suche
+        page = self.login(self.user('a@example.org', (self.dav, {'admin': True}))) \
+            .get('/portal/?q=neu', base_url=PORTAL).get_data(as_text=True)
+        self.assertNotIn('Sektion Neu', page)
+        self.assertNotIn('all-heading', page)
+
     def test_settings_reject_bad_color(self):
         self.register()
         section = Section.objects.get(slug='neu')

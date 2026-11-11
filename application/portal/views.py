@@ -31,10 +31,11 @@ EMPTY_CATEGORY_ROWS = 3
 LOGO_MAX_BYTES = 2 * 1024 * 1024
 
 
+ALL_SECTIONS_LIMIT = 50
+
+
 def _admin_sections(user):
-    """Sektionen, die das Konto im Portal verwalten darf"""
-    if user.is_global_admin():
-        return list(Section.objects.order_by('name'))
+    """Sektionen, in denen das Konto selbst Admin ist (globale Admins sehen die anderen extra)"""
     ids = [entry.section.pk for entry in user.memberships if entry.admin]
     return list(Section.objects(pk__in=ids).order_by('name'))
 
@@ -60,9 +61,20 @@ def index():
     """Start: was das Portal ist, und die eigenen Sektionen"""
     sections = _admin_sections(current_user) if current_user.is_authenticated else []
     requests = [(section, other) for section in sections for other in partner_requests(section)]
-    pending = pending_admins() if current_user.is_authenticated and current_user.is_global_admin() else []
+    is_global = current_user.is_authenticated and current_user.is_global_admin()
+    # Globale Admins: alle Sektionen mit Suche, bei vielen Vereinen nur die ersten
+    query = (request.args.get('q') or '').strip()[:100] if is_global else ''
+    all_sections, more = [], False
+    if is_global:
+        found = Section.objects(name__icontains=query) if query else Section.objects
+        all_sections = list(found.order_by('name').limit(ALL_SECTIONS_LIMIT + 1))
+        more = len(all_sections) > ALL_SECTIONS_LIMIT
+        all_sections = all_sections[:ALL_SECTIONS_LIMIT]
     return render_template('portal_index.html', sections=sections, address=section_address,
-                           requests=requests, pending=pending, trial_days=current_app.config['TRIAL_DAYS'])
+                           requests=requests, pending=pending_admins() if is_global else [],
+                           all_sections=all_sections, more=more, query=query, is_global=is_global,
+                           total=Section.objects.count() if is_global else 0,
+                           trial_days=current_app.config['TRIAL_DAYS'])
 
 
 def pending_admins():

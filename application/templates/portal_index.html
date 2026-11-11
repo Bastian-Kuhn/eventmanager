@@ -1,5 +1,21 @@
 {% extends 'base.html' %}
 {% block title %}{{ t.portal }}{% endblock %}
+{% macro section_row(section) %}
+      <li class="list-group-item d-flex flex-wrap justify-content-between align-items-center">
+        <div class="mr-3">
+          <strong>{{ section.name }}</strong><br>
+          {% if address(section) %}<a href="{{ address(section) }}">{{ address(section) }}</a>{% endif %}
+        </div>
+        <div class="mt-2 mt-sm-0">
+          <a class="btn btn-outline-primary btn-sm" href="{{ url_for('PORTAL.settings', slug=section.slug) }}" aria-label="Einstellungen {{ section.name }}">Einstellungen</a>
+          <a class="btn btn-outline-primary btn-sm" href="{{ url_for('PORTAL.billing', slug=section.slug) }}" aria-label="Abrechnung {{ section.name }}">Abrechnung</a>
+          <a class="btn btn-outline-primary btn-sm" href="{{ url_for('PORTAL.partners', slug=section.slug) }}" aria-label="Touren teilen {{ section.name }}">Touren teilen</a>
+          {% if is_global and address(section) %}
+          <a class="btn btn-outline-secondary btn-sm" href="{{ address(section) }}admin/" aria-label="Admin-Panel {{ section.name }}">Admin-Panel</a>
+          {% endif %}
+        </div>
+      </li>
+{% endmacro %}
 {% block page_content %}
 <main>
 {% if not current_user.is_authenticated %}
@@ -57,27 +73,34 @@
     <h2 class="h5 mt-4">Meine {{ t.many }}</h2>
     {% if sections %}
     <ul class="list-group mb-3">
-      {% for section in sections %}
-      <li class="list-group-item d-flex flex-wrap justify-content-between align-items-center">
-        <div class="mr-3">
-          <strong>{{ section.name }}</strong><br>
-          {% if address(section) %}<a href="{{ address(section) }}">{{ address(section) }}</a>{% endif %}
-        </div>
-        <div class="mt-2 mt-sm-0">
-          <a class="btn btn-outline-primary btn-sm" href="{{ url_for('PORTAL.settings', slug=section.slug) }}">Einstellungen</a>
-          <a class="btn btn-outline-primary btn-sm" href="{{ url_for('PORTAL.billing', slug=section.slug) }}">Abrechnung</a>
-          <a class="btn btn-outline-primary btn-sm" href="{{ url_for('PORTAL.partners', slug=section.slug) }}">Touren teilen</a>
-          {% if current_user.is_global_admin() and address(section) %}
-          <a class="btn btn-outline-secondary btn-sm" href="{{ address(section) }}admin/" aria-label="Admin-Panel {{ section.name }}">Admin-Panel</a>
-          {% endif %}
-        </div>
-      </li>
-      {% endfor %}
+      {% for section in sections %}{{ section_row(section) }}{% endfor %}
     </ul>
     {% else %}
     <p>Du bist noch in {{ t.no_dat }} als Admin eingetragen.</p>
     {% endif %}
     <a class="btn btn-primary" href="{{ url_for('PORTAL.register') }}">{{ t.new }} registrieren</a>
+
+    {% if is_global %}
+    <section class="mt-5" aria-labelledby="all-heading">
+      <h2 class="h5" id="all-heading">Alle {{ t.many }} ({{ total }})</h2>
+      <form method="get" action="{{ url_for('PORTAL.index') }}" role="search" class="mb-3">
+        <label for="section-search" class="sr-only">{{ t.one }} suchen</label>
+        <div class="input-group">
+          <input type="search" class="form-control" id="section-search" name="q" value="{{ query }}"
+                 maxlength="100" placeholder="Name" autocomplete="off">
+          <div class="input-group-append"><button type="submit" class="btn btn-outline-primary">Suchen</button></div>
+        </div>
+      </form>
+      {% if all_sections %}
+      <ul class="list-group mb-2">
+        {% for section in all_sections %}{{ section_row(section) }}{% endfor %}
+      </ul>
+      {% if more %}<p class="small text-muted">Es gibt mehr, bitte genauer suchen.</p>{% endif %}
+      {% else %}
+      <p class="text-muted">Nichts gefunden{% if query %} zu „{{ query }}“{% endif %}.</p>
+      {% endif %}
+    </section>
+    {% endif %}
   {% else %}
     <h2 class="sr-only">Was dazugehört</h2>
     <ul class="portal-features">
