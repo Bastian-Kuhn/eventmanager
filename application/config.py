@@ -83,6 +83,9 @@ class BaseConfig():
     # Portal, auf dem sich Sektionen selbst registrieren und ihre Einstellungen
     # und Abrechnung verwalten. Leer = kein Portal (Eigenbetrieb).
     PORTAL_HOSTNAME = os.environ.get("PORTAL_HOSTNAME", "").lower()
+    # Dasselbe Portal mit "Verein" statt "Sektion". Leer = aus PORTAL_HOSTNAME
+    # abgeleitet (sektion.x -> verein.x)
+    PORTAL_CLUB_HOSTNAME = os.environ.get("PORTAL_CLUB_HOSTNAME", "").lower()
     # Neue Sektionen bekommen <kurzname>.SECTION_BASE_DOMAIN
     SECTION_BASE_DOMAIN = os.environ.get("SECTION_BASE_DOMAIN", "").lower()
     TRIAL_DAYS = int(os.environ.get("TRIAL_DAYS") or 30)

@@ -120,10 +120,28 @@ def resolve_section(host):
     return section_from_legacy_config()
 
 
+def portal_hosts():
+    """Hostnamen des Portals: {host: 'sektion' oder 'verein'}"""
+    portal = current_app.config.get('PORTAL_HOSTNAME')
+    if not portal:
+        return {}
+    club = current_app.config.get('PORTAL_CLUB_HOSTNAME')
+    if not club and portal.startswith('sektion.'):
+        club = 'verein.' + portal[len('sektion.'):]
+    hosts = {portal: 'sektion'}
+    if club:
+        hosts[club] = 'verein'
+    return hosts
+
+
+def portal_kind():
+    """'sektion' oder 'verein' auf dem Portal, sonst None"""
+    return portal_hosts().get(normalize_hostname(request.host))
+
+
 def is_portal_request():
     """Request an das Portal (PORTAL_HOSTNAME), dort gibt es keine Sektion"""
-    portal = current_app.config.get('PORTAL_HOSTNAME')
-    return bool(portal) and normalize_hostname(request.host) == portal
+    return portal_kind() is not None
 
 
 def current_section():

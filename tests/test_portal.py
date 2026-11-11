@@ -89,6 +89,25 @@ class PortalTest(unittest.TestCase):
         self.assertEqual(client.get('/login', base_url=PORTAL).status_code, 200)
         self.assertEqual(client.get('/portal/', base_url='https://touren.example.org').status_code, 200)
 
+    def test_club_portal_mirrors_with_verein_wording(self):
+        client = app.test_client()
+        club = 'https://verein.example.org'
+        self.assertEqual(client.get('/', base_url=club).headers['Location'], '/portal/')
+        page = client.get('/portal/registrieren', base_url=club).get_data(as_text=True)
+        self.assertIn('Verein registrieren', page)
+        self.assertIn('Name des Vereins', page)
+        self.assertNotIn('Sektion', page)
+        self.assertIn('Sektion registrieren', client.get('/portal/registrieren', base_url=PORTAL).get_data(as_text=True))
+        with mock.patch('application.modules.email.Thread'):
+            response = client.post('/portal/registrieren', base_url=club,
+                                   data={**NEW_SECTION, 'submit': 'Verein registrieren'})
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Section.objects.get(slug='neu').hostnames, ['neu.example.org'])
+        self.assertIn('Der Verein Sektion Neu ist angelegt',
+                      client.get('/portal/', base_url=club).get_data(as_text=True))
+        response, _ = self.register(slug='verein')
+        self.assertEqual(response.status_code, 200)
+
     # Registrieren
 
     def test_register_creates_section_admin_and_trial(self):

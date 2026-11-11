@@ -143,13 +143,14 @@ def inject_section():
     teilen sich alle Threads, parallele Requests verschiedener Sektionen
     wuerden sich gegenseitig ueberschreiben.
     """
+    from application.portal.terms import terms  # pylint: disable=import-outside-toplevel
     if is_portal_request():
-        return {'site': {'name': 'Tourenanmeldung', 'nav_color': '#2f6b3a'}, 'portal': True}
+        return {'site': {'name': 'Tourenanmeldung', 'nav_color': '#2f6b3a'}, 'portal': True, 't': terms()}
     try:
         section = current_section()
     except DoesNotExist:
-        return {'site': {}}
-    return {'site': {
+        return {'site': {}, 't': terms()}
+    return {'t': terms(), 'site': {
         'name': section.name,
         'nav_color': section.nav_background_color or 'grey',
         'nav_dark': dark_background(section.nav_background_color),

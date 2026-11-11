@@ -17,12 +17,12 @@
     {% if portal %}
     <ul class="navbar-nav ml-auto align-items-lg-center portal-nav">
       {% if current_user.is_authenticated %}
-      <li class="nav-item"><a class="nav-link" href="{{ url_for('PORTAL.index') }}">Meine Sektionen</a></li>
-      <li class="nav-item"><a class="nav-link" href="{{ url_for('PORTAL.register') }}">Sektion registrieren</a></li>
+      <li class="nav-item"><a class="nav-link" href="{{ url_for('PORTAL.index') }}">Meine {{ t.many }}</a></li>
+      <li class="nav-item"><a class="nav-link" href="{{ url_for('PORTAL.register') }}">{{ t.one }} registrieren</a></li>
       <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.logout') }}">Logout</a></li>
       {% else %}
       <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.login') }}">Anmelden</a></li>
-      <li class="nav-item ml-lg-2"><a class="btn btn-light btn-sm portal-cta" href="{{ url_for('PORTAL.register') }}">Sektion registrieren</a></li>
+      <li class="nav-item ml-lg-2"><a class="btn btn-light btn-sm portal-cta" href="{{ url_for('PORTAL.register') }}">{{ t.one }} registrieren</a></li>
       {% endif %}
     </ul>
     {% else %}

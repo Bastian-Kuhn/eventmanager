@@ -19,6 +19,7 @@ from application.modules import billing as stripe_billing
 from application.modules.email import send_email
 from application.auth.views import mail_allowed
 from application.portal.forms import RegisterForm, RegisterLoggedInForm, SettingsForm
+from application.portal.terms import label_forms, terms
 from application.user.views import CONFIRM_TOKEN_SECONDS
 
 PORTAL = Blueprint('PORTAL', __name__, url_prefix='/portal')
@@ -95,7 +96,7 @@ def _create_section(form, admin):
 def register():
     """Neue Sektion mit Testphase anlegen"""
     logged_in = current_user.is_authenticated
-    form = RegisterLoggedInForm() if logged_in else RegisterForm()
+    form = label_forms(RegisterLoggedInForm() if logged_in else RegisterForm(), terms())
     if form.validate_on_submit() and not _slug_taken(form):
         if logged_in:
             admin = current_user
@@ -117,13 +118,13 @@ def register():
         if section is None:
             return render_template('portal_register.html', form=form, logged_in=logged_in), 200
         if logged_in:
-            flash(f"Die Sektion {section.name} ist angelegt. Testphase bis "
+            flash(f"{terms()['The']} {section.name} ist angelegt. Testphase bis "
                   f"{section.trial_until:%d.%m.%Y}.", 'success')
             return redirect(url_for('PORTAL.settings', slug=section.slug))
         if mail_allowed(admin.email):
             send_email(admin.email, "E-Mail-Adresse bestätigen", 'email/confirm_email',
                        user=admin, token=admin.generate_token(CONFIRM_TOKEN_SECONDS))
-        flash(f"Die Sektion {section.name} ist angelegt. Wir haben dir einen Link zur "
+        flash(f"{terms()['The']} {section.name} ist angelegt. Wir haben dir einen Link zur "
               "Bestätigung deiner E-Mail-Adresse geschickt, danach kannst du dich hier anmelden.",
               'success')
         return redirect(url_for('PORTAL.index'))
@@ -152,7 +153,7 @@ def _logo_bytes(upload):
 def settings(slug):
     """Einstellungen einer Sektion"""
     section = _managed_section(slug)
-    form = SettingsForm(obj=section)
+    form = label_forms(SettingsForm(obj=section), terms())
     if request.method == 'GET':
         for category in section.event_categories_full:
             form.categories.append_entry({'name': category.name, 'color': category.color})

@@ -1,15 +1,15 @@
 {% extends 'base.html' %}
 {% import 'bootstrap/wtf.html' as wtf %}
-{% block title %}Sektion registrieren{% endblock %}
+{% block title %}{{ t.one }} registrieren{% endblock %}
 {% block page_content %}
 <main class="container py-3" style="max-width: 640px">
-  <h1 class="h3">Sektion registrieren</h1>
-  <p>Die Sektion ist sofort nutzbar. Am Ende der Testphase schließt du unter
+  <h1 class="h3">{{ t.one }} registrieren</h1>
+  <p>{{ t.The }} ist sofort nutzbar. Am Ende der Testphase schließt du unter
     „Abrechnung“ das Abo ab.</p>
   <form method="post" novalidate>
     {{ form.hidden_tag() }}
     <fieldset class="mb-3">
-      <legend class="h5">Sektion</legend>
+      <legend class="h5">{{ t.one }}</legend>
       {{ wtf.form_field(form.section_name) }}
       {{ wtf.form_field(form.slug, aria_describedby='slug-hint') }}
       <p id="slug-hint" class="form-text text-muted mt-n2">Daraus wird die Adresse,
@@ -19,9 +19,9 @@
     </fieldset>
     {% if not logged_in %}
     <fieldset class="mb-3">
-      <legend class="h5">Dein Konto als Admin der Sektion</legend>
-      <p class="text-muted">Schon ein Konto bei einer anderen Sektion?
-        <a href="{{ url_for('auth.login') }}">Erst anmelden</a>, dann wird es Admin der neuen Sektion.</p>
+      <legend class="h5">Dein Konto als Admin {{ t.gen }}</legend>
+      <p class="text-muted">Schon ein Konto bei {{ t.other_dat }}?
+        <a href="{{ url_for('auth.login') }}">Erst anmelden</a>, dann wird es Admin {{ t.gen_new }}.</p>
       {{ wtf.form_field(form.first_name) }}
       {{ wtf.form_field(form.last_name) }}
       {{ wtf.form_field(form.email) }}
@@ -29,7 +29,7 @@
       {{ wtf.form_field(form.password_repeat) }}
     </fieldset>
     {% else %}
-    <p>Admin der neuen Sektion wird dein Konto <strong>{{ current_user.email }}</strong>.</p>
+    <p>Admin {{ t.gen_new }} wird dein Konto <strong>{{ current_user.email }}</strong>.</p>
     {% endif %}
     {{ wtf.form_field(form.submit, button_map={'submit': 'primary'}) }}
   </form>

@@ -6,7 +6,7 @@
   <p><a href="{{ url_for('PORTAL.settings', slug=section.slug) }}">Zu den Einstellungen</a></p>
 
   {% if section.trial_until is none %}
-    <p>Diese Sektion läuft ohne Abrechnung.</p>
+    <p>{{ t.this }} läuft ohne Abrechnung.</p>
   {% else %}
     <dl class="row">
       <dt class="col-sm-5">Mitglieder laut Angabe</dt><dd class="col-sm-7">{{ section.member_count or 1 }}</dd>
@@ -20,7 +20,7 @@
         {% elif section.in_trial(now) %}
           Testphase bis {{ section.trial_until.strftime('%d.%m.%Y') }}
         {% else %}
-          <strong>Testphase abgelaufen, die Sektion ist gesperrt.</strong> Mit dem Abo ist sie sofort wieder da.
+          <strong>Testphase abgelaufen, {{ t.the }} ist gesperrt.</strong> Mit dem Abo ist {{ t.it }} sofort wieder da.
         {% endif %}
       </dd>
     </dl>

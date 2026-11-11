@@ -17,7 +17,7 @@ from application.models.section import SLUG_PATTERN
 from application.user.forms import NAME_MAX, NAME_VALIDATORS
 
 # Subdomains, die keine Sektion bekommt
-RESERVED_SLUGS = {'www', 'sektion', 'portal', 'admin', 'api', 'app', 'mail', 'smtp',
+RESERVED_SLUGS = {'www', 'sektion', 'verein', 'portal', 'admin', 'api', 'app', 'mail', 'smtp',
                   'docs', 'static', 'test', 'demo', 'status'}
 SECTION_NAME_MAX = 100
 COLOR_PATTERN = r'^#[0-9a-fA-F]{6}$'

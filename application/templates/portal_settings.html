@@ -11,7 +11,7 @@
   <form method="post" enctype="multipart/form-data" novalidate>
     {{ form.hidden_tag() }}
     <fieldset class="mb-4">
-      <legend class="h5">Sektion</legend>
+      <legend class="h5">{{ t.one }}</legend>
       {{ wtf.form_field(form.name) }}
       {{ wtf.form_field(form.member_count, aria_describedby='members-hint') }}
       <p id="members-hint" class="form-text text-muted mt-n2">Danach richtet sich der Preis:
@@ -22,7 +22,7 @@
       {{ wtf.form_field(form.nav_background_color) }}
       {% if section.logo_image %}
       <p class="mb-1">Aktuelles Logo:</p>
-      <p><img src="{{ logo }}" alt="Aktuelles Logo der Sektion" style="max-height: 60px; background: {{ section.nav_background_color or '#ccc' }}; padding: 4px"></p>
+      <p><img src="{{ logo }}" alt="Aktuelles Logo {{ t.gen }}" style="max-height: 60px; background: {{ section.nav_background_color or '#ccc' }}; padding: 4px"></p>
       {% endif %}
       {{ wtf.form_field(form.logo) }}
       {{ wtf.form_field(form.homepage_link) }}
@@ -51,7 +51,7 @@
     <fieldset class="mb-4">
       <legend class="h5">Mailversand</legend>
       <p class="text-muted">Ohne eigenen Mailserver verschickt Tourenanmeldung die Mails im Namen
-        der Sektion.</p>
+        {{ t.gen }}.</p>
       {{ wtf.form_field(form.mail_server) }}
       {{ wtf.form_field(form.mail_username) }}
       {{ wtf.form_field(form.mail_password) }}
