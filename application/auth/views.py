@@ -16,7 +16,8 @@ from limits import parse
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from application import limiter, login_manager
-from application.models.user import User
+from application.models.user import User, section_admins
+from application.models.section import section_or_none
 from application.auth.forms import LoginForm, RequestPasswordForm, ResetPasswordForm, \
     TwoFactorForm, TwoFactorSetupForm, TwoFactorDisableForm
 from application.user.forms import ChangePasswordForm
@@ -124,8 +125,44 @@ def mail_allowed(email):
     return _limit_per_email('hit', MAIL_LIMIT, MAIL_LIMIT_KEY, email)
 
 
+def _refuse_foreign(user):
+    """
+    Konto ist hier nicht (oder noch nicht freigegeben) Mitglied: Anfrage an
+    die Admins der Sektion, Hinweis, kein Login. True, wenn abgewiesen.
+    """
+    if user.may_use_section():
+        return False
+    section = section_or_none()
+    user.request_join(section)
+    if user.claim_join_notice(section):
+        _notify_join_request(user, section)
+        flash(f"Für {section.name} brauchst du eine Freigabe. Wir haben die Admins gefragt, "
+              "ob sie dich aufnehmen. Danach kannst du dich hier anmelden.", 'info')
+    else:
+        flash(f"Deine Anfrage bei {section.name} ist noch offen. Sobald die Admins dich "
+              "aufnehmen, kannst du dich hier anmelden.", 'info')
+    return True
+
+
+def _notify_join_request(user, section):
+    """Mail an die Vereinsadmins, Fehler verhindern die Anfrage nicht"""
+    try:
+        link = url_for('JoinRequests.index', _external=True)
+        for admin in section_admins(section):
+            send_email(admin.email, "Neue Beitrittsanfrage", 'email/join_request',
+                       user=user, section=section, home=user.home_section_names(),
+                       club_id=user.join_request(section).club_id, link=link)
+    except Exception:  # pylint: disable=broad-except
+        current_app.logger.exception("Mail zur Beitrittsanfrage fehlgeschlagen")
+
+
 def _finish_login(user, remember):
-    """Einloggen, nachdem alle Faktoren geprueft sind"""
+    """
+    Einloggen, nachdem alle Faktoren geprueft sind. False, wenn das Konto
+    nicht zu dieser Sektion gehoert (dann gibt es nur eine Beitrittsanfrage).
+    """
+    if _refuse_foreign(user):
+        return False
     login_user(
         user,
         remember=remember,
@@ -135,9 +172,7 @@ def _finish_login(user, remember):
     )
     user.last_login = datetime.now()
     user.save()
-    # Ein Konto gilt ueberall. In Partnersektionen steht es danach als Gast in
-    # der Mitgliederliste, siehe join_section
-    user.join_section()
+    return True
 
 
 def do_login(login_form, context, next_url=None):  # pylint: disable=unused-argument
@@ -182,8 +217,7 @@ def do_login(login_form, context, next_url=None):  # pylint: disable=unused-argu
         }
         return TFA_PENDING
 
-    _finish_login(existing_user, remember_login)
-    return True
+    return _finish_login(existing_user, remember_login)
 
 @login_manager.user_loader
 def load_user(session_id):
@@ -263,7 +297,8 @@ def login_2fa():
             error = "Bitte gib einen Code ein."
         elif user.check_tfa(entered):
             session.pop(TFA_SESSION_KEY, None)
-            _finish_login(user, pending.get('remember'))
+            if not _finish_login(user, pending.get('remember')):
+                return redirect(url_for('auth.login'))
             if use_recovery:
                 flash(f"Wiederherstellungscode verwendet. Du hast noch "
                       f"{len(user.tfa_recovery_codes)} Codes übrig.", 'warning')

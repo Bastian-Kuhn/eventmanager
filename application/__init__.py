@@ -13,8 +13,8 @@ import ipaddress
 
 from pprint import pformat
 from redis import Redis
-from flask import Flask, session, request, send_from_directory, render_template, redirect, url_for, abort
-from flask_login import LoginManager, current_user
+from flask import Flask, session, request, send_from_directory, render_template, redirect, url_for, abort, flash
+from flask_login import LoginManager, current_user, logout_user
 from flask_request_id_header.middleware import RequestID
 from flask_admin import Admin
 from flask_admin.menu import MenuLink
@@ -185,6 +185,14 @@ def require_section():
                           "Die Testphase dieser Sektion ist abgelaufen. Admins der Sektion "
                           f"schließen das Abo unter https://{portal}/ ab." if portal else
                           "Diese Sektion ist gerade nicht freigeschaltet.")
+    # Sitzungen von vor der Pruefung beim Login: fremde Konten melden sich neu
+    # an und stellen dabei die Beitrittsanfrage
+    if request.blueprint not in ('auth', 'LEGAL') and current_user.is_authenticated \
+            and not current_user.may_use_section(section):
+        logout_user()
+        flash("Dein Konto gehört nicht zu dieser Sektion. Melde dich an, um eine "
+              "Aufnahme bei den Admins anzufragen.", 'info')
+        return redirect(url_for('auth.login'))
     return None
 
 # Nur Regeln, die nichts brechen: Inline-Skripte und das Einbetten in fremde
@@ -275,6 +283,7 @@ from application.views.default import CustomModelView
 from application.models.user import User
 from application.views.user import UserView
 from application.views.members import MemberView
+from application.views.join_requests import JoinRequestView
 
 from application.events.models import Event
 from application.events.admin import EventView
@@ -384,6 +393,7 @@ admin.add_view(EventView(Event))
 admin.add_view(HutView(Hut, name="Hütten"))
 admin.add_view(HutBookingView(HutBooking, name="Hüttenbuchungen"))
 admin.add_view(MemberView(User, name="Mitglieder", endpoint="Members"))
+admin.add_view(JoinRequestView(name="Beitrittsanfragen", endpoint="JoinRequests"))
 admin.add_view(UserView(User, category='System'))
 admin.add_view(SectionView(Section, name='Sektionen', category='System'))
 admin.add_view(LogView(LogEntry, name="Log", category="System"))

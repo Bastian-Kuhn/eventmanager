@@ -49,6 +49,14 @@
       <legend class="h5">Foto- und Videoeinwilligung</legend>
       {{ wtf.form_field(form.media_consent_text) }}
     </fieldset>
+    <fieldset class="mb-4">
+      <legend class="h5">Anmeldung</legend>
+      {{ wtf.form_field(form.require_approval, aria_describedby='approval-hint') }}
+      <p id="approval-hint" class="form-text text-muted mt-n2">Wer sich neu registriert oder aus einer
+        Partnersektion kommt, kann sich erst anmelden, wenn ihr die Anfrage im Admin-Panel unter
+        „Beitrittsanfragen“ annehmt. Bisherige Mitglieder bleiben. Konten anderer Sektionen brauchen
+        immer eine Freigabe.</p>
+    </fieldset>
     <fieldset class="mb-4 mail-settings">
       <legend class="h5">Mailversand</legend>
       <p class="text-muted">Ohne eigenen Mailserver verschickt Tourenanmeldung die Mails im Namen

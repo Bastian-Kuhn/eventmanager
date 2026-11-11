@@ -43,6 +43,16 @@ class Membership(db.EmbeddedDocument):
     guest = db.BooleanField(default=False)
 
 
+class JoinRequest(db.EmbeddedDocument):
+    """Wunsch, in einer Sektion aufgenommen zu werden, bis deren Admins entscheiden"""
+    section = db.ReferenceField(document_type='Section', required=True)
+    # Aus der Registrierung, wird beim Aufnehmen zur Mitgliedsnummer
+    club_id = db.StringField()
+    # Admins per Mail informiert, erst nach dem ersten Login (bestaetigte Adresse)
+    notified = db.BooleanField(default=False)
+    date = db.DateTimeField(default=datetime.now)
+
+
 def _saved(section):
     """Gespeicherte Section, sonst None (vor der Migration gibt es nur Altfelder)"""
     return section if section is not None and getattr(section, 'pk', None) is not None else None
@@ -59,6 +69,9 @@ class User(db.Document, UserMixin):
 
     # Ein Konto gilt in allen Sektionen, Rolle und Vereinsadmin je Sektion
     memberships = db.ListField(field=db.EmbeddedDocumentField(document_type=Membership))
+    # Sektionen, bei denen sich das Konto anmelden wollte, ohne dort Mitglied
+    # zu sein. Deren Admins nehmen es auf oder lehnen ab.
+    join_requests = db.ListField(field=db.EmbeddedDocumentField(document_type=JoinRequest))
     # Stand vor den Sektionen, nur noch gelesen solange es keine Section gibt.
     # Die Migration uebernimmt sie in memberships und laesst sie stehen.
     legacy_role = db.StringField(choices=roles, db_field='role')
@@ -170,10 +183,12 @@ class User(db.Document, UserMixin):
         Beim Anmelden: ein Konto ohne jede Mitgliedschaft wird Mitglied (ohne
         Rolle) der Sektion. Sonst entsteht nur in einer Partnersektion einer
         Heimatsektion eine Gast-Mitgliedschaft, globale Admins bekommen keine.
+        Verlangt die Sektion eine Freigabe, entsteht gar keine.
         Atomar, damit parallele Logins keine doppelten Eintraege erzeugen.
         """
         section = _saved(section if section is not None else section_or_none())
-        if section is None or self.global_admin or self.membership(section):
+        if section is None or self.global_admin or self.membership(section) \
+                or section.require_approval:
             return
         guest = bool(self.memberships)
         if guest and not self.home_sections() & {ref_id(p.pk) for p in section.partners()}:
@@ -182,11 +197,58 @@ class User(db.Document, UserMixin):
             .update_one(push__memberships=Membership(section=section, guest=guest))
         self.reload('memberships')
 
+    def may_use_section(self, section=None):
+        """
+        Darf das Konto in section eingeloggt sein? Globale Admins ueberall,
+        sonst nur mit Mitgliedschaft (Partnersektionen bekommen sie per
+        join_section). Ohne Sektion (Portal) immer.
+        """
+        section = _saved(section if section is not None else section_or_none())
+        if section is None or self.global_admin:
+            return True
+        self.join_section(section)
+        return self.membership(section) is not None
+
+    def join_request(self, section):
+        """Offene Anfrage bei section oder None"""
+        wanted = ref_id(section)
+        return next((entry for entry in self.join_requests
+                     if ref_id(entry._data.get('section')) == wanted), None)  # pylint: disable=protected-access
+
+    def request_join(self, section, club_id=None):
+        """Beitrittsanfrage stellen, eine offene bleibt wie sie ist"""
+        User.objects(id=self.id, join_requests__section__ne=section.pk) \
+            .update_one(push__join_requests=JoinRequest(section=section, club_id=club_id or None))
+        self.reload('join_requests')
+
+    def claim_join_notice(self, section):
+        """True genau einmal je Anfrage: dann bekommen die Admins die Mail"""
+        return bool(User.objects(id=self.id, join_requests__match={'section': section.pk, 'notified': False})
+                    .update_one(set__join_requests__S__notified=True))
+
+    def answer_join(self, section, accept):
+        """
+        Anfrage beantworten. Angenommen gibt es eine Mitgliedschaft mit der
+        Mitgliedsnummer aus der Anfrage, Gast, wenn das Konto woanders hingehoert.
+        """
+        entry = self.join_request(section)
+        User.objects(id=self.id).update_one(pull__join_requests__section=section.pk)
+        if accept:
+            membership = Membership(section=section, guest=bool(self.memberships),
+                                    club_id=entry.club_id if entry else None)
+            User.objects(id=self.id, memberships__section__ne=section.pk) \
+                .update_one(push__memberships=membership)
+        self.reload('memberships', 'join_requests')
+
     def guest_from(self, section=None):
         """Namen der Heimatsektionen, wenn das Konto in section nur Gast ist, sonst []"""
         entry = self.membership(section)
         if entry is None or not entry.guest:
             return []
+        return self.home_section_names()
+
+    def home_section_names(self):
+        """Namen der Heimatsektionen, sortiert"""
         from application.models.section import Section  # pylint: disable=import-outside-toplevel
         return [s.name for s in Section.objects(pk__in=list(self.home_sections())).order_by('name')]
 
@@ -425,6 +487,12 @@ def section_members():
     if section is None:
         return User.objects
     return User.objects(memberships__section=section.pk)
+
+
+def section_admins(section):
+    """Vereinsadmins einer Sektion (ohne globale Admins), fuer Benachrichtigungen"""
+    return User.objects(disabled__ne=True, __raw__={
+        'memberships': {'$elemMatch': {'section': section.pk, 'admin': True}}})
 
 
 def remove_event_references(event):

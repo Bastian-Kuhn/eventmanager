@@ -63,6 +63,9 @@ class Section(db.Document):
     # andere Seite diese Sektion ebenfalls eingetragen hat (siehe partners)
     partner_sections = db.ListField(field=db.ReferenceField(document_type='Section'))
 
+    # Neue Konten (auch aus Partnersektionen) erst nach Freigabe durch die Admins
+    require_approval = db.BooleanField(default=False)
+
     meta = {
         'strict': False,
         'indexes': ['hostnames'],

@@ -113,6 +113,9 @@ class IsolationTest(unittest.TestCase):
         self.assertEqual(status, 200)
         status, _ = self.text(client_a, f'/event/participants?event_id={self.event_b.id}')
         self.assertIn(status, (403, 404))
+        # Als Gast einer Partnersektion hat er dort keine Rolle
+        self.alpha.update(set__partner_sections=[self.beta])
+        self.beta.update(set__partner_sections=[self.alpha])
         client_b = self.login(guide, B)
         status, _ = self.text(client_b, f'/event/participants?event_id={self.event_b.id}', B)
         self.assertEqual(status, 403)
@@ -121,10 +124,6 @@ class IsolationTest(unittest.TestCase):
 
     def test_login_joins_only_partner_sections_as_guest(self):
         guide = self.user('guide@example.org', (self.alpha, {'role': 'guide'}))
-        # Keine Partner: anmelden geht, Mitglied wird man nicht
-        self.login(guide, B)
-        guide.reload()
-        self.assertEqual(len(guide.memberships), 1)
         self.alpha.update(set__partner_sections=[self.beta])
         self.beta.update(set__partner_sections=[self.alpha])
         self.login(guide, B)
@@ -145,6 +144,122 @@ class IsolationTest(unittest.TestCase):
         self.login(fresh, B)
         fresh.reload()
         self.assertFalse(fresh.membership(self.beta).guest)
+
+    def try_login(self, user, host):
+        """Login-Versuch, gibt (Status, Seite) zurueck"""
+        response = app.test_client().post('/login', base_url=host, data={
+            'login_email': user.email, 'password': PASSWORD, 'login_submit': 'Anmelden'})
+        return response.status_code, response.get_data(as_text=True)
+
+    def test_foreign_login_becomes_join_request(self):
+        guide = self.user('guide@example.org', (self.alpha, {'role': 'guide'}))
+        admin_b = self.user('admin-b@example.org', (self.beta, {'admin': True}))
+        self.user('admin-a@example.org', (self.alpha, {'admin': True}))
+        with mock.patch('application.auth.views.send_email') as send:
+            status, page = self.try_login(guide, B)
+            self.assertEqual(status, 200)
+            self.assertIn('gefragt, ob sie dich aufnehmen', page)
+            status, page = self.try_login(guide, B)
+            self.assertIn('noch offen', page)
+        # Nur die Admins von Beta, nur beim ersten Versuch
+        self.assertEqual([call.args[0] for call in send.call_args_list], ['admin-b@example.org'])
+        guide.reload()
+        self.assertEqual(len(guide.memberships), 1)
+        self.assertEqual([r.section.pk for r in guide.join_requests], [self.beta.pk])
+        # Admins von Alpha sehen die Anfrage nicht, die von Beta nehmen auf
+        status, page = self.text(self.login(User.objects.get(email='admin-a@example.org'), A),
+                                 '/admin/JoinRequests/')
+        self.assertNotIn('guide@example.org', page)
+        client = self.login(admin_b, B)
+        status, page = self.text(client, '/admin/JoinRequests/', B)
+        self.assertEqual(status, 200)
+        self.assertIn('guide@example.org', page)
+        self.assertIn('aus Alpha', page)
+        response = client.post('/admin/JoinRequests/antwort', base_url=B,
+                               data={'user_id': str(guide.id), 'action': 'accept'})
+        self.assertEqual(response.status_code, 302)
+        guide.reload()
+        self.assertEqual(guide.join_requests, [])
+        self.assertTrue(guide.membership(self.beta).guest)
+        self.login(guide, B)
+
+    def test_rejected_join_request(self):
+        guide = self.user('guide@example.org', (self.alpha, {'role': 'guide'}))
+        admin_b = self.user('admin-b@example.org', (self.beta, {'admin': True}))
+        self.try_login(guide, B)
+        client = self.login(admin_b, B)
+        client.post('/admin/JoinRequests/antwort', base_url=B,
+                    data={'user_id': str(guide.id), 'action': 'reject'})
+        guide.reload()
+        self.assertEqual(guide.join_requests, [])
+        self.assertIsNone(guide.membership(self.beta))
+        status, _ = self.try_login(guide, B)
+        self.assertEqual(status, 200)
+
+    def test_approval_needed_for_new_accounts_and_partners(self):
+        self.beta.update(set__require_approval=True)
+        self.alpha.update(set__partner_sections=[self.beta])
+        self.beta.update(set__partner_sections=[self.alpha])
+        self.beta.reload()
+        member = self.user('member@example.org', (self.beta, {}))
+        self.login(member, B)
+        guide = self.user('guide@example.org', (self.alpha, {'role': 'guide'}))
+        fresh = self.user('fresh@example.org')
+        admin_b = self.user('admin-b@example.org', (self.beta, {'admin': True}))
+        for user in (guide, fresh):
+            self.assertEqual(self.try_login(user, B)[0], 200)
+            user.reload()
+            self.assertIsNone(user.membership(self.beta))
+            self.assertIsNotNone(user.join_request(self.beta))
+        client = self.login(admin_b, B)
+        for user in (guide, fresh):
+            client.post('/admin/JoinRequests/antwort', base_url=B,
+                        data={'user_id': str(user.id), 'action': 'accept'})
+            self.login(user, B)
+        self.assertTrue(User.objects.get(id=guide.id).membership(self.beta).guest)
+        self.assertFalse(User.objects.get(id=fresh.id).membership(self.beta).guest)
+
+    def test_registration_with_approval(self):
+        self.beta.update(set__require_approval=True)
+        admin_b = self.user('admin-b@example.org', (self.beta, {'admin': True}))
+        with mock.patch('application.user.views.send_email'):
+            response = app.test_client().post('/user/create', base_url=B, data={
+                'first_name': 'Neu', 'last_name': 'Person', 'email': 'neu@example.org',
+                'phone': '0170', 'birthdate': '1990-01-01', 'club_id': '4711',
+                'password': PASSWORD, 'password_repeat': PASSWORD, 'submit': 'Registrieren'})
+        self.assertEqual(response.status_code, 302)
+        user = User.objects.get(email='neu@example.org')
+        self.assertEqual(user.memberships, [])
+        self.assertEqual(user.join_request(self.beta).club_id, '4711')
+        # Unbestaetigt: noch nicht in der Liste, Mail an die Admins erst beim Login
+        client = self.login(admin_b, B)
+        self.assertNotIn('neu@example.org', self.text(client, '/admin/JoinRequests/', B)[1])
+        user.update(set__email_unconfirmed=False)
+        with mock.patch('application.auth.views.send_email') as send:
+            self.try_login(user, B)
+            self.try_login(user, B)
+        self.assertEqual(send.call_count, 1)
+        page = self.text(client, '/admin/JoinRequests/', B)[1]
+        self.assertIn('neu@example.org', page)
+        self.assertIn('4711', page)
+        client.post('/admin/JoinRequests/antwort', base_url=B, data={'user_id': str(user.id), 'action': 'accept'})
+        user.reload()
+        self.assertEqual(user.membership(self.beta).club_id, '4711')
+        self.assertFalse(user.membership(self.beta).guest)
+        self.login(user, B)
+
+    def test_session_without_membership_is_logged_out(self):
+        guide = self.user('guide@example.org', (self.alpha, {'role': 'guide'}))
+        self.alpha.update(set__partner_sections=[self.beta])
+        self.beta.update(set__partner_sections=[self.alpha])
+        client = self.login(guide, B)
+        self.assertEqual(self.text(client, '/user/profile', B)[0], 200)
+        guide.reload()
+        guide.leave_section(self.beta)
+        self.beta.update(set__partner_sections=[])
+        response = client.get('/user/profile', base_url=B)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/login', response.headers['Location'])
 
     def test_foreign_bookings_cannot_be_changed(self):
         guide = self.user('guide@example.org', (self.alpha, {'role': 'guide'}))

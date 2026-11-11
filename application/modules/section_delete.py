@@ -54,6 +54,7 @@ def delete_section(section):
     for user in delete:
         remove_user_references(user)
         user.delete()
+    User.objects(join_requests__section=section.pk).update(pull__join_requests__section=section.pk)
     HutBooking.all_objects(section=section.pk).delete()
     Hut.all_objects(section=section.pk).delete()
     Event.all_objects(section=section.pk).delete()

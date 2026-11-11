@@ -366,6 +366,16 @@ class PortalTest(unittest.TestCase):
         self.assertNotIn('Sektion Neu', page)
         self.assertNotIn('all-heading', page)
 
+    def test_settings_require_approval(self):
+        self.register()
+        section = Section.objects.get(slug='neu')
+        self.assertFalse(section.require_approval)
+        admin = self.user('a@example.org', (section, {'admin': True}))
+        self.login(admin).post('/portal/sektion/neu', base_url=PORTAL, data={
+            'name': 'Sektion Neu', 'member_count': '300', 'require_approval': 'y', 'submit': 'Speichern'})
+        section.reload()
+        self.assertTrue(section.require_approval)
+
     def test_settings_reject_bad_color(self):
         self.register()
         section = Section.objects.get(slug='neu')

@@ -89,6 +89,7 @@ class SettingsForm(FlaskForm):
     categories = FieldList(FormField(CategoryForm), label="Kategorien")
     media_consent_text = TextAreaField("Einwilligungstext Foto/Video (HTML, leer = Standardtext)",
                                        validators=[Optional(), max_length(20000)], render_kw={'rows': 8})
+    require_approval = BooleanField("Neue Mitglieder erst nach Freigabe durch die Admins")
     own_mail = BooleanField("Eigenen Mailserver verwenden")
     mail_server = StringField("Mailserver (SMTP mit SSL, Port 465)",
                               validators=[Optional(), max_length(200)], render_kw={'maxlength': 200})

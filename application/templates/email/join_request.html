@@ -1,0 +1,7 @@
+{{ user.first_name }} {{ user.last_name }} ({{ user.email }}) möchte sich bei {{ section.name }} anmelden.<br>
+{% if home %}Das Konto gehört zu: {{ home|join(', ') }}.<br>{% endif %}
+{% if club_id %}Mitgliedsnummer laut Angabe: {{ club_id }}<br>{% endif %}
+<br>
+Ohne Freigabe ist keine Anmeldung möglich. Annehmen oder ablehnen kannst du die Anfrage im Admin-Panel unter
+„Beitrittsanfragen“:<br>
+<a href="{{ link }}">{{ link }}</a>

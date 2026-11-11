@@ -67,6 +67,7 @@ class MemberView(CustomModelView):
         'pwdhash',
         'global_admin',
         'memberships',
+        'join_requests',
         'legacy_role', 'legacy_admin', 'legacy_club_id',
         *TFA_FIELDS,
     ]

@@ -303,6 +303,7 @@ def settings(slug):
             section.mail_server = section.mail_username = section.mail_password = None
             section.mail_sender = None
             section.mail_use_tls = False
+        section.require_approval = bool(form.require_approval.data)
         section.event_categories_full = [
             Category(name=entry.form.name.data.strip(), color=entry.form.color.data or '#5aaa28')
             for entry in form.categories if (entry.form.name.data or '').strip()]

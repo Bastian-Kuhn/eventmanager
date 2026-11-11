@@ -5,6 +5,7 @@ Frontend User
 from datetime import datetime
 from application import limiter
 from application.models.user import User
+from application.models.section import section_or_none
 from application.events.models import Event, with_event_lock
 from application.auth.forms import RequestPasswordForm
 from application.auth.views import PASSWORD_LIMIT, refresh_login, read_reset_token, mail_allowed
@@ -165,7 +166,11 @@ def page_user_create():
             user.last_name = form.last_name.data
             user.phone = form.phone.data
             user.birthdate = form.birthdate.data
-            user.club_id = form.club_id.data
+            section = section_or_none()
+            # Mit Freigabe: noch keine Mitgliedschaft, die Nummer geht mit in die Anfrage
+            approval = section is not None and section.require_approval
+            if not approval:
+                user.club_id = form.club_id.data
             user.media_optin = form.media_optin.data
             user.media_optin_date = datetime.now() if user.media_optin else None
             user.data_optin = form.data_optin.data
@@ -175,6 +180,9 @@ def page_user_create():
                 user.save()
             except NotUniqueError:
                 user = None
+            if user and approval:
+                User.objects(id=user.id).update_one(pull__join_requests__section=section.pk)
+                user.request_join(section, form.club_id.data)
             if user and mail_allowed(user.email):
                 send_email(user.email, "E-Mail-Adresse bestätigen", 'email/confirm_email',
                            user=user, token=user.generate_token(CONFIRM_TOKEN_SECONDS))
@@ -183,6 +191,10 @@ def page_user_create():
         flash("Wir haben dir einen Link zur Bestätigung deiner E-Mail-Adresse geschickt. "
               "Falls du schon ein Konto hast, setze dein Passwort über "
               "„Passwort vergessen“ zurück.", 'info')
+        current = section_or_none()
+        if current is not None and current.require_approval:
+            flash(f"Anmelden kannst du dich, sobald die Admins von {current.name} dein Konto "
+                  "freigegeben haben.", 'info')
         return redirect(url_for('auth.login'))
 
     if form.errors:
