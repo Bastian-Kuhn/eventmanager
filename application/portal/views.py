@@ -60,8 +60,37 @@ def index():
     """Start: was das Portal ist, und die eigenen Sektionen"""
     sections = _admin_sections(current_user) if current_user.is_authenticated else []
     requests = [(section, other) for section in sections for other in partner_requests(section)]
+    pending = pending_admins() if current_user.is_authenticated and current_user.is_global_admin() else []
     return render_template('portal_index.html', sections=sections, address=section_address,
-                           requests=requests, trial_days=current_app.config['TRIAL_DAYS'])
+                           requests=requests, pending=pending, trial_days=current_app.config['TRIAL_DAYS'])
+
+
+def pending_admins():
+    """(Admin, Sektionen) fuer Admins, die ihre Mail-Adresse noch nicht bestaetigt haben"""
+    pending = []
+    for user in User.objects(email_unconfirmed=True, memberships__admin=True).order_by('-date_added'):
+        ids = [entry._data.get('section') for entry in user.memberships if entry.admin]  # pylint: disable=protected-access
+        sections = list(Section.objects(pk__in=[ref_id(x) for x in ids]).order_by('name'))
+        if sections:
+            pending.append((user, sections))
+    return pending
+
+
+@PORTAL.route('/freigabe', methods=['POST'])
+@login_required
+def approve_admin():
+    """Globaler Admin bestaetigt die Mail-Adresse eines Sektionsadmins, wenn die Mail nicht ankam"""
+    if not current_user.is_global_admin():
+        abort(404)
+    user_id = request.form.get('user_id') or ''
+    user = User.objects(id=user_id, email_unconfirmed=True).first() if ObjectId.is_valid(user_id) else None
+    if user is None:
+        abort(404)
+    user.email_unconfirmed = False
+    user.save()
+    current_app.logger.warning("Mail-Adresse %s von %s freigegeben", user.email, current_user.email)
+    flash(f"{user.email} ist freigegeben und kann sich jetzt anmelden.", 'success')
+    return redirect(url_for('PORTAL.index'))
 
 
 def partner_requests(section):

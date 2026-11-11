@@ -322,6 +322,30 @@ class PortalTest(unittest.TestCase):
         client.post('/portal/sektion/neu/loeschen', base_url=PORTAL, data={'confirm': 'neu'})
         self.assertEqual(Section.objects(slug='neu').count(), 0)
 
+    def test_global_admin_approves_unconfirmed_section_admin(self):
+        self.register()
+        ada = User.objects.get(email='ada@example.org')
+        self.assertTrue(ada.email_unconfirmed)
+        self.user('member@example.org', email_unconfirmed=True)  # kein Admin: nicht in der Liste
+        admin = self.user('a@example.org', (self.dav, {'admin': True}))
+        page = self.login(admin).get('/portal/', base_url=PORTAL).get_data(as_text=True)
+        self.assertNotIn('Warten auf Freigabe', page)
+        self.assertEqual(self.login(admin).post('/portal/freigabe', base_url=PORTAL,
+                                                data={'user_id': str(ada.id)}).status_code, 404)
+        client = self.login(self.user('root@example.org', global_admin=True))
+        page = client.get('/portal/', base_url=PORTAL).get_data(as_text=True)
+        self.assertIn('Warten auf Freigabe', page)
+        self.assertIn('ada@example.org', page)
+        self.assertNotIn('member@example.org', page)
+        self.assertIn('https://neu.example.org/admin/', page)
+        response = client.post('/portal/freigabe', base_url=PORTAL, data={'user_id': str(ada.id)})
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(User.objects.get(email='ada@example.org').email_unconfirmed)
+        self.assertNotIn('Warten auf Freigabe', client.get('/portal/', base_url=PORTAL).get_data(as_text=True))
+        self.login(User.objects.get(email='ada@example.org'))  # Anmeldung geht jetzt
+        self.assertEqual(client.post('/portal/freigabe', base_url=PORTAL,
+                                     data={'user_id': str(ada.id)}).status_code, 404)
+
     def test_settings_reject_bad_color(self):
         self.register()
         section = Section.objects.get(slug='neu')

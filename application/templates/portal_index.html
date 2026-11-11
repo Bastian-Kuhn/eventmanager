@@ -31,6 +31,29 @@
       </form>
     </div>
     {% endfor %}
+    {% if pending %}
+    <section class="mt-4" aria-labelledby="pending-heading">
+      <h2 class="h5" id="pending-heading">Warten auf Freigabe</h2>
+      <p class="text-muted">Die Admins dieser {{ t.many }} haben ihre Mail-Adresse noch nicht bestätigt.
+        Kam die Mail nicht an, gibst du sie hier frei.</p>
+      <ul class="list-group mb-3">
+        {% for user, user_sections in pending %}
+        <li class="list-group-item d-flex flex-wrap justify-content-between align-items-center">
+          <div class="mr-3">
+            <strong>{{ user_sections|map(attribute='name')|join(', ') }}</strong><br>
+            {{ user.first_name }} {{ user.last_name }}, {{ user.email }}
+            {% if user.date_added %}<span class="text-muted">· registriert {{ user.date_added.strftime('%d.%m.%Y %H:%M') }}</span>{% endif %}
+          </div>
+          <form method="post" action="{{ url_for('PORTAL.approve_admin') }}" class="mt-2 mt-sm-0">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="user_id" value="{{ user.id }}">
+            <button type="submit" class="btn btn-primary btn-sm" aria-label="{{ user.email }} freigeben">Freigeben</button>
+          </form>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
     <h2 class="h5 mt-4">Meine {{ t.many }}</h2>
     {% if sections %}
     <ul class="list-group mb-3">
@@ -44,6 +67,9 @@
           <a class="btn btn-outline-primary btn-sm" href="{{ url_for('PORTAL.settings', slug=section.slug) }}">Einstellungen</a>
           <a class="btn btn-outline-primary btn-sm" href="{{ url_for('PORTAL.billing', slug=section.slug) }}">Abrechnung</a>
           <a class="btn btn-outline-primary btn-sm" href="{{ url_for('PORTAL.partners', slug=section.slug) }}">Touren teilen</a>
+          {% if current_user.is_global_admin() and address(section) %}
+          <a class="btn btn-outline-secondary btn-sm" href="{{ address(section) }}admin/" aria-label="Admin-Panel {{ section.name }}">Admin-Panel</a>
+          {% endif %}
         </div>
       </li>
       {% endfor %}
