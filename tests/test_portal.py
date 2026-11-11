@@ -225,6 +225,22 @@ class PortalTest(unittest.TestCase):
         # Sektionen ohne Testphase (vom globalen Admin angelegt) laufen immer
         self.assertEqual(app.test_client().get('/', base_url='https://touren.example.org').status_code, 200)
 
+    def test_legal_pages_everywhere(self):
+        app.config['SUBSCRIPTIONS_ENABLED'] = True
+        self.register()
+        Section.objects(slug='neu').update_one(set__trial_until=datetime.now() - timedelta(days=1))
+        for host in (PORTAL, 'https://touren.example.org', 'https://neu.example.org'):
+            for path, text in (('/impressum', 'DE319059455'), ('/datenschutz', 'Hetzner Online GmbH')):
+                response = app.test_client().get(path, base_url=host)
+                self.assertEqual(response.status_code, 200, (host, path))
+                body = response.get_data(as_text=True)
+                self.assertIn(text, body)
+                self.assertIn('href="/impressum"', body)
+                self.assertIn('href="/datenschutz"', body)
+        self.assertIn('Stripe', app.test_client().get('/datenschutz', base_url=PORTAL).get_data(as_text=True))
+        app.config['SUBSCRIPTIONS_ENABLED'] = False
+        self.assertNotIn('Stripe', app.test_client().get('/datenschutz', base_url=PORTAL).get_data(as_text=True))
+
     def test_units_and_price(self):
         section = Section(slug='x', name='X')
         with app.app_context():

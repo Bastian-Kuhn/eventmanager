@@ -18,6 +18,7 @@
       {{ wtf.form_field(form.data_optin) }}
       {{ wtf.form_field(form.password) }}
       {{ wtf.form_field(form.password_repeat) }}
+      <p class="small text-muted">Hinweise zur Verarbeitung deiner Daten findest du in der <a href="{{ url_for('LEGAL.privacy') }}">Datenschutzerklärung</a>.</p>
       {{ wtf.form_field(form.submit) }}
     </form>
   </div>

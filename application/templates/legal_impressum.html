@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block title %}Impressum{% endblock %}
+
+{% block page_content %}
+<article class="legal">
+  <h1>Impressum</h1>
+
+  <h2>Angaben gemäß § 5 DDG</h2>
+  {% include '_legal_operator.html' %}
+
+  <h2>Kontakt</h2>
+  <p>
+    Telefon: <a href="tel:+491607507827">01607507827</a><br>
+    E-Mail: <a href="mailto:mail@bastian-kuhn.de">mail@bastian-kuhn.de</a>
+  </p>
+
+  <h2>Umsatzsteuer-ID</h2>
+  <p>Umsatzsteuer-Identifikationsnummer gemäß § 27 a Umsatzsteuergesetz: DE319059455</p>
+
+  <h2>Berufshaftpflichtversicherung</h2>
+  <p>
+    Markel Insurance SE<br>
+    Sophienstr. 26, 80333 München<br>
+    Geltungsraum der Versicherung: weltweit
+  </p>
+
+  {% if not portal %}
+  <h2>Inhalte der Touren</h2>
+  <p>Diese Seite betreibe ich als Dienstleister für {{ site.name or 'die Sektion' }}.
+    Für die Touren, Hütten und Texte auf dieser Seite ist {{ site.name or 'die Sektion' }} verantwortlich.</p>
+  {% endif %}
+
+  <h2>Haftung für Inhalte</h2>
+  <p>Als Diensteanbieter bin ich gemäß § 7 Abs. 1 DDG für eigene Inhalte auf diesen Seiten nach den
+    allgemeinen Gesetzen verantwortlich. Nach §§ 8 bis 10 DDG bin ich als Diensteanbieter jedoch nicht
+    verpflichtet, übermittelte oder gespeicherte fremde Informationen zu überwachen oder nach Umständen
+    zu forschen, die auf eine rechtswidrige Tätigkeit hinweisen. Verpflichtungen zur Entfernung oder
+    Sperrung der Nutzung von Informationen nach den allgemeinen Gesetzen bleiben hiervon unberührt.</p>
+
+  <h2>Haftung für Links</h2>
+  <p>Diese Seiten enthalten ggf. Links zu externen Websites Dritter, auf deren Inhalte ich keinen
+    Einfluss habe. Für die Inhalte der verlinkten Seiten ist stets der jeweilige Anbieter oder Betreiber
+    der Seiten verantwortlich.</p>
+
+  <h2>Urheberrecht</h2>
+  <p>Die durch den Seitenbetreiber erstellten Inhalte und Werke auf diesen Seiten unterliegen dem
+    deutschen Urheberrecht. Beiträge Dritter sind als solche gekennzeichnet.</p>
+
+  <p><a href="{{ url_for('LEGAL.privacy') }}">Zur Datenschutzerklärung</a></p>
+</article>
+{% endblock %}

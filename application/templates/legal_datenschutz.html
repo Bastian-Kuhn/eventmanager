@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+{% block title %}Datenschutzerklärung{% endblock %}
+
+{% block page_content %}
+<article class="legal">
+  <h1>Datenschutzerklärung</h1>
+  <p class="text-muted">Stand: November 2026</p>
+
+  <h2>1. Betreiber und Verantwortliche</h2>
+  <p>Diese Anwendung zur Tourenanmeldung betreibt:</p>
+  {% include '_legal_operator.html' %}
+  <p>E-Mail: <a href="mailto:mail@bastian-kuhn.de">mail@bastian-kuhn.de</a> · Telefon: 01607507827</p>
+  <p>Der Betreiber ist verantwortlich für das Portal zur Registrierung der Sektionen und Vereine,
+    deren Abrechnung und den technischen Betrieb. Für die Touren, Buchungen, Hütten und Mitgliederdaten
+    einer Sektion ist die jeweilige Sektion bzw. der Verein verantwortlich{% if not portal and site.name %},
+    auf dieser Seite {{ site.name }}{% endif %}. Der Betreiber verarbeitet diese Daten in deren Auftrag
+    (Art. 28 DSGVO). Anfragen zu deinen Buchungen kannst du an die Sektion oder an den Betreiber richten.</p>
+
+  <h2>2. Hosting und Server-Logfiles</h2>
+  <p>Die Anwendung läuft auf Servern der Hetzner Online GmbH, Industriestr. 25, 91710 Gunzenhausen,
+    in Deutschland. Beim Aufruf erzeugt der Server technisch notwendige Logfiles (IP-Adresse,
+    Datum und Uhrzeit, aufgerufene URL, Browsertyp). Zum Schutz vor Missbrauch, etwa zu vielen
+    Anmeldeversuchen, zählt die Anwendung Anfragen kurzzeitig je IP-Adresse und E-Mail-Adresse.
+    Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO (sicherer Betrieb). Logfiles und Zähler werden
+    nach kurzer Zeit gelöscht, soweit sie nicht zur Aufklärung von Störungen oder Missbrauch nötig sind.</p>
+
+  <h2>3. Konto</h2>
+  <p>Für Buchungen legst du ein Konto an. Gespeichert werden E-Mail-Adresse, Vor- und Nachname,
+    dein Passwort (nur als Hash), optional Telefonnummer, Geburtsdatum und Mitgliedsnummer sowie Zeitpunkt der
+    Registrierung und der letzten Anmeldung. Deine E-Mail-Adresse bestätigst du über einen Link.
+    Nutzt du die Zwei-Faktor-Anmeldung, speichern wir den Schlüssel dafür verschlüsselt und die
+    Wiederherstellungscodes. Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO.</p>
+
+  <h2>4. Tourenanmeldung</h2>
+  <p>Buchst du eine Tour, speichern wir die Buchung mit den Angaben zu den gebuchten Plätzen
+    (Name, E-Mail, Telefon, Geburtsdatum, sofern abgefragt), deinen Kommentar, die Antworten auf
+    Zusatzfragen der Tour sowie Status von Bestätigung, Warteliste und Zahlung. Diese Daten sehen die
+    Tourenleitung und die Verantwortlichen der Sektion, um die Tour zu organisieren und abzurechnen.
+    Teilnehmende mit bestätigter Buchung sehen die Teilnehmerliste der Tour; deine Kontaktdaten
+    sehen sie nur, wenn du dem Teilen zugestimmt hast. Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO,
+    für das Teilen der Kontaktdaten und die Einwilligung zu Foto- und Videoaufnahmen Art. 6 Abs. 1
+    lit. a DSGVO. Den Zeitpunkt der Foto-Einwilligung speichern wir als Nachweis. Beide Einwilligungen
+    kannst du jederzeit in deinem Profil widerrufen.</p>
+
+  <h2>5. Hütten</h2>
+  <p>Buchst du eine Hütte der Sektion, speichern wir Zeitraum, Zahl der Plätze, Zimmer, Namen und
+    Kommentar. Die Verwalter der Hütte sehen diese Angaben. Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO.</p>
+
+  <h2>6. E-Mails</h2>
+  <p>Für Bestätigungen, Buchungen und das Zurücksetzen des Passworts versenden wir E-Mails, entweder über
+    den Mailserver der Sektion oder über den Mailserver des Betreibers.</p>
+
+  {% if billing %}
+  <h2>7. Abonnement der Sektionen und Zahlung (Stripe)</h2>
+  <p>Sektionen und Vereine, die sich über das Portal registrieren, bezahlen ihr Abonnement über den
+    Zahlungsdienstleister Stripe (Stripe Payments Europe, Ltd., 1 Grand Canal Street Lower,
+    Grand Canal Dock, Dublin, D02 H210, Irland). Zahlungsdaten wie Kartennummer oder Bankverbindung
+    gibst du direkt auf den Seiten von Stripe ein, sie erreichen diese Anwendung nicht.</p>
+  <p>An Stripe übermittelt werden die E-Mail-Adresse der Person, die das Abonnement abschließt,
+    eine interne Kennung und der Kurzname der Sektion sowie die gebuchte Menge und die
+    Abrechnungsperiode. Von Stripe erhalten wir die Kundennummer, Status und Laufzeit des
+    Abonnements. Teilnehmende an Touren haben mit Stripe nichts zu tun, ihre Daten gehen nicht an Stripe.</p>
+  <p>Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO sowie Art. 6 Abs. 1 lit. c DSGVO (gesetzliche
+    Aufbewahrungspflichten). Rechnungen und Buchungsbelege bewahren wir nach den handels- und
+    steuerrechtlichen Vorschriften bis zu zehn Jahre auf (§ 147 AO, § 257 HGB).</p>
+  <p>Stripe kann Daten auch an die Stripe, Inc. in den USA übermitteln. Die Stripe, Inc. ist nach
+    dem EU-US Data Privacy Framework zertifiziert, ergänzend gelten Standardvertragsklauseln der
+    EU-Kommission. Zur Betrugsprävention und für eigene gesetzliche Pflichten verarbeitet Stripe
+    Daten auch in eigener Verantwortung. Details:
+    <a href="https://stripe.com/de/privacy" rel="noopener">stripe.com/de/privacy</a>.</p>
+  {% endif %}
+
+  {% set n = 8 if billing else 7 %}
+  <h2>{{ n }}. Cookies und externe Inhalte</h2>
+  <p>Die Anwendung setzt ein technisch notwendiges Session-Cookie, das dich während der Sitzung
+    angemeldet hält und Formulare absichert. Wählst du „Angemeldet bleiben“, kommt ein Cookie
+    für 30 Tage dazu. Es gibt keine Tracking- oder Marketing-Cookies, keine Analyse-Dienste und
+    keine Schriften oder Skripte von fremden Servern.</p>
+
+  <h2>{{ n + 1 }}. Speicherdauer</h2>
+  <p>Deine Daten bleiben gespeichert, solange dein Konto besteht. Buchungen bleiben bei der Tour,
+    solange die Sektion sie für Organisation und Abrechnung braucht. Auf Anfrage löschen wir dein
+    Konto, soweit keine Aufbewahrungspflichten entgegenstehen.</p>
+
+  <h2>{{ n + 2 }}. Deine Rechte</h2>
+  <p>Du hast das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung,
+    Datenübertragbarkeit und Widerspruch (Art. 15 bis 21 DSGVO). Eine Einwilligung kannst du
+    jederzeit für die Zukunft widerrufen. Außerdem kannst du dich bei einer
+    Datenschutz-Aufsichtsbehörde beschweren.</p>
+
+  <h2>{{ n + 3 }}. Keine automatisierte Entscheidungsfindung</h2>
+  <p>Eine automatisierte Entscheidungsfindung oder ein Profiling im Sinne des Art. 22 DSGVO findet nicht statt.</p>
+
+  <p><a href="{{ url_for('LEGAL.imprint') }}">Zum Impressum</a></p>
+</article>
+{% endblock %}

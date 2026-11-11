@@ -160,7 +160,7 @@ def inject_section():
     }}
 
 # Was es auf dem Portal-Host gibt: das Portal selbst, Login und Konto
-PORTAL_BLUEPRINTS = ('PORTAL', 'auth', 'USER', 'bootstrap')
+PORTAL_BLUEPRINTS = ('PORTAL', 'auth', 'USER', 'LEGAL', 'bootstrap')
 
 @app.before_request
 def require_section():
@@ -178,7 +178,8 @@ def require_section():
             abort(404)
         return None
     section = current_section()
-    if not section.is_active():
+    # Impressum und Datenschutz bleiben auch ohne Freischaltung erreichbar
+    if not section.is_active() and request.blueprint != 'LEGAL':
         portal = app.config.get('PORTAL_HOSTNAME')
         return error_page(503, "Sektion nicht freigeschaltet",
                           "Die Testphase dieser Sektion ist abgelaufen. Admins der Sektion "
@@ -392,10 +393,12 @@ admin.add_link(MenuLink(name='Logout', category='', url="/logout"))
 
 from application.huts.views import HUTS
 from application.portal.views import PORTAL
+from application.legal import LEGAL
 
 app.register_blueprint(AUTH)
 app.register_blueprint(USER)
 app.register_blueprint(EVENTS)
 app.register_blueprint(HUTS)
 app.register_blueprint(PORTAL)
+app.register_blueprint(LEGAL)
 from application.jobs import *

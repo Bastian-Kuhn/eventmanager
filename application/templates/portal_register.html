@@ -31,6 +31,7 @@
     {% else %}
     <p>Admin {{ t.gen_new }} wird dein Konto <strong>{{ current_user.email }}</strong>.</p>
     {% endif %}
+    <p class="small text-muted">Hinweise zur Verarbeitung deiner Daten findest du in der <a href="{{ url_for('LEGAL.privacy') }}">Datenschutzerklärung</a>.</p>
     {{ wtf.form_field(form.submit, button_map={'submit': 'primary'}) }}
   </form>
 </main>
