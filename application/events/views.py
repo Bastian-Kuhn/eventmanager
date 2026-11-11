@@ -46,7 +46,7 @@ from application import limiter
 from application.auth.views import do_login, LOGIN_LIMIT, TFA_PENDING
 from application.events.forms import EventForm, EventRegisterForm, EventSearchForm, COMMENT_MAX, \
                                      CUSTOM_FIELD_MAX, TICKET_NAME_MAX, PHONE_MAX, EMAIL_MAX, max_length
-from application.models.section import current_section, ref_id, section_or_none
+from application.models.section import Section, current_section, ref_id, section_or_none
 from application.models.user import User
 from application.events.models import OwnedTicket, new_booking_ref
 
@@ -158,10 +158,11 @@ WEEKDAYS = ('Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So')
 
 
 def other_section_member(user, event):
-    """Hat das Konto eine Rolle in einer anderen Sektion als der der Tour?"""
+    """Namen der anderen Sektionen, in denen das Konto eine Rolle hat (leer: keine)"""
     own = ref_id(event._data.get('section'))  # pylint: disable=protected-access
-    return any(entry.role and ref_id(entry._data.get('section')) != own  # pylint: disable=protected-access
-               for entry in getattr(user, 'memberships', None) or [])
+    ids = [ref_id(entry._data.get('section')) for entry in getattr(user, 'memberships', None) or []  # pylint: disable=protected-access
+           if entry.role and not entry.guest and ref_id(entry._data.get('section')) != own]  # pylint: disable=protected-access
+    return [section.name for section in Section.objects(pk__in=ids).order_by('name')] if ids else []
 
 
 def difficult_to_icon(level, icon_type):
@@ -1015,8 +1016,8 @@ def get_participants(event):
                 role = 'Unbekannt'
             elif booker.role:
                 role = roles_dict[booker.role]
-            elif other_section_member(booker, event):
-                role = "Mitglied anderer Sektion"
+            elif other := other_section_member(booker, event):
+                role = f"Mitglied anderer Sektion ({', '.join(other)})"
             else:
                 role = "Nicht überprüft"
 

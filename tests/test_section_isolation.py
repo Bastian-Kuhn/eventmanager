@@ -119,14 +119,32 @@ class IsolationTest(unittest.TestCase):
         status, _ = self.text(client_b, '/admin/event/', B)
         self.assertNotEqual(status, 200)
 
-    def test_login_joins_section_without_role(self):
+    def test_login_joins_only_partner_sections_as_guest(self):
         guide = self.user('guide@example.org', (self.alpha, {'role': 'guide'}))
+        # Keine Partner: anmelden geht, Mitglied wird man nicht
+        self.login(guide, B)
+        guide.reload()
+        self.assertEqual(len(guide.memberships), 1)
+        self.alpha.update(set__partner_sections=[self.beta])
+        self.beta.update(set__partner_sections=[self.alpha])
         self.login(guide, B)
         self.login(guide, B)
         guide.reload()
         self.assertEqual(len(guide.memberships), 2)
+        self.assertTrue(guide.membership(self.beta).guest)
+        self.assertFalse(guide.membership(self.alpha).guest)
         self.assertEqual(guide.role_in(self.alpha), 'guide')
         self.assertIsNone(guide.role_in(self.beta))
+        with app.test_request_context(base_url=B):
+            self.assertEqual(guide.guest_from(), ['Alpha'])
+        # Globale Admins werden nirgends Mitglied, Konten ohne jede Mitgliedschaft normal
+        root = self.user('root@example.org', global_admin=True)
+        self.login(root, B)
+        self.assertEqual(User.objects.get(id=root.id).memberships, [])
+        fresh = self.user('fresh@example.org')
+        self.login(fresh, B)
+        fresh.reload()
+        self.assertFalse(fresh.membership(self.beta).guest)
 
     def test_foreign_bookings_cannot_be_changed(self):
         guide = self.user('guide@example.org', (self.alpha, {'role': 'guide'}))

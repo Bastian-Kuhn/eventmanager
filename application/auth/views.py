@@ -135,8 +135,8 @@ def _finish_login(user, remember):
     )
     user.last_login = datetime.now()
     user.save()
-    # Ein Konto gilt ueberall: wer sich bei einer Sektion anmeldet, steht
-    # danach in deren Mitgliederliste (ohne Rolle)
+    # Ein Konto gilt ueberall. In Partnersektionen steht es danach als Gast in
+    # der Mitgliederliste, siehe join_section
     user.join_section()
 
 

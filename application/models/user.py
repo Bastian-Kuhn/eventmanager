@@ -39,6 +39,8 @@ class Membership(db.EmbeddedDocument):
     role = db.StringField(choices=roles)
     admin = db.BooleanField(default=False)
     club_id = db.StringField()
+    # Beim Anmelden ueber eine Partnersektion entstanden, das Konto gehoert woanders hin
+    guest = db.BooleanField(default=False)
 
 
 def _saved(section):
@@ -158,17 +160,35 @@ class User(db.Document, UserMixin):
         """Rolle in einer bestimmten Sektion, z.B. der eines Events"""
         return self._section_value('role', section)
 
+    def home_sections(self):
+        """ids der Sektionen, in denen das Konto eigentlich Mitglied ist (keine Gaeste)"""
+        return {ref_id(entry._data.get('section')) for entry in self.memberships  # pylint: disable=protected-access
+                if not entry.guest}
+
     def join_section(self, section=None):
         """
-        Mitgliedschaft (ohne Rolle) in der Sektion anlegen, falls es keine gibt.
+        Beim Anmelden: ein Konto ohne jede Mitgliedschaft wird Mitglied (ohne
+        Rolle) der Sektion. Sonst entsteht nur in einer Partnersektion einer
+        Heimatsektion eine Gast-Mitgliedschaft, globale Admins bekommen keine.
         Atomar, damit parallele Logins keine doppelten Eintraege erzeugen.
         """
         section = _saved(section if section is not None else section_or_none())
-        if section is None or self.membership(section):
+        if section is None or self.global_admin or self.membership(section):
+            return
+        guest = bool(self.memberships)
+        if guest and not self.home_sections() & {ref_id(p.pk) for p in section.partners()}:
             return
         User.objects(id=self.id, memberships__section__ne=section.pk) \
-            .update_one(push__memberships=Membership(section=section))
+            .update_one(push__memberships=Membership(section=section, guest=guest))
         self.reload('memberships')
+
+    def guest_from(self, section=None):
+        """Namen der Heimatsektionen, wenn das Konto in section nur Gast ist, sonst []"""
+        entry = self.membership(section)
+        if entry is None or not entry.guest:
+            return []
+        from application.models.section import Section  # pylint: disable=import-outside-toplevel
+        return [s.name for s in Section.objects(pk__in=list(self.home_sections())).order_by('name')]
 
 
     def add_event(self, event):

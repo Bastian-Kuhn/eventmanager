@@ -51,7 +51,7 @@ class MemberView(CustomModelView):
     can_create = False
 
     column_sortable_list = ("email", "first_name", "last_name")
-    column_list = ('email', 'first_name', 'last_name', 'club_id', 'role', 'admin',
+    column_list = ('email', 'first_name', 'last_name', 'guest_from', 'club_id', 'role', 'admin',
                    'disabled', 'media_optin', 'data_optin', 'email_unconfirmed')
 
     page_size = 100
@@ -74,6 +74,7 @@ class MemberView(CustomModelView):
     column_formatters = {
        'role': _render_role,
        'admin': lambda _v, _c, model, _n: "Ja" if model.admin else "Nein",
+       'guest_from': lambda _v, _c, model, _n: ', '.join(model.guest_from()),
     }
 
 
@@ -81,6 +82,7 @@ class MemberView(CustomModelView):
         "first_name": "Vorname",
         "last_name": "Nachname",
         "club_id": "Mitgliedernummer",
+        "guest_from": "Gast aus",
         "role": "Rolle im Verein",
         "admin": "Vereinsadmin",
         "media_optin": "Bildfreigabe",

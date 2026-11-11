@@ -110,6 +110,17 @@ class PartnerTest(unittest.TestCase):
             'comment': '', 'ticket_Teilnahme': '1', 'media_optin_event': 'y', 'submit': 'Anmelden'})
         self.assertIs(Event.all_objects.get(id=self.event_b.id).participations[1].media_optin, True)
 
+    def test_guest_shows_home_section_in_member_list(self):
+        self.partner()
+        member = self.user('member@example.org', (self.alpha, {'role': 'member'}))
+        self.login(member, B)
+        admin = self.user('admin-b@example.org', (self.beta, {'admin': True, 'role': 'guide'}))
+        status, page = self.page(self.login(admin, B), '/admin/Members/', B)
+        self.assertEqual(status, 200)
+        self.assertIn('Gast aus', page)
+        self.assertIn('member@example.org', page)
+        self.assertIn('Alpha', page)
+
     def test_inactive_partner_is_hidden(self):
         self.partner()
         app.config['SUBSCRIPTIONS_ENABLED'] = True
