@@ -216,7 +216,7 @@ class Event(SectionScoped, db.Document):
 
     meta = {
         'strict': False,
-        'indexes': ['section'],
+        'indexes': ['section', 'participations.booking_ref'],
     }
 
 

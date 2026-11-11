@@ -103,6 +103,7 @@ class User(db.Document, UserMixin):
     meta = {'indexes': [
         'email',
         'memberships.section',
+        'event_registrations',
         ],
     'strict': False,
     }

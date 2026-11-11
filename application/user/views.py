@@ -6,7 +6,6 @@ from datetime import datetime
 from application import limiter
 from application.models.user import User
 from application.events.models import Event, with_event_lock
-from application.models.section import in_current_section
 from application.auth.views import PASSWORD_LIMIT, refresh_login, read_reset_token, mail_allowed
 from application.modules.email import send_email
 
@@ -14,6 +13,7 @@ from flask import request, render_template, current_app, \
      flash, redirect, session, Blueprint, url_for
 from flask_login import current_user, login_required
 from mongoengine.errors import NotUniqueError
+from mongoengine.queryset.visitor import Q
 from .forms import NewUserForm, ConsentForm, ChangePasswordForm, ConfirmEmailForm
 
 
@@ -38,12 +38,12 @@ def page_user_profil():
     )
     password_form = ChangePasswordForm()
 
+    # Nur die vergangenen Touren der Sektion laden, nicht alle je gebuchten.
+    # Verweise auf geloeschte Events fallen dabei von selbst heraus.
     past_events = []
-    for event in current_user.event_registrations:
-        # Altbestand: Verweis auf ein inzwischen geloeschtes Event
-        if not isinstance(event, Event) or not event.is_over(now) \
-                or not in_current_section(event):
-            continue
+    booked_ids = list(current_user._reference_ids('event_registrations'))  # pylint: disable=protected-access
+    over = Q(end_date__lt=now) | Q(end_date=None, start_date__lt=now)
+    for event in Event.objects(Q(id__in=booked_ids) & over):
         participation = event.get_participation(current_user)
         past_events.append({
             'event': event,

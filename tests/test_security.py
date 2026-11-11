@@ -846,6 +846,27 @@ class CrashTest(AppTestCase):
         Event.objects(id=event.id).delete()
         self.assertEqual(self.login(booker).get('/user/profile').status_code, 200)
 
+    def test_profile_lists_only_past_booked_events(self):
+        booker = self.user()
+        now = datetime.now()
+        past = self.event(event_name='TourVorbei', start_date=now - timedelta(days=3),
+                          end_date=now - timedelta(days=2))
+        no_end = self.event(event_name='TourOhneEnde', start_date=now - timedelta(days=3), end_date=None)
+        running = self.event(event_name='TourLaeuft', start_date=now - timedelta(days=1),
+                             end_date=now + timedelta(days=1))
+        future = self.event(event_name='TourKommt')
+        self.event(event_name='TourNichtGebucht', start_date=now - timedelta(days=3),
+                   end_date=now - timedelta(days=2))
+        for event in (past, no_end, running, future):
+            self.booking(booker, event)
+        response = self.login(booker).get('/user/profile')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'TourVorbei', response.data)
+        self.assertIn(b'TourOhneEnde', response.data)
+        self.assertNotIn(b'TourLaeuft', response.data)
+        self.assertNotIn(b'TourKommt', response.data)
+        self.assertNotIn(b'TourNichtGebucht', response.data)
+
     def test_export_without_confirmed(self):
         event = self.event()
         client = self.login(self.owner(event))
