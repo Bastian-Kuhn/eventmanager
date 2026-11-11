@@ -1,9 +1,25 @@
 {% extends 'base.html' %}
 {% block title %}Sektionsportal{% endblock %}
 {% block page_content %}
-<main class="container py-3" style="max-width: 820px">
-  <h1 class="h3">Tourenanmeldung für Sektionen</h1>
+<main>
+{% if not current_user.is_authenticated %}
+<section class="portal-hero" aria-labelledby="portal-title">
+  <div class="portal-hero-inner">
+    <p class="portal-kicker">Für Sektionen und Vereine</p>
+    <h1 id="portal-title">Eure Tourenanmeldung, startklar in wenigen Minuten</h1>
+    <p class="lead">Touren veröffentlichen, Anmeldungen und Wartelisten führen, Hütten vergeben.
+      Mit eigener Adresse, eigenem Logo und euren Farben.</p>
+    <p class="portal-hero-actions">
+      <a class="btn btn-light btn-lg" href="{{ url_for('PORTAL.register') }}">Sektion registrieren</a>
+      <a class="btn btn-outline-light btn-lg" href="{{ url_for('auth.login') }}">Anmelden</a>
+    </p>
+    <p class="portal-hero-note">{{ trial_days }} Tage kostenlos, danach 10&nbsp;€ im Monat je angefangene 250 Mitglieder.</p>
+  </div>
+</section>
+{% endif %}
+<div class="container py-3" style="max-width: 820px">
   {% if current_user.is_authenticated %}
+    <h1 class="h3">Tourenanmeldung für Sektionen</h1>
     <h2 class="h5 mt-4">Meine Sektionen</h2>
     {% if sections %}
     <ul class="list-group mb-3">
@@ -25,13 +41,16 @@
     {% endif %}
     <a class="btn btn-primary" href="{{ url_for('PORTAL.register') }}">Neue Sektion registrieren</a>
   {% else %}
-    <p>Hier registriert eine Sektion ihre eigene Tourenanmeldung: eigene Adresse, eigenes
-      Logo und eigene Farben, eigene Touren, Hütten und Rollen. Die ersten {{ trial_days }} Tage
-      sind kostenlos, danach kostet es 10&nbsp;€ im Monat je angefangene 250 Mitglieder.</p>
-    <p>
-      <a class="btn btn-primary" href="{{ url_for('PORTAL.register') }}">Sektion registrieren</a>
-      <a class="btn btn-outline-primary" href="{{ url_for('auth.login') }}">Anmelden</a>
-    </p>
+    <h2 class="sr-only">Was dazugehört</h2>
+    <ul class="portal-features">
+      <li><i class="fas fa-paint-brush" aria-hidden="true"></i><strong>Euer Auftritt</strong>
+        Adresse unter tourenanmeldung.de oder eure eigene Domain, Logo, Farben, Kategorien.</li>
+      <li><i class="fas fa-calendar-check" aria-hidden="true"></i><strong>Touren und Hütten</strong>
+        Anmeldungen, Wartelisten, Teilnehmerlisten und Hüttenbuchungen an einem Ort.</li>
+      <li><i class="fas fa-users" aria-hidden="true"></i><strong>Rollen</strong>
+        Trainer, Tourenbegleiter und Admins sehen nur, was sie brauchen.</li>
+    </ul>
   {% endif %}
+</div>
 </main>
 {% endblock %}

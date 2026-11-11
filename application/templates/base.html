@@ -5,7 +5,7 @@
 {% block navbar %}
 <nav id="top-nav" class="navbar navbar-expand-lg sticky-top {{ 'navbar-dark' if portal else 'navbar-light' }}" style="background-color: {{ site.nav_color }}">
   {% if portal %}
-  <a class="navbar-brand" href="{{ url_for('PORTAL.index') }}">Tourenanmeldung für Sektionen</a>
+  <a class="navbar-brand portal-brand" href="{{ url_for('PORTAL.index') }}"><i class="fas fa-map-signs" aria-hidden="true"></i> Tourenanmeldung</a>
   {% else %}
   <a class="navbar-brand" href="{{ site.homepage_link }}"> <img src="{{ site.logo }}" height="60" alt="{{ site.name or 'Startseite' }}"></a>
   {% endif %}
@@ -15,14 +15,14 @@
 
   <div class="collapse navbar-collapse" id="navbarSupportedContent">
     {% if portal %}
-    <ul class="navbar-nav mr-auto portal-nav">
+    <ul class="navbar-nav ml-auto align-items-lg-center portal-nav">
+      {% if current_user.is_authenticated %}
       <li class="nav-item"><a class="nav-link" href="{{ url_for('PORTAL.index') }}">Meine Sektionen</a></li>
       <li class="nav-item"><a class="nav-link" href="{{ url_for('PORTAL.register') }}">Sektion registrieren</a></li>
-      {% if current_user.is_authenticated %}
       <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.logout') }}">Logout</a></li>
       {% else %}
-      <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.login') }}">Login</a></li>
-      <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.request_password') }}">Passwort vergessen</a></li>
+      <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.login') }}">Anmelden</a></li>
+      <li class="nav-item ml-lg-2"><a class="btn btn-light btn-sm portal-cta" href="{{ url_for('PORTAL.register') }}">Sektion registrieren</a></li>
       {% endif %}
     </ul>
     {% else %}
