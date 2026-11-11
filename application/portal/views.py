@@ -6,6 +6,7 @@ damit es sich nicht mit den Routen der Sektionen ueberschneidet.
 import io
 from datetime import datetime, timedelta
 
+from bson import ObjectId
 from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 from mongoengine.errors import NotUniqueError
@@ -13,7 +14,7 @@ from PIL import Image
 
 from application import csrf, limiter, section_logo
 from application.models.config import Category
-from application.models.section import Section
+from application.models.section import Section, ref_id
 from application.models.user import Membership, User
 from application.modules import billing as stripe_billing
 from application.modules.email import has_own_mail, send_email
@@ -57,8 +58,29 @@ def section_address(section):
 def index():
     """Start: was das Portal ist, und die eigenen Sektionen"""
     sections = _admin_sections(current_user) if current_user.is_authenticated else []
+    requests = [(section, other) for section in sections for other in partner_requests(section)]
     return render_template('portal_index.html', sections=sections, address=section_address,
-                           trial_days=current_app.config['TRIAL_DAYS'])
+                           requests=requests, trial_days=current_app.config['TRIAL_DAYS'])
+
+
+def partner_requests(section):
+    """Sektionen, die mit section teilen wollen, die section selbst noch nicht eingetragen hat"""
+    own = [ref_id(ref) for ref in section._data.get('partner_sections') or []]  # pylint: disable=protected-access
+    return list(Section.objects(partner_sections=section.pk, pk__nin=own).order_by('name'))
+
+
+@PORTAL.route('/sektion/<slug>/partner', methods=['POST'])
+@login_required
+def accept_partner(slug):
+    """Anfrage einer anderen Sektion bestaetigen: ab jetzt teilen beide"""
+    section = _managed_section(slug)
+    other = Section.objects(pk=request.form.get('partner_id'), partner_sections=section.pk).first() \
+        if ObjectId.is_valid(request.form.get('partner_id') or '') else None
+    if other is None:
+        abort(404)
+    Section.objects(pk=section.pk).update_one(add_to_set__partner_sections=other.pk)
+    flash(f"{section.name} und {other.name} teilen ab jetzt ihre Touren.", 'success')
+    return redirect(url_for('PORTAL.index'))
 
 
 def _new_host(slug):
@@ -162,14 +184,24 @@ def _logo_bytes(upload):
     return out
 
 
+def _settings_page(form, section):
+    # Wer diese Sektion selbst eingetragen hat: dort ist das Teilen beidseitig
+    incoming = {str(other.pk) for other in Section.objects(partner_sections=section.pk)}
+    return render_template('portal_settings.html', form=form, section=section, incoming=incoming,
+                           address=section_address(section), logo=section_logo(section))
+
+
 @PORTAL.route('/sektion/<slug>', methods=['GET', 'POST'])
 @login_required
 def settings(slug):
     """Einstellungen einer Sektion"""
     section = _managed_section(slug)
     form = label_forms(SettingsForm(obj=section), terms())
+    form.partner_sections.choices = [(str(other.pk), other.name) for other in
+                                     Section.objects(pk__ne=section.pk).order_by('name')]
     if request.method == 'GET':
         form.own_mail.data = has_own_mail(section)
+        form.partner_sections.data = [ref_id(ref) for ref in section._data.get('partner_sections') or []]  # pylint: disable=protected-access
     if request.method == 'GET':
         for category in section.event_categories_full:
             form.categories.append_entry({'name': category.name, 'color': category.color})
@@ -180,8 +212,7 @@ def settings(slug):
             logo = _logo_bytes(form.logo.data)
             if logo is None:
                 form.logo.errors.append("Das Bild ließ sich nicht lesen oder ist größer als 2 MB")
-                return render_template('portal_settings.html', form=form, section=section,
-                                       address=section_address(section), logo=section_logo(section))
+                return _settings_page(form, section)
             section.logo_image.replace(logo, content_type='image/png', filename='logo.png')
         old_members = section.member_count
         for field in ('name', 'member_count', 'nav_background_color', 'homepage_link',
@@ -201,6 +232,7 @@ def settings(slug):
         section.event_categories_full = [
             Category(name=entry.form.name.data.strip(), color=entry.form.color.data or '#5aaa28')
             for entry in form.categories if (entry.form.name.data or '').strip()]
+        section.partner_sections = list(Section.objects(pk__in=form.partner_sections.data or []))
         section.save()
         if section.member_count != old_members:
             try:
@@ -212,8 +244,7 @@ def settings(slug):
                 return redirect(url_for('PORTAL.settings', slug=section.slug))
         flash("Einstellungen gespeichert", 'success')
         return redirect(url_for('PORTAL.settings', slug=section.slug))
-    return render_template('portal_settings.html', form=form, section=section,
-                           address=section_address(section), logo=section_logo(section))
+    return _settings_page(form, section)
 
 
 @PORTAL.route('/sektion/<slug>/abrechnung')

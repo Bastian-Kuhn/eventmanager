@@ -32,6 +32,7 @@ class SectionView(CustomModelView):  # pylint: disable=too-few-public-methods
         'mail_password': 'Passwort Mailserver',
         'mail_subject_prefix': 'Betreff-Präfix',
         'media_consent_text': 'Einwilligungstext Foto/Video (HTML)',
+        'partner_sections': 'Touren teilen mit',
     }
     column_descriptions = {
         'slug': 'Kleinbuchstaben, Ziffern und Bindestrich, z.B. dav-beispiel.',

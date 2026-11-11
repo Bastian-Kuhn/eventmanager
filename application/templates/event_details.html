@@ -70,6 +70,14 @@
 </ul>
 {% endif %}
 
+{% if shared_from %}
+<div class="alert alert-info event-note" role="note">
+  <i class="fas fa-handshake" aria-hidden="true"></i>
+  <span>Diese Tour gehört zu {{ shared_from }} und ist für Mitglieder von {{ site.name or 'dieser Sektion' }} freigegeben.
+  Du buchst hier mit deinem Konto, Organisation und Bestätigung liegen bei {{ shared_from }}.</span>
+</div>
+{% endif %}
+
 <div class="event-description">{{ event.event_description|sanitize_html }}</div>
 
 {% if higest_guide_level not in ['guide', 'youthguide'] or event.event_type == 'unguided'%}
@@ -188,6 +196,14 @@
             <hr>
             <fieldset class="form-group">
              <legend>Bildfreigabe</legend>
+             {% if shared_from %}
+             <p class="mb-2">Die Tour organisiert {{ shared_from }}. Für Aufnahmen auf dieser Tour gilt deren Einwilligung:</p>
+             {% include '_media_consent.html' %}
+             <div class="form-check">
+               <input class="form-check-input" type="checkbox" name="media_optin_event" id="media_optin_event" value="y">
+               <label class="form-check-label" for="media_optin_event">Ich bin mit Foto- und Videoaufnahmen durch {{ shared_from }} wie oben beschrieben einverstanden</label>
+             </div>
+             {% else %}
              <p class="mb-2">
                Deine aktuelle Foto-/Video-Einwilligung:
                <strong>{{ 'Ja' if current_user.media_optin else 'Nein' }}</strong>.
@@ -195,6 +211,7 @@
                <a href="{{ url_for('USER.page_user_profil') }}">Profil</a>.
              </p>
              {% include '_media_consent.html' %}
+             {% endif %}
             </fieldset>
             <hr>
             {{ wtf.form_field(regform.submit, button_map={'submit': 'primary'}) }}

@@ -57,7 +57,7 @@ class BookingRefTest(unittest.TestCase):
 
     def test_collision_is_retried(self):
         objects = self._objects([object(), None])
-        with mock.patch.object(Event, 'objects', objects):
+        with mock.patch.object(Event, 'all_objects', objects):
             new_booking_ref()
         self.assertEqual(objects.call_count, 2)
 

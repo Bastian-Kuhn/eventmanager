@@ -6,7 +6,7 @@ import re
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileAllowed, FileField
 from wtforms import FieldList, FormField, IntegerField, PasswordField, StringField, \
-    SubmitField, TextAreaField, BooleanField
+    SubmitField, TextAreaField, BooleanField, SelectMultipleField
 from wtforms.validators import Email, EqualTo, InputRequired, NumberRange, Optional, \
     Regexp, ValidationError
 from wtforms.widgets import ColorInput
@@ -97,4 +97,6 @@ class SettingsForm(FlaskForm):
                                   render_kw={'autocomplete': 'new-password'})
     mail_use_tls = BooleanField("TLS am Mailserver aktivieren")
     mail_sender = StringField("Absender (leer = Benutzer)", validators=[Optional(), Email(), max_length(EMAIL_MAX)])
+    # Auswahl im Template als Checkboxen, die Choices setzt die View
+    partner_sections = SelectMultipleField("Touren teilen mit", choices=[], validate_choice=True)
     submit = SubmitField("Speichern")

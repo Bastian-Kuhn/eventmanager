@@ -77,6 +77,7 @@ class EventForm(FlaskForm):
     altitude_difference= IntegerField("Höhenmeter", default=0)
     custom_fields = FieldList(FormField(EventCustomField), min_entries=1)
     tickets = FieldList(FormField(TicketForm), min_entries=2)
+    members_only = BooleanField("Nur für Mitglieder dieser Sektion (nicht mit Partnersektionen teilen)")
     add_guide = BooleanField("Mich beim speichern als verantwortlichen eintragen")
 
     submit = SubmitField("speichern")

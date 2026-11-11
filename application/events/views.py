@@ -46,7 +46,7 @@ from application import limiter
 from application.auth.views import do_login, LOGIN_LIMIT, TFA_PENDING
 from application.events.forms import EventForm, EventRegisterForm, EventSearchForm, COMMENT_MAX, \
                                      CUSTOM_FIELD_MAX, TICKET_NAME_MAX, PHONE_MAX, EMAIL_MAX, max_length
-from application.models.section import current_section
+from application.models.section import current_section, ref_id, section_or_none
 from application.models.user import User
 from application.events.models import OwnedTicket, new_booking_ref
 
@@ -96,7 +96,8 @@ def _number(value):
 
 def details_overview(event, numbers, free_places, guide_level):
     """Aufbereitete Daten fuer die Detailseite: Kopf, Kacheln, Tickets, Infos"""
-    category = next((c for c in current_section().event_categories_full
+    owner_section = event.owner_section()
+    category = next((c for c in owner_section.event_categories_full
                      if c.name.lower() == (event.event_category or '')), None)
     start, end = event.start_date, event.end_date
     if start and end and start.date() == end.date():
@@ -132,7 +133,7 @@ def details_overview(event, numbers, free_places, guide_level):
     info = []
     for owner in event.event_owners:
         if isinstance(owner, User):
-            role = roles_dict.get(owner.role, '') or 'Verantwortlich'
+            role = roles_dict.get(owner.role_in(owner_section), '') or 'Verantwortlich'
             info.append((role, f"{owner.first_name} {owner.last_name}", owner.email))
     if getattr(event, 'hut', None):
         hut = event.hut.name + (f" ({event.hut.region})" if event.hut.region else '')
@@ -154,6 +155,13 @@ def details_overview(event, numbers, free_places, guide_level):
 
 
 WEEKDAYS = ('Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So')
+
+
+def other_section_member(user, event):
+    """Hat das Konto eine Rolle in einer anderen Sektion als der der Tour?"""
+    own = ref_id(event._data.get('section'))  # pylint: disable=protected-access
+    return any(entry.role and ref_id(entry._data.get('section')) != own  # pylint: disable=protected-access
+               for entry in getattr(user, 'memberships', None) or [])
 
 
 def difficult_to_icon(level, icon_type):
@@ -267,6 +275,8 @@ def save_event_form(event, form):
     for field in EVENT_FORM_FIELDS:
         if field in form_data:
             setattr(event, field, form_data[field])
+
+    event.members_only = bool(form.members_only.data)
 
     # Wer nicht alle Touren verwaltet, wird immer Verantwortlicher: sonst koennte er
     # die eben angelegte Tour nicht mehr bearbeiten
@@ -385,7 +395,7 @@ def ajax_mybooking():
     ticket_id = request.form['ticket_id']
     target_user_id = request.form.get('target_user_id')
 
-    event = Event.objects.get(id=event_id)
+    event = Event.visible().get(id=event_id)
     
     # Determine which user's tickets we should be editing
     if current_user.may_manage_event(event) and target_user_id:
@@ -496,7 +506,7 @@ def ajax_ticketdata(event_id):
     query = request.args.get('q', '').lower()
     target_user_id = request.args.get('target_user_id')
     
-    event = Event.objects.get(id=event_id)
+    event = Event.visible().get(id=event_id)
     
     # Determine which user's tickets to search through
     if current_user.may_manage_event(event) and target_user_id:
@@ -532,7 +542,7 @@ def page_mybooking():
     """
     event_id = request.args.get('event_id')
     user_id = request.args.get('user_id')  # Optional parameter for guides to view other users' bookings
-    event = Event.objects.get(id=event_id)
+    event = Event.visible().get(id=event_id)
     event.ensure_booking_refs()
     tickets_by_name = {}
     total_cost = 0
@@ -601,7 +611,7 @@ EVENT_LIST_FIELDS = (
     'start_date', 'end_date', 'difficulty', 'shape',
     'length_h', 'length_km', 'altitude_difference',
     'participations.tickets.confirmed', 'participations.tickets.waitinglist',
-    'participations.tickets.is_extra_ticket',
+    'participations.tickets.is_extra_ticket', 'section',
 )
 
 @EVENTS.route('/', methods=['POST', 'GET'])
@@ -698,9 +708,9 @@ def page_list():
         #filter_names.append("Zeitpunkt: Zukünftige")
 
     if future_q is not None:
-        events = Event.objects(future_q, **filter_expr).order_by('start_date')
+        events = Event.visible(future_q, **filter_expr).order_by('start_date')
     else:
-        events = Event.objects(**filter_expr).order_by('start_date')
+        events = Event.visible(**filter_expr).order_by('start_date')
     # Nur laden, was die Liste anzeigt - vor allem nicht alle Teilnehmerdaten
     events = events.only(*EVENT_LIST_FIELDS)
     result = []
@@ -718,7 +728,7 @@ def page_list():
     if current_user.is_authenticated:
         result = list(result)
         favorite_ids = current_user._reference_ids('favorites')  # pylint: disable=protected-access
-        fav_events = list(Event.objects(id__in=list(favorite_ids))
+        fav_events = list(Event.visible(id__in=list(favorite_ids))
                           .only(*EVENT_LIST_FIELDS).order_by('start_date'))
         pinned = [e for e in result if str(e.id) in favorite_ids]
         rest = [e for e in result if str(e.id) not in favorite_ids]
@@ -731,6 +741,16 @@ def page_list():
                     pinned.append(fav)
                     pinned_ids.add(str(fav.id))
         result = pinned + rest
+    # Geteilte Touren der Partnersektionen: Hinweis und deren Kategorien
+    result = list(result)
+    section = section_or_none()
+    partners = {str(p.pk): p for p in section.partners()} if section is not None else {}
+    partner_categories = {}
+    for event in result:
+        partner = partners.get(ref_id(event._data.get('section')))  # pylint: disable=protected-access
+        event.partner_name = partner.name if partner else None
+        for cat in partner.event_categories_full if partner else []:
+            partner_categories.setdefault(cat.name.lower(), {'color': cat.color, 'name': cat.name})
     context['events'] = result
     context['favorite_ids'] = favorite_ids
     context['render_dificulty'] = difficult_to_icon
@@ -740,7 +760,7 @@ def page_list():
     else:
         context['header'] = "Events"
     context['event_categories'] = dict(categories)
-    context['event_categories_detailed'] = categrories_detailed
+    context['event_categories_detailed'] = {**partner_categories, **categrories_detailed}
     context['search_form'] = search_form
 
 
@@ -756,7 +776,7 @@ def toggle_favorite():
     Tour als Favorit speichern/entfernen
     """
     event_id = request.form.get('event_id')
-    event = Event.objects.get(id=event_id)
+    event = Event.visible().get(id=event_id)
     is_favorite = current_user.toggle_favorite(event)
     return jsonify({'success': True, 'favorite': is_favorite})
 #.
@@ -995,6 +1015,8 @@ def get_participants(event):
                 role = 'Unbekannt'
             elif booker.role:
                 role = roles_dict[booker.role]
+            elif other_section_member(booker, event):
+                role = "Mitglied anderer Sektion"
             else:
                 role = "Nicht überprüft"
 
@@ -1018,7 +1040,8 @@ def get_participants(event):
                     'booking_ref': parti.booking_ref,
                     'telefon': ticket.phone_on_ticket if ticket.phone_on_ticket else booker.phone,
                     'email': ticket.email_on_ticket if ticket.email_on_ticket else booker.email,
-                    'media_optin': booker.media_optin,
+                    # Abweichung fuer diese Tour (Profil oder Buchung einer geteilten Tour)
+                    'media_optin': booker.media_optin if parti.media_optin is None else parti.media_optin,
                     'data_optin': booker.data_optin,
                     'birthdate': ticket.birthdate_on_ticket if ticket.birthdate_on_ticket else booker.birthdate,
                     'role': role,
@@ -1600,7 +1623,8 @@ def page_details():
     """
     event_id = request.args.get('event_id')
 
-    event = Event.objects.get(id=event_id)
+    event = Event.visible().get(id=event_id)
+    owner_section = event.owner_section()
     login_form = LoginForm(request.form)
 
     class EventRegForm(EventRegisterForm):
@@ -1608,7 +1632,7 @@ def page_details():
         Event Reg Form
         """
 
-    extra_categories = [(x.name.lower(), x.name) for x in current_section().event_categories_full]
+    extra_categories = [(x.name.lower(), x.name) for x in owner_section.event_categories_full]
     categories = [(None, "Alle")] + extra_categories
     # Add Custom Fields to Registration Form
     custom_fields = event.custom_fields
@@ -1725,13 +1749,14 @@ def page_details():
         # Altbestand: Verweis auf einen inzwischen geloeschten User
         if not isinstance(guide, User):
             continue
-        if guide.role == 'guide':
+        guide_role = guide.role_in(owner_section)
+        if guide_role == 'guide':
             higest_level = 'guide'
-        elif higest_level != 'guide' and guide.role == 'youthguide':
+        elif higest_level != 'guide' and guide_role == 'youthguide':
             higest_level = 'youthguide'
         event_details_list.append(
             # Global Admins haben oft keine Vereinsrolle
-            (f'Verantwortlicher {roles_dict.get(guide.role, "")}'.strip(), f"{guide.first_name} {guide.last_name}, {guide.email}", "string")
+            (f'Verantwortlicher {roles_dict.get(guide_role, "")}'.strip(), f"{guide.first_name} {guide.last_name}, {guide.email}", "string")
         )
 
 
@@ -1746,6 +1771,8 @@ def page_details():
 
     context = {
         'event' : event,
+        'shared_from': event.shared_from(),
+        'consent_text': owner_section.media_consent_text if owner_section is not None else None,
         'higest_guide_level' : higest_level,
         'registration_enabled': registration_enabled,
         'event_custom_fields': [(str(x), y) for x, y in enumerate(event.custom_fields)],
@@ -1885,11 +1912,16 @@ def page_details():
 
                     new_participation.comment = data['comment']
                     new_participation.user = current_user
+                    # Geteilte Tour: die allgemeine Einwilligung galt der eigenen Sektion,
+                    # hier zaehlt nur die Antwort auf den Text der Sektion der Tour
+                    if context['shared_from']:
+                        new_participation.media_optin = bool(data.get('media_optin_event'))
                     # Warteliste richtet sich nach den Personen, nicht nach ihren Zusatztickets
                     new_participation.waitinglist = any(
                         x.waitinglist for x in new_participation.tickets
                         if not (extras_per_person and x.is_extra_ticket))
-                    Event.objects(id=event_id).update_one(push__participations=new_participation)
+                    # all_objects: auch geteilte Touren der Partnersektionen (oben per visible geladen)
+                    Event.all_objects(id=event_id).update_one(push__participations=new_participation)
             except LockError:
                 flash("Gerade buchen sehr viele gleichzeitig. Bitte versuche es in ein paar Sekunden erneut.", 'danger')
                 return render_template('event_details.html', **context)

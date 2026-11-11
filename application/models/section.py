@@ -59,6 +59,10 @@ class Section(db.Document):
     cancel_at_period_end = db.BooleanField(default=False)
     billing_interval = db.StringField()  # 'month' oder 'year' laut Stripe
 
+    # Sektionen, mit denen diese ihre Touren teilt. Wirksam nur, wenn die
+    # andere Seite diese Sektion ebenfalls eingetragen hat (siehe partners)
+    partner_sections = db.ListField(field=db.ReferenceField(document_type='Section'))
+
     meta = {
         'strict': False,
         'indexes': ['hostnames'],
@@ -74,6 +78,14 @@ class Section(db.Document):
     def is_paid(self):
         """Abo laeuft laut Stripe (past_due: Stripe versucht es noch)"""
         return self.subscription_status in ('active', 'trialing', 'past_due')
+
+    def partners(self):
+        """Freigeschaltete Sektionen, die beidseitig als Partner eingetragen sind"""
+        ids = [ref_id(ref) for ref in self._data.get('partner_sections') or []]  # pylint: disable=protected-access
+        if self.pk is None or not ids:
+            return []
+        return [section for section in Section.objects(pk__in=ids, partner_sections=self.pk)
+                if section.is_active()]
 
     def in_trial(self, now=None):
         return bool(self.trial_until) and (now or datetime.now()) < self.trial_until

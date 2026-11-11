@@ -44,7 +44,7 @@ def page_user_profil():
     past_events = []
     booked_ids = list(current_user._reference_ids('event_registrations'))  # pylint: disable=protected-access
     over = Q(end_date__lt=now) | Q(end_date=None, start_date__lt=now)
-    for event in Event.objects(Q(id__in=booked_ids) & over):
+    for event in Event.visible(Q(id__in=booked_ids) & over):
         participation = event.get_participation(current_user)
         past_events.append({
             'event': event,
@@ -123,7 +123,7 @@ def page_user_event_optin():
     choice = request.form.get('media_optin')  # 'default' | 'yes' | 'no'
     value = {'yes': True, 'no': False}.get(choice)  # 'default' -> None
 
-    event = Event.objects(id=event_id).first()
+    event = Event.visible(id=event_id).first()
     if not event:
         flash("Event nicht gefunden", 'danger')
         return redirect(url_for('USER.page_user_profil'))

@@ -9,8 +9,10 @@ from redis.exceptions import LockError
 from mongoengine.errors import DoesNotExist
 from wtforms import StringField
 from application import db, app
-from application.models.section import SectionQuerySetManager, SectionScoped
+from application.models.section import SectionQuerySetManager, SectionScoped, in_current_section, \
+     section_or_none
 from mongoengine.queryset import QuerySetManager
+from mongoengine.queryset.visitor import Q
 
 
 def event_lock(event_id):
@@ -211,6 +213,8 @@ class Event(SectionScoped, db.Document):
     # Sektion, der der Datensatz gehoert. objects filtert im Request darauf,
     # all_objects nicht (siehe models/section.py)
     section = db.ReferenceField(document_type='Section')
+    # Nicht mit den Partnersektionen teilen
+    members_only = db.BooleanField(default=False)
     objects = SectionQuerySetManager()
     all_objects = QuerySetManager()
 
@@ -219,6 +223,30 @@ class Event(SectionScoped, db.Document):
         'indexes': ['section', 'participations.booking_ref'],
     }
 
+
+    @classmethod
+    def visible(cls, q_obj=None, **query):
+        """
+        Touren, die man in der Sektion des Requests sehen und buchen kann: die
+        eigenen und die geteilten der Partnersektionen. Verwalten geht nur in
+        der eigenen (siehe User.may_manage_event).
+        """
+        section = section_or_none()
+        partners = section.partners() if section is not None else []
+        if not partners:
+            return cls.objects(q_obj, **query) if q_obj is not None else cls.objects(**query)
+        scope = Q(section=section.pk) | (Q(section__in=[p.pk for p in partners]) & Q(members_only__ne=True))
+        return cls.all_objects(scope & q_obj if q_obj is not None else scope, **query)
+
+    def shared_from(self):
+        """Name der Partnersektion bei einer geteilten Tour, sonst None"""
+        if in_current_section(self):
+            return None
+        return getattr(self.section, 'name', None) or 'einer Partnersektion'
+
+    def owner_section(self):
+        """Sektion, der die Tour gehoert (vor der Migration die des Requests)"""
+        return self.section if self.section is not None else section_or_none()
 
     def ensure_booking_refs(self):
         """
@@ -407,5 +435,5 @@ def new_booking_ref():
     """
     while True:
         ref = ''.join(choices(BOOKING_REF_ALPHABET, k=BOOKING_REF_LENGTH))
-        if not Event.objects(participations__booking_ref=ref).only('id').first():
+        if not Event.all_objects(participations__booking_ref=ref).only('id').first():
             return ref

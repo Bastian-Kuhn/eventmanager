@@ -5,7 +5,7 @@ import hashlib
 import hmac
 import re
 from datetime import datetime
-from flask import current_app
+from flask import current_app, has_request_context
 from datetime import timedelta
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -15,7 +15,7 @@ from mongoengine.queryset.visitor import Q
 from application import db
 from application.modules import tfa
 from application.events.models import Event
-from application.models.section import current_section, ref_id, section_or_none
+from application.models.section import current_section, in_current_section, ref_id, section_or_none
 
 roles = [
   ('no_member', "Kein Vereinsmitglied"),
@@ -199,18 +199,27 @@ class User(db.Document, UserMixin):
         """
         if self.may_manage_event(event):
             return True
-        if not self.participate_event(event.id):
+        # Geteilte Touren: die Liste gibt es nur in der Sektion der Tour
+        if not self.in_event_section(event) or not self.participate_event(event.id):
             return False
         if self.role:
             return True
         return any(ticket.confirmed for ticket in event.get_tickets_of_user(self))
 
+    @staticmethod
+    def in_event_section(event):
+        """Laeuft der Request in der Sektion der Tour? Ausserhalb eines Requests immer"""
+        return not has_request_context() or in_current_section(event)
+
     def may_manage_event(self, event):
         """
         Tour bearbeiten und verwalten (Teilnehmer, Preise, Abrechnung, Export):
         Admins und Trainer alle Touren, Tourenbegleiter nur die, bei denen sie
-        als Verantwortliche eingetragen sind.
+        als Verantwortliche eingetragen sind. Nur in der Sektion der Tour,
+        nie bei einer geteilten Tour einer Partnersektion.
         """
+        if not self.in_event_section(event):
+            return False
         if self.manages_all_events():
             return True
         if not self.has_right('guide'):
