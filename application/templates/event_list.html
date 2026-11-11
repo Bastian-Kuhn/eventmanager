@@ -11,10 +11,24 @@
      margin-right: 5px;
  }
 </style>
-<a type="buttom" class="btn btn-primary btn-sm" data-toggle="collapse" href="#filter">Suchen/ Filtern</a>
-<hr>
-<div id="filter" class="collapse" style="background-color: #e9ecef; border-radius: .3rem; padding: 5px; margin: 5px;">
- <b>Filter:</b>
+{% set active_category = request.args.get('filter_category') or 'None' %}
+<nav class="category-bar" aria-label="Kategorien">
+  <a class="btn btn-sm category-search" data-toggle="collapse" href="#filter" role="button"
+     aria-expanded="false" aria-controls="filter"><i class="fas fa-search" aria-hidden="true"></i> Suchen und filtern</a>
+  <ul class="category-chips">
+    {% for category, category_name in event_categories.items() %}
+    {% set color = event_categories_detailed.get(category, {}).get('color') %}
+    <li>
+      <a class="category-chip{{ ' active' if (category|string) == active_category }}"
+         href="?filter_category={{ category }}&filter_future=y"
+         {% if (category|string) == active_category %}aria-current="page"{% endif %}>
+        {% if color %}<span class="category-dot" style="background-color: {{ color }}" aria-hidden="true"></span>{% endif %}{{ category_name }}
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+</nav>
+<div id="filter" class="collapse filter-panel">
  <form  action="{{ url_for('EVENTS.page_list') }}" method="POST">
   <div class="form-row">
     <div class="form-group col-md-2">
@@ -43,17 +57,6 @@
  </form>
 </div>
 
-<div class="row">
-          <ul class="nav nav-pills nav-fill">
-              {% for category, category_name in event_categories.items() %} 
-              <li class="nav-item">
-                <a class="nav-link" href="?filter_category={{ category }}&filter_future=y">{{ category_name }}</a>
-              </li>
-              {% endfor %}
-          </ul>
-</div>
-
-<hr>
 
 <div class="row">
     <div class="col-sm-12">
