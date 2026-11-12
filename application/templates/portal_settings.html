@@ -72,8 +72,20 @@
     </fieldset>
     {{ wtf.form_field(form.submit, button_map={'submit': 'primary'}) }}
   </form>
+  <section class="card mt-5" aria-labelledby="export-heading">
+    <div class="card-body">
+      <h2 class="h5" id="export-heading">Daten exportieren</h2>
+      <p>Alle Touren, Buchungen, Hütten, Einstellungen und Konten {{ t.gen }} als Datei, etwa für den Umzug
+        auf eine eigene Installation. Die Datei enthält personenbezogene Daten und Passwort-Hashes:
+        sicher aufbewahren und nach dem Umzug löschen.</p>
+      <form method="post" action="{{ url_for('PORTAL.export', slug=section.slug) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-outline-primary">Exportdatei herunterladen</button>
+      </form>
+    </div>
+  </section>
   {% if current_user.is_global_admin() %}
-  <section class="card border-danger mt-5" aria-labelledby="delete-heading">
+  <section class="card border-danger mt-4" aria-labelledby="delete-heading">
     <div class="card-body">
       <h2 class="h5 text-danger" id="delete-heading">{{ t.one }} löschen</h2>
       <p>Löscht {{ t.the }} mit allen Touren, Buchungen, Hütten und den Konten, die nur hier Mitglied sind.

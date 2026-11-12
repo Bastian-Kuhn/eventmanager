@@ -307,6 +307,25 @@ class PortalTest(unittest.TestCase):
         # Buchung des geloeschten Kontos bei der anderen Sektion bleibt fuer die Abrechnung
         self.assertEqual(len(Event.all_objects.get(id=other_event.id).participations), 1)
 
+    def test_section_admin_exports_own_section(self):
+        import gzip  # pylint: disable=import-outside-toplevel
+        from bson import json_util  # pylint: disable=import-outside-toplevel
+        self.register()
+        neu = Section.objects.get(slug='neu')
+        Event(event_name='Neutour', section=neu, start_date=datetime.now()).save()
+        Event(event_name='Davtour', section=self.dav, start_date=datetime.now()).save()
+        url = '/portal/sektion/neu/export'
+        admin = self.user('a@example.org', (neu, {'admin': True}))
+        response = self.login(admin).post(url, base_url=PORTAL)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('neu-', response.headers['Content-Disposition'])
+        payload = json_util.loads(gzip.decompress(response.data))
+        self.assertEqual([e['event_name'] for e in payload['events']], ['Neutour'])
+        self.assertNotIn('dav', [u['email'].split('@')[0] for u in payload['users']])
+        for other in (self.user('m@example.org', (neu, {'role': 'guide'})),
+                      self.user('d@example.org', (self.dav, {'admin': True}))):
+            self.assertEqual(self.login(other).post(url, base_url=PORTAL).status_code, 404)
+
     def test_delete_blocked_for_default_and_running_subscription(self):
         self.register()
         root = self.user('root@example.org', global_admin=True)

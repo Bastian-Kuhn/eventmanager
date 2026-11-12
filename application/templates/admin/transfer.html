@@ -1,0 +1,56 @@
+{% extends 'admin/master.html' %}
+{% block body %}
+<h1 class="h3">Umzug</h1>
+<p class="text-muted">Eine Sektion mit Touren, Buchungen, Hütten, Einstellungen und Konten in eine andere Installation
+  übertragen. Die Datei enthält personenbezogene Daten und Passwort-Hashes: nur für den Umzug verwenden und danach löschen.</p>
+
+<section class="card mb-4" aria-labelledby="export-heading">
+  <div class="card-body">
+    <h2 class="h5" id="export-heading">Export</h2>
+    {% if section %}
+    <p>{% if section.pk %}Exportiert <strong>{{ section.name }}</strong>.
+      {% else %}Diese Installation hat noch keine Sektionen, exportiert werden alle Daten.{% endif %}
+      Hier bleibt alles unverändert.</p>
+    <form method="post" action="{{ url_for('.export') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-primary">Exportdatei herunterladen</button>
+    </form>
+    {% else %}
+    <p>Zu dieser Adresse gehört keine Sektion.</p>
+    {% endif %}
+  </div>
+</section>
+
+<section class="card" aria-labelledby="import-heading">
+  <div class="card-body">
+    <h2 class="h5" id="import-heading">Import als neue Sektion</h2>
+    <p>Legt eine neue Sektion an. Touren, Hütten und Buchungen behalten ihre IDs. Konten mit einer E-Mail, die es hier
+      schon gibt, bekommen nur die Mitgliedschaft dazu. 2FA wird nicht übernommen.</p>
+    <form method="post" action="{{ url_for('.import_') }}" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="form-group">
+        <label for="transfer-file">Exportdatei (.json.gz)</label>
+        <input type="file" class="form-control-file" id="transfer-file" name="file" accept=".gz,application/gzip" required>
+      </div>
+      <div class="form-group">
+        <label for="transfer-name">Name der Sektion</label>
+        <input type="text" class="form-control" id="transfer-name" name="name" maxlength="100" required>
+      </div>
+      <div class="form-group">
+        <label for="transfer-slug">Kurzname</label>
+        <input type="text" class="form-control" id="transfer-slug" name="slug" maxlength="40" required
+               pattern="[a-z0-9][a-z0-9\-]{0,39}" aria-describedby="transfer-slug-help" autocapitalize="off" spellcheck="false">
+        <small id="transfer-slug-help" class="form-text text-muted">Kleinbuchstaben, Ziffern und Bindestrich, z.B. dav-beispiel.</small>
+      </div>
+      <div class="form-group">
+        <label for="transfer-host">Adresse</label>
+        <input type="text" class="form-control" id="transfer-host" name="hostname" maxlength="253"
+               aria-describedby="transfer-host-help" autocapitalize="off" spellcheck="false">
+        <small id="transfer-host-help" class="form-text text-muted">Hostname ohne https://, z.B. touren.example.org.
+          Lässt sich später unter Sektionen ändern.</small>
+      </div>
+      <button type="submit" class="btn btn-primary">Importieren</button>
+    </form>
+  </div>
+</section>
+{% endblock %}

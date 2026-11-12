@@ -7,7 +7,7 @@ import io
 from datetime import datetime, timedelta
 
 from bson import ObjectId
-from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, url_for
+from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, send_file, url_for
 from flask_login import current_user, login_required
 from mongoengine.errors import NotUniqueError
 from PIL import Image
@@ -17,7 +17,7 @@ from application.models.config import Category
 from application.models.section import Section, ref_id
 from application.models.user import Membership, User
 from application.modules import billing as stripe_billing
-from application.modules import section_delete
+from application.modules import section_delete, section_transfer
 from application.modules.email import has_own_mail, send_email
 from application.auth.views import mail_allowed
 from application.portal.forms import RegisterForm, RegisterLoggedInForm, SettingsForm
@@ -344,6 +344,17 @@ def delete(slug):
             return redirect(url_for('PORTAL.index'))
     return render_template('portal_delete.html', section=section, blocked=blocked,
                            counts=section_delete.contents(section))
+
+
+@PORTAL.route('/sektion/<slug>/export', methods=['POST'])
+@login_required
+def export(slug):
+    """Alle Daten der Sektion als Datei, fuer den Umzug in eine andere Installation"""
+    section = _managed_section(slug)
+    data, counts = section_transfer.export_section(section)
+    current_app.logger.warning("Sektion %s exportiert von %s: %s", slug, current_user.email, counts)
+    return send_file(io.BytesIO(data), mimetype='application/gzip', as_attachment=True,
+                     download_name=f"{slug}-{datetime.now():%Y-%m-%d}.json.gz")
 
 
 @PORTAL.route('/sektion/<slug>/abrechnung')

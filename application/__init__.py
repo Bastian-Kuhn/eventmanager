@@ -284,6 +284,7 @@ from application.models.user import User
 from application.views.user import UserView
 from application.views.members import MemberView
 from application.views.join_requests import JoinRequestView
+from application.views.transfer import TransferView
 
 from application.events.models import Event
 from application.events.admin import EventView
@@ -397,6 +398,7 @@ admin.add_view(JoinRequestView(name="Beitrittsanfragen", endpoint="JoinRequests"
 admin.add_view(UserView(User, category='System'))
 admin.add_view(SectionView(Section, name='Sektionen', category='System'))
 admin.add_view(LogView(LogEntry, name="Log", category="System"))
+admin.add_view(TransferView(name="Umzug", endpoint="Transfer", category="System"))
 
 admin.add_link(MenuLink(name='Zum Frontend', category='', url="/"))
 admin.add_link(MenuLink(name='Logout', category='', url="/logout"))
