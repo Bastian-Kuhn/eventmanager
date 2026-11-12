@@ -189,7 +189,20 @@ def _create_section(form, admin):
     # Admin und Trainer: ohne Trainerrolle kaeme er nicht in die Tourverwaltung
     User.objects(id=admin.id).update_one(
         push__memberships=Membership(section=section, role='guide', admin=True))
+    _notify_global_admins(section, admin)
     return section
+
+
+def _notify_global_admins(section, admin):
+    """Mail an die globalen Admins ueber die neue Sektion, Fehler verhindern die Anlage nicht"""
+    try:
+        kind = terms()['one']
+        link = url_for('PORTAL.settings', slug=section.slug, _external=True)
+        for user in User.objects(global_admin=True, email__ne=admin.email):
+            send_email(user.email, f"Neue Registrierung: {section.name}", 'email/new_section',
+                       new_section=section, admin=admin, kind=kind, link=link)
+    except Exception:  # pylint: disable=broad-except
+        current_app.logger.exception("Mail zur neuen Sektion fehlgeschlagen")
 
 
 @PORTAL.route('/registrieren', methods=['GET', 'POST'])

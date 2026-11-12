@@ -130,6 +130,16 @@ class PortalTest(unittest.TestCase):
         page = app.test_client().get('/login', base_url='https://neu.example.org')
         self.assertIn('site-brand" href="/">Sektion Neu<', page.get_data(as_text=True))
 
+    def test_register_notifies_global_admins(self):
+        self.user('root@example.org', global_admin=True)
+        self.user('dav-admin@example.org', (self.dav, {'admin': True}))
+        _, thread = self.register()
+        messages = [call.kwargs['args'][1] for call in thread.call_args_list]
+        self.assertEqual([m.recipients for m in messages], [['root@example.org'], ['ada@example.org']])
+        self.assertEqual(messages[0].subject, 'Neue Registrierung: Sektion Neu')
+        self.assertIn('Ada Admin (ada@example.org)', messages[0].html)
+        self.assertIn('https://sektion.example.org/portal/sektion/neu', messages[0].html)
+
     def test_register_refuses_existing_account(self):
         self.user('ada@example.org')
         response, _ = self.register()
