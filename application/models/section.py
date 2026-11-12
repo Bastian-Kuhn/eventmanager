@@ -120,17 +120,20 @@ def section_from_legacy_config():
 
 def resolve_section(host):
     """
-    Sektion zu einem Hostnamen, sonst die Default-Sektion (Catchall
-    *.tourenanmeldung.de zeigt auf dav). None, wenn es Sektionen gibt, aber
-    keine passt.
+    Sektion zu einem Hostnamen oder <kurzname>.SECTION_BASE_DOMAIN. None,
+    wenn es Sektionen gibt, aber keine passt (404). Ohne Sektionen die aus
+    dem alten Config-Doc.
     """
     host = (host or '').split(':')[0].lower()
     section = Section.objects(hostnames=host).first()
     if section:
         return section
-    section = Section.objects(is_default=True).first()
-    if section:
-        return section
+    # <kurzname>.SECTION_BASE_DOMAIN gilt immer, auch mit eigener Domain
+    base = current_app.config.get('SECTION_BASE_DOMAIN')
+    if base and host.endswith('.' + base):
+        section = Section.objects(slug=host[:-len(base) - 1]).first()
+        if section:
+            return section
     if Section.objects.count():
         return None
     return section_from_legacy_config()

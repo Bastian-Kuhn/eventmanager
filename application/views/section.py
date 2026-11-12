@@ -37,7 +37,7 @@ class SectionView(CustomModelView):  # pylint: disable=too-few-public-methods
     column_descriptions = {
         'slug': 'Kleinbuchstaben, Ziffern und Bindestrich, z.B. dav-beispiel.',
         'hostnames': 'Hostnamen ohne https:// und Port, z.B. touren.example.org.',
-        'is_default': 'Gilt für alle Adressen, die keiner Sektion gehören. Nur eine Sektion.',
+        'is_default': 'Hauptsektion, lässt sich nicht löschen. Unbekannte Adressen bekommen eine 404.',
         'media_consent_text': 'Wird bei Registrierung, Profil und Buchung angezeigt. '
                               'Leer lassen für den Standardtext (DAV Sektion Kampenwand).',
     }

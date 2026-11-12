@@ -69,14 +69,30 @@ class SectionTest(unittest.TestCase):
         self.assertIn('#222222', self.get('neu.example.org').get_data(as_text=True))
 
     def test_unknown_host_without_default_is_404(self):
-        self.assertEqual(self.get('other.example.org').status_code, 404)
+        response = self.get('other.example.org')
+        self.assertEqual(response.status_code, 404)
+        page = response.get_data(as_text=True)
+        self.assertIn('Unter dieser Adresse gibt es keine Tourenanmeldung', page)
+        self.assertNotIn('/user/create', page)
+        # Stylesheets kommen trotzdem
+        self.assertEqual(self.get('other.example.org', '/bootstrap/static/css/bootstrap.min.css').status_code, 200)
+        self.assertEqual(self.get('other.example.org', '/static/css/main.css').status_code, 200)
+        for path in ('/impressum', '/datenschutz'):
+            self.assertEqual(self.get('other.example.org', path).status_code, 200)
 
-    def test_unknown_host_uses_default_section(self):
+    def test_unknown_host_is_404_even_with_default_section(self):
         self.beta.is_default = True
         self.beta.save()
-        page = self.get('neu.tourenanmeldung.example.org')
-        self.assertEqual(page.status_code, 200)
-        self.assertIn('#222222', page.get_data(as_text=True))
+        self.assertEqual(self.get('neu.tourenanmeldung.example.org').status_code, 404)
+
+    def test_slug_subdomain_works_with_own_domain(self):
+        self.beta.is_default = True
+        self.beta.save()
+        with mock.patch.dict(app.config, {'SECTION_BASE_DOMAIN': 'tourenanmeldung.example.org'}):
+            self.assertIn('#111111', self.get('alpha.tourenanmeldung.example.org').get_data(as_text=True))
+            self.assertEqual(self.get('gamma.tourenanmeldung.example.org').status_code, 404)
+        # Ohne Basisdomain nur die eingetragenen Adressen
+        self.assertEqual(self.get('alpha.tourenanmeldung.example.org').status_code, 404)
 
     def test_categories_come_from_section(self):
         alpha = self.get('alpha.example.org', '/').get_data(as_text=True)
@@ -113,7 +129,7 @@ class SectionTest(unittest.TestCase):
 
     def test_only_global_admins_manage_sections(self):
         from tests.test_security import AppTestCase  # pylint: disable=import-outside-toplevel
-        self.alpha.is_default = True  # login() laeuft ueber localhost
+        self.alpha.hostnames.append('localhost')  # login() laeuft ueber localhost
         self.alpha.save()
         root = AppTestCase.user('root@example.org', global_admin=True)
         club = AppTestCase.user('club@example.org', admin=True)
@@ -129,7 +145,7 @@ if __name__ == '__main__':
 
     def test_section_created_in_admin_gets_its_host(self):
         from tests.test_security import AppTestCase  # pylint: disable=import-outside-toplevel
-        self.alpha.is_default = True  # login() laeuft ueber localhost
+        self.alpha.hostnames.append('localhost')  # login() laeuft ueber localhost
         self.alpha.save()
         client = AppTestCase.login(AppTestCase.user('root@example.org', global_admin=True))
         client.post('/admin/section/new/', data={
@@ -220,6 +236,5 @@ class MigrationTest(unittest.TestCase):
         page = client.get('/', base_url='https://touren.example.org').get_data(as_text=True)
         self.assertIn('Alttour', page)
         self.assertIn('#123456', page)
-        # Catchall-Subdomain zeigt auf die Default-Sektion
-        page = client.get('/', base_url='https://neu.example.org').get_data(as_text=True)
-        self.assertIn('Alttour', page)
+        # Andere Adressen gehoeren zu keiner Sektion
+        self.assertEqual(client.get('/', base_url='https://neu.example.org').status_code, 404)

@@ -3,12 +3,15 @@
 {% block title %}Tourenportal{% endblock %}
 
 {% block navbar %}
-<nav id="top-nav" class="navbar navbar-expand-lg sticky-top {{ 'navbar-dark' if portal or site.nav_dark else 'navbar-light' }}" style="background-color: {{ site.nav_color }}">
+<nav id="top-nav" class="navbar navbar-expand-lg sticky-top {{ 'navbar-dark' if portal or unknown_host or site.nav_dark else 'navbar-light' }}" style="background-color: {{ site.nav_color }}">
   {% if portal %}
   <a class="navbar-brand portal-brand" href="{{ url_for('PORTAL.index') }}"><i class="fas fa-map-signs" aria-hidden="true"></i> Tourenanmeldung</a>
+  {% elif unknown_host %}
+  <a class="navbar-brand portal-brand" href="https://tourenanmeldung.de"><i class="fas fa-map-signs" aria-hidden="true"></i> Tourenanmeldung</a>
   {% else %}
   <a class="navbar-brand site-brand" href="{{ site.homepage_link or '/' }}">{% if site.logo %}<img src="{{ site.logo }}" height="60" alt="{{ site.name or 'Startseite' }}">{% else %}{{ site.name or 'Startseite' }}{% endif %}</a>
   {% endif %}
+  {% if not unknown_host %}
   <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
     <span class="navbar-toggler-icon"></span>
   </button>
@@ -62,6 +65,7 @@
     </ul>
     {% endif %}
   </div>
+  {% endif %}
 </nav>
 
 

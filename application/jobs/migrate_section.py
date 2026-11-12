@@ -72,7 +72,7 @@ def migrate_to_section(slug, name, hostnames=(), default=False, dry_run=False):
 @click.argument('slug')
 @click.argument('name')
 @click.option('--host', 'hostnames', multiple=True, help='Hostname der Sektion, mehrfach moeglich')
-@click.option('--default', is_flag=True, help='Gilt fuer alle Adressen ohne eigene Sektion')
+@click.option('--default', is_flag=True, help='Hauptsektion, laesst sich nicht loeschen')
 @click.option('--dry-run', is_flag=True, help='Nur zaehlen, nichts aendern')
 def migrate_section(slug, name, hostnames, default, dry_run):
     """Bestehende Daten einer Sektion zuordnen"""

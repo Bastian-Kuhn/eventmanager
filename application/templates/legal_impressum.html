@@ -24,7 +24,7 @@
     Geltungsraum der Versicherung: weltweit
   </p>
 
-  {% if not portal %}
+  {% if not portal and not unknown_host %}
   <h2>Inhalte der Touren</h2>
   <p>Diese Seite betreibe ich als Dienstleister für {{ site.name or 'die Sektion' }}.
     Für die Touren, Hütten und Texte auf dieser Seite ist {{ site.name or 'die Sektion' }} verantwortlich.</p>

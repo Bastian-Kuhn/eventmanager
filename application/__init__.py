@@ -99,7 +99,7 @@ db = MongoEngine(app)
 
 
 
-from application.models.section import Section, current_section, is_portal_request
+from application.models.section import Section, current_section, is_portal_request, section_or_none
 from application.views.section import SectionView
 
 # Logo (GridFS) nicht bei jedem Request neu laden und kodieren, am
@@ -149,7 +149,8 @@ def inject_section():
     try:
         section = current_section()
     except DoesNotExist:
-        return {'site': {}, 't': terms()}
+        # Adresse ohne Sektion: neutrales Layout ohne Links in eine Sektion
+        return {'site': {'nav_color': '#2f6b3a'}, 'unknown_host': True, 't': terms()}
     return {'t': terms(), 'site': {
         'name': section.name,
         'nav_color': section.nav_background_color or 'grey',
@@ -165,17 +166,21 @@ PORTAL_BLUEPRINTS = ('PORTAL', 'auth', 'USER', 'LEGAL', 'bootstrap')
 @app.before_request
 def require_section():
     """
-    Unbekannte Adresse ohne Default-Sektion: 404 statt einer fremden Sektion.
+    Unbekannte Adresse: 404 statt einer fremden Sektion.
     Auf dem Portal nur dessen Seiten. Eine Sektion ohne Testphase und ohne
     bezahltes Abo zeigt nur einen Hinweis, ihre Daten bleiben.
     """
-    if request.endpoint == 'static':
+    # Auch bootstrap.static: sonst kommt die 404 einer fremden Adresse ohne CSS
+    if request.endpoint == 'static' or (request.endpoint or '').endswith('.static'):
         return None
     if is_portal_request():
         if request.path == '/':
             return redirect(url_for('PORTAL.index'))
         if request.blueprint not in PORTAL_BLUEPRINTS:
             abort(404)
+        return None
+    # Impressum und Datenschutz gibt es auf jeder Adresse, auch ohne Sektion
+    if request.blueprint == 'LEGAL' and section_or_none() is None:
         return None
     section = current_section()
     # Impressum und Datenschutz bleiben auch ohne Freischaltung erreichbar
@@ -328,9 +333,9 @@ app.jinja_env.filters['sanitize_html'] = sanitize_html
 app.jinja_env.filters['safe_url'] = safe_url
 
 
-def error_page(code, title, message):
+def error_page(code, title, message, **links):
     """Fehlerseite im Layout der Seite"""
-    return render_template('error.html', code=code, title=title, message=message), code
+    return render_template('error.html', code=code, title=title, message=message, **links), code
 
 @app.errorhandler(400)
 def bad_request(_error):
@@ -344,6 +349,10 @@ def forbidden(_error):
 @app.errorhandler(404)
 @app.errorhandler(DoesNotExist)
 def not_found(_error):
+    if not is_portal_request() and section_or_none() is None:
+        return error_page(404, "Adresse nicht gefunden",
+                          "Unter dieser Adresse gibt es keine Tourenanmeldung.",
+                          home='https://tourenanmeldung.de', home_label='Zu tourenanmeldung.de')
     return error_page(404, "Nicht gefunden", "Diese Seite gibt es nicht (mehr).")
 
 @app.errorhandler(ValidationError)
