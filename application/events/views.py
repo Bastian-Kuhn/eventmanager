@@ -268,6 +268,12 @@ EVENT_FORM_FIELDS = (
     'length_h', 'length_km', 'altitude_difference',
 )
 
+def has_partner_sections():
+    """Hat die Sektion Partner eingetragen? Nur dann gibt es 'Nur fuer Mitglieder'"""
+    section = section_or_none()
+    return bool(section is not None and section._data.get('partner_sections'))  # pylint: disable=protected-access
+
+
 def save_event_form(event, form):
     """
     Helper to store Event Object
@@ -277,7 +283,9 @@ def save_event_form(event, form):
         if field in form_data:
             setattr(event, field, form_data[field])
 
-    event.members_only = bool(form.members_only.data)
+    # Nur mit Partnersektion im Formular, sonst bleibt der alte Wert
+    if has_partner_sections():
+        event.members_only = bool(form.members_only.data)
 
     # Wer nicht alle Touren verwaltet, wird immer Verantwortlicher: sonst koennte er
     # die eben angelegte Tour nicht mehr bearbeiten
@@ -838,6 +846,7 @@ def page_admin():
     context = {
         'form': form,
         'huts': hut_rooms_map(),
+        'show_members_only': has_partner_sections(),
         'selected_rooms': request.form.getlist('hut_rooms') if request.form
                           else list(event.hut_rooms or []),
     }
@@ -1995,6 +2004,7 @@ def page_create():
     context = {
         'form': form,
         'huts': hut_rooms_map(),
+        'show_members_only': has_partner_sections(),
         'selected_rooms': request.form.getlist('hut_rooms') if request.form
                           else list(getattr(event, 'hut_rooms', None) or []),
     }

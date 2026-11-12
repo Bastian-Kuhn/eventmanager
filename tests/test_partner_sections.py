@@ -90,6 +90,18 @@ class PartnerTest(unittest.TestCase):
         _, page = self.page(app.test_client(), '/', B)
         self.assertIn('Betatour', page)
 
+    def test_members_only_choice_only_with_partner(self):
+        guide = self.user('guide-a@example.org', (self.alpha, {'role': 'guide', 'admin': True}))
+        client = self.login(guide, A)
+        for path in ('/create', f'/event/admin?event_id={self.event_a.id}'):
+            _, page = self.page(client, path)
+            self.assertNotIn('name="members_only"', page, path)
+        # Eingetragen reicht, die Antwort der anderen Seite noch nicht noetig
+        self.alpha.update(set__partner_sections=[self.beta])
+        for path in ('/create', f'/event/admin?event_id={self.event_a.id}'):
+            _, page = self.page(client, path)
+            self.assertIn('name="members_only"', page, path)
+
     def test_booking_uses_consent_of_tour_section(self):
         self.partner()
         self.alpha.update(set__media_consent_text='<p>Einwilligung Alpha</p>')

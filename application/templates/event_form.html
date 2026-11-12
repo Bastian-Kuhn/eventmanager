@@ -230,7 +230,7 @@
 </div>
 
 <hr>
-        {{ wtf.form_field(form.members_only) }}
+        {% if show_members_only %}{{ wtf.form_field(form.members_only) }}{% endif %}
         {{ wtf.form_field(form.add_guide) }}
         {{ wtf.form_field(form.submit) }}
 
