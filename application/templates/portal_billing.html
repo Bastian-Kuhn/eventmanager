@@ -7,6 +7,19 @@
 
   {% if section.trial_until is none %}
     <p>{{ t.this }} läuft ohne Abrechnung.</p>
+    {% if is_global %}
+    <form method="post" action="{{ url_for('PORTAL.billing_mode', slug=section.slug) }}" class="card card-body bg-light">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <h2 class="h6">Auf Abrechnung umstellen</h2>
+      <div class="form-group">
+        <label for="trial_until">Testphase bis</label>
+        <input class="form-control" type="date" id="trial_until" name="trial_until" required
+               min="{{ now.strftime('%Y-%m-%d') }}" value="{{ trial_default.strftime('%Y-%m-%d') }}" aria-describedby="trial-hint">
+        <small id="trial-hint" class="form-text text-muted">Danach ist {{ t.the }} ohne Abo gesperrt. Die Admins {{ t.gen }} schließen das Abo hier selbst ab.</small>
+      </div>
+      <button class="btn btn-primary" type="submit">Auf Abrechnung umstellen</button>
+    </form>
+    {% endif %}
   {% else %}
     <dl class="row">
       <dt class="col-sm-5">Mitglieder laut Angabe</dt><dd class="col-sm-7">{{ section.member_count or 1 }}</dd>
@@ -53,6 +66,14 @@
         {% endif %}
       </form>
     {% endif %}
+  {% endif %}
+
+  {% if is_global and section.trial_until is not none and not section.is_paid %}
+  <form method="post" action="{{ url_for('PORTAL.billing_mode', slug=section.slug) }}" class="mt-3">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="free">
+    <button class="btn btn-outline-secondary btn-sm" type="submit">Wieder ohne Abrechnung</button>
+  </form>
   {% endif %}
 
   {% if section.stripe_customer_id and billing_enabled %}

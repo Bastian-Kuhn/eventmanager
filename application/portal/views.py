@@ -385,7 +385,40 @@ def billing(slug):
                            unit_price_yearly=current_app.config['PRICE_PER_UNIT_YEARLY_EUR'],
                            # Eine Anfrage an Stripe, nur auf dieser Seite. None = Stripe antwortet nicht
                            invoices=stripe_billing.list_invoices(section),
-                           now=datetime.now())
+                           now=datetime.now(), is_global=current_user.is_global_admin(),
+                           trial_default=datetime.now() + timedelta(days=current_app.config['TRIAL_DAYS']))
+
+
+@PORTAL.route('/sektion/<slug>/abrechnung/umstellen', methods=['POST'])
+@login_required
+def billing_mode(slug):
+    """Globaler Admin stellt eine Sektion auf Abrechnung (Testphase bis Datum) oder zurueck"""
+    if not current_user.is_global_admin():
+        abort(404)
+    section = _managed_section(slug)
+    if request.form.get('action') == 'free':
+        if section.is_paid:
+            flash("Solange das Abo läuft, bleibt die Abrechnung an.", 'danger')
+        else:
+            section.trial_until = None
+            section.save()
+            current_app.logger.warning("Sektion %s ohne Abrechnung, von %s", slug, current_user.email)
+            flash(f"{section.name} läuft wieder ohne Abrechnung.", 'success')
+        return redirect(url_for('PORTAL.billing', slug=slug))
+    try:
+        until = datetime.strptime(request.form.get('trial_until') or '', '%Y-%m-%d')
+    except ValueError:
+        until = None
+    if until is None or until.date() < datetime.now().date():
+        flash("Bitte ein Datum ab heute für das Ende der Testphase angeben.", 'danger')
+        return redirect(url_for('PORTAL.billing', slug=slug))
+    # Bis zum Ende des Tages, sonst ist die Sektion schon am Morgen gesperrt
+    section.trial_until = until.replace(hour=23, minute=59, second=59)
+    section.save()
+    current_app.logger.warning("Sektion %s auf Abrechnung, Testphase bis %s, von %s",
+                               slug, until.date(), current_user.email)
+    flash(f"{section.name} ist auf Abrechnung umgestellt, Testphase bis {until:%d.%m.%Y}.", 'success')
+    return redirect(url_for('PORTAL.billing', slug=slug))
 
 
 @PORTAL.route('/sektion/<slug>/abrechnung/abo', methods=['POST'])

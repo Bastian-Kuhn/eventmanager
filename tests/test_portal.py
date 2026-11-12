@@ -503,6 +503,26 @@ class PortalTest(unittest.TestCase):
                 self.assertEqual(billing.units(section), units, members)
             self.assertEqual(billing.monthly_price(section), 40)
 
+    def test_global_admin_switches_section_to_billing_and_back(self):
+        url = '/portal/sektion/dav/abrechnung'
+        section_admin = self.login(self.user('a@example.org', (self.dav, {'admin': True})))
+        self.assertNotIn('Auf Abrechnung umstellen', section_admin.get(url, base_url=PORTAL).get_data(as_text=True))
+        self.assertEqual(section_admin.post(url + '/umstellen', base_url=PORTAL,
+                                            data={'trial_until': '2099-01-31'}).status_code, 404)
+        root = self.login(self.user('root@example.org', global_admin=True))
+        self.assertIn('Auf Abrechnung umstellen', root.get(url, base_url=PORTAL).get_data(as_text=True))
+        root.post(url + '/umstellen', base_url=PORTAL, data={'trial_until': '2000-01-01'})
+        self.assertIsNone(Section.objects.get(slug='dav').trial_until)
+        root.post(url + '/umstellen', base_url=PORTAL, data={'trial_until': '2099-01-31'})
+        self.assertEqual(Section.objects.get(slug='dav').trial_until, datetime(2099, 1, 31, 23, 59, 59))
+        self.assertIn('Testphase bis 31.01.2099', root.get(url, base_url=PORTAL).get_data(as_text=True))
+        Section.objects(slug='dav').update_one(set__subscription_status='active')
+        root.post(url + '/umstellen', base_url=PORTAL, data={'action': 'free'})
+        self.assertIsNotNone(Section.objects.get(slug='dav').trial_until)
+        Section.objects(slug='dav').update_one(set__subscription_status='canceled')
+        root.post(url + '/umstellen', base_url=PORTAL, data={'action': 'free'})
+        self.assertIsNone(Section.objects.get(slug='dav').trial_until)
+
     def test_checkout_goes_to_stripe_with_quantity(self):
         app.config['SUBSCRIPTIONS_ENABLED'] = True
         self.register()
