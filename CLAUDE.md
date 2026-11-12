@@ -14,7 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Projekt-Notizen
 
 - Stack wie `../cmdbsyncer`: Flask + MongoEngine + Flask-Admin, gunicorn in prod (`configs/gunicorn.conf.py`), `./helper` wrapt docker compose.
-- Deploy: `git push deploy main`. Der Hook auf dem Server baut und startet die Instanzen `dav` und `tsv1860`. Ein Push auf `origin` deployt nichts. Danach die Build-Nummer im Footer gegen `git rev-list --count HEAD` prüfen.
+- Deploy: `git push deploy main`. Der Hook auf dem Server baut und startet die Instanz `dav` (tsv1860 ist eine Sektion darin). Ein Push auf `origin` deployt nichts. Danach die Build-Nummer im Footer gegen `git rev-list --count HEAD` prüfen.
 - UI-Sprache ist Deutsch — neue Strings auf Deutsch halten.
 - Erster Admin: `./helper create_user <email>` (druckt das generierte Passwort).
 - Config-Auswahl per `config` env var (`compose` setzen die docker-compose Files). Ohne `config` läuft die App mit `BaseConfig`.
