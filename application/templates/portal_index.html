@@ -10,12 +10,12 @@
   {%- else %}<strong class="text-danger">Gesperrt, Testphase abgelaufen</strong>{% endif %}
   · {{ section.member_count or '?' }} Mitglieder</span>
 {%- endmacro %}
-{% macro section_row(section, status=False) %}
+{% macro section_row(section) %}
       <li class="list-group-item d-flex flex-wrap justify-content-between align-items-center">
         <div class="mr-3">
           <strong>{{ section.name }}</strong><br>
           {% if address(section) %}<a href="{{ address(section) }}">{{ address(section) }}</a>{% endif %}
-          {% if status %}<br>{{ billing_status(section) }}{% endif %}
+          <br>{{ billing_status(section) }}
         </div>
         <div class="mt-2 mt-sm-0">
           <a class="btn btn-outline-primary btn-sm" href="{{ url_for('PORTAL.settings', slug=section.slug) }}" aria-label="Einstellungen {{ section.name }}">Einstellungen</a>
@@ -104,7 +104,7 @@
       </form>
       {% if all_sections %}
       <ul class="list-group mb-2">
-        {% for section in all_sections %}{{ section_row(section, status=True) }}{% endfor %}
+        {% for section in all_sections %}{{ section_row(section) }}{% endfor %}
       </ul>
       {% if more %}<p class="small text-muted">Es gibt mehr, bitte genauer suchen.</p>{% endif %}
       {% else %}
