@@ -421,3 +421,32 @@
 .event-booking hr { margin: 1.25rem 0; }
 .event-booking input[type=submit] { padding: .6rem 1.5rem; font-weight: 600; }
 @media (max-width: 575.98px) { .event-booking .card-body { padding: 1rem; } .event-booking input[type=submit] { width: 100%; } }
+
+/* Footer */
+.site-footer {
+    margin-top: 3rem;
+    padding: 1.25rem 1rem 1.5rem;
+    border-top: 1px solid #e3e6ea;
+    color: #5a6169;
+    font-size: .875rem;
+}
+.site-footer-inner {
+    max-width: 1140px;
+    margin: 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: .5rem 1.5rem;
+    text-align: center;
+}
+.site-footer p { margin: 0; }
+.site-footer-links { display: flex; flex-wrap: wrap; justify-content: center; gap: .25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+.site-footer a { color: #4a5158; text-decoration: none; }
+.site-footer a:hover, .site-footer a:focus-visible { color: #0056b3; text-decoration: underline; }
+.site-footer a:focus-visible { outline: 3px solid #0056b3; outline-offset: 2px; border-radius: 2px; }
+.site-footer-build { font-size: .75rem; color: #6c757d; }
+@media (min-width: 768px) {
+    .site-footer-inner { justify-content: space-between; text-align: left; }
+    .site-footer-build { flex-basis: 100%; text-align: right; }
+}

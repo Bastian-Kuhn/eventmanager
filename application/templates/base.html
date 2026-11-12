@@ -29,7 +29,7 @@
       {% endif %}
     </ul>
     {% else %}
-    <ul class="navbar-nav mr-auto site-nav">
+    <ul class="navbar-nav mr-auto align-items-lg-center site-nav">
       <li class="nav-item"><a class="nav-link" href="/">Touren</a></li>
       {% if hut_count == 1 %}
       <li class="nav-item"><a class="nav-link" href="{{ url_for('HUTS.page_hut_detail', hut_id=single_hut_id) }}">Hütte</a></li>
@@ -39,7 +39,7 @@
       {% if current_user.is_authenticated %}
       <li class="nav-item"><a class="nav-link" href="{{ url_for('EVENTS.page_list', filter='my_events') }}">Meine Touren</a></li>
           {% if current_user.has_right('guide') %}
-          <li class="nav-item"><a class="nav-link" href="{{ url_for('EVENTS.page_create') }}">Tour erstellen</a></li>
+          <li class="nav-item ml-lg-2 mr-lg-2"><a class="btn btn-sm site-cta {{ 'btn-light' if site.nav_dark else 'btn-dark' }}" href="{{ url_for('EVENTS.page_create') }}"><i class="fas fa-plus" aria-hidden="true"></i> Tour erstellen</a></li>
           {% endif %}
           {% if manages_huts and hut_count %}
           <li class="nav-item"><a class="nav-link" href="{{ url_for('HUTS.page_hut_admin') }}">Hütten-Freigaben</a></li>
@@ -102,32 +102,18 @@
 
     {% block page_content %}{% endblock %}
     </div>
-<hr>
-<footer class="page-footer font-small pt-4 mt-4">
-
-  <!-- Footer Links -->
-  <div class="container-fluid text-center text-md-left">
-    <div class="row">
-      <div class="col-md-12">
-        <ul id="nav-footer" class="nav justify-content-center">
-        </ul>
-
-      </div>
-      <!-- Grid column -->
-
-    </div>
+<footer class="site-footer">
+  <div class="site-footer-inner">
+    <p class="site-footer-copy">© 2022-{{ now.year }} <a href="https://bastian-kuhn.de">Bastian Kuhn</a></p>
+    <nav aria-label="Rechtliches und Kontakt">
+      <ul class="site-footer-links">
+        <li><a href="{{ url_for('LEGAL.imprint') }}">Impressum</a></li>
+        <li><a href="{{ url_for('LEGAL.privacy') }}">Datenschutz</a></li>
+        <li><a href="https://tourenanmeldung.de">tourenanmeldung.de</a></li>
+      </ul>
+    </nav>
+    {% if app_build %}<p class="site-footer-build">Build {{ app_build }}</p>{% endif %}
   </div>
-  <!-- Footer Links -->
-
-  <!-- Copyright -->
-  <div class="footer-copyright text-center py-3">© 2022 - {{ now.year }} <a href="https://bastian-kuhn.de">Bastian Kuhn</a>
-    · <a href="https://tourenanmeldung.de">tourenanmeldung.de</a>
-    · <a href="{{ url_for('LEGAL.imprint') }}">Impressum</a>
-    · <a href="{{ url_for('LEGAL.privacy') }}">Datenschutz</a>
-    {% if app_build %}<span class="text-muted"> · Build {{ app_build }}</span>{% endif %}
-  </div>
-  <!-- Copyright -->
-
 </footer>
 
 </div>
