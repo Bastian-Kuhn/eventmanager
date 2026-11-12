@@ -409,6 +409,17 @@ class PortalTest(unittest.TestCase):
         self.assertNotIn('Einstellungen Sektion Neu', mine)
         self.assertIn('Alle Sektionen (2)', page)
         self.assertIn('Einstellungen Sektion Neu', everything)
+        # Abo-Status nur in der Liste aller Sektionen
+        self.assertIn('Ohne Abrechnung', everything)
+        self.assertIn('Testphase bis', everything)
+        self.assertNotIn('Ohne Abrechnung', mine)
+        Section.objects(slug='neu').update_one(set__subscription_status='active', set__billing_interval='year')
+        everything = client.get('/portal/', base_url=PORTAL).get_data(as_text=True).partition('id="all-heading"')[2]
+        self.assertIn('Abo jährlich', everything)
+        Section.objects(slug='neu').update_one(set__subscription_status='canceled',
+                                               set__trial_until=datetime.now() - timedelta(days=1))
+        everything = client.get('/portal/', base_url=PORTAL).get_data(as_text=True).partition('id="all-heading"')[2]
+        self.assertIn('Gesperrt', everything)
         page = client.get('/portal/?q=neu', base_url=PORTAL).get_data(as_text=True)
         everything = page.partition('id="all-heading"')[2]
         self.assertIn('Sektion Neu', everything)

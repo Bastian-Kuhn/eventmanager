@@ -1,10 +1,21 @@
 {% extends 'base.html' %}
 {% block title %}{{ t.portal }}{% endblock %}
-{% macro section_row(section) %}
+{% macro billing_status(section) %}
+  <span class="small">
+  {%- if section.trial_until is none %}Ohne Abrechnung
+  {%- elif section.subscription_status == 'past_due' %}<strong class="text-danger">Abo, letzte Zahlung fehlgeschlagen</strong>
+  {%- elif section.is_paid %}Abo {{ 'jährlich' if section.billing_interval == 'year' else 'monatlich' }}
+    {%- if section.cancel_at_period_end and section.current_period_end %}, <strong>gekündigt zum {{ section.current_period_end.strftime('%d.%m.%Y') }}</strong>{% endif %}
+  {%- elif section.in_trial() %}Testphase bis {{ section.trial_until.strftime('%d.%m.%Y') }}
+  {%- else %}<strong class="text-danger">Gesperrt, Testphase abgelaufen</strong>{% endif %}
+  · {{ section.member_count or '?' }} Mitglieder</span>
+{%- endmacro %}
+{% macro section_row(section, status=False) %}
       <li class="list-group-item d-flex flex-wrap justify-content-between align-items-center">
         <div class="mr-3">
           <strong>{{ section.name }}</strong><br>
           {% if address(section) %}<a href="{{ address(section) }}">{{ address(section) }}</a>{% endif %}
+          {% if status %}<br>{{ billing_status(section) }}{% endif %}
         </div>
         <div class="mt-2 mt-sm-0">
           <a class="btn btn-outline-primary btn-sm" href="{{ url_for('PORTAL.settings', slug=section.slug) }}" aria-label="Einstellungen {{ section.name }}">Einstellungen</a>
@@ -93,7 +104,7 @@
       </form>
       {% if all_sections %}
       <ul class="list-group mb-2">
-        {% for section in all_sections %}{{ section_row(section) }}{% endfor %}
+        {% for section in all_sections %}{{ section_row(section, status=True) }}{% endfor %}
       </ul>
       {% if more %}<p class="small text-muted">Es gibt mehr, bitte genauer suchen.</p>{% endif %}
       {% else %}
