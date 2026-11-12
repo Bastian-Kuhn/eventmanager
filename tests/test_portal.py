@@ -273,11 +273,16 @@ class PortalTest(unittest.TestCase):
         root = self.user('root@example.org', (neu, {'admin': True}), global_admin=True)
         url = '/portal/sektion/neu/loeschen'
 
-        # Nur globale Admins, auch ein Admin der Sektion nicht
+        # Admins der Sektion und globale Admins, Mitglieder und fremde Admins nicht
         admin = self.user('a@example.org', (neu, {'admin': True}))
-        self.assertEqual(self.login(admin).get(url, base_url=PORTAL).status_code, 404)
-        self.assertNotIn('Weiter zum Löschen', self.login(admin).get('/portal/sektion/neu', base_url=PORTAL)
-                         .get_data(as_text=True))
+        self.assertIn('Weiter zum Löschen', self.login(admin).get('/portal/sektion/neu', base_url=PORTAL)
+                      .get_data(as_text=True))
+        self.assertEqual(self.login(admin).get(url, base_url=PORTAL).status_code, 200)
+        for other in (self.user('m@example.org', (neu, {'role': 'guide'})),
+                      self.user('d@example.org', (self.dav, {'admin': True}))):
+            self.assertEqual(self.login(other).get(url, base_url=PORTAL).status_code, 404)
+            self.assertEqual(self.login(other).post(url, base_url=PORTAL, data={'confirm': 'neu'}).status_code, 404)
+        User.objects(email__in=['m@example.org', 'd@example.org']).delete()
         client = self.login(root)
         self.assertIn('Weiter zum Löschen', client.get('/portal/sektion/neu', base_url=PORTAL).get_data(as_text=True))
         page = client.get(url, base_url=PORTAL).get_data(as_text=True)
@@ -326,6 +331,18 @@ class PortalTest(unittest.TestCase):
                       self.user('d@example.org', (self.dav, {'admin': True}))):
             self.assertEqual(self.login(other).post(url, base_url=PORTAL).status_code, 404)
 
+    def test_section_admin_deletes_own_section_and_account(self):
+        self.register()
+        admin = self.user('a@example.org', (Section.objects.get(slug='neu'), {'admin': True}))
+        client = self.login(admin)
+        response = client.post('/portal/sektion/neu/loeschen', base_url=PORTAL, data={'confirm': 'neu'},
+                               follow_redirects=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('ist gelöscht', response.get_data(as_text=True))
+        self.assertIsNone(Section.objects(slug='neu').first())
+        self.assertIsNone(User.objects(email='a@example.org').first())
+        self.assertEqual(client.get('/portal/', base_url=PORTAL).status_code, 200)
+
     def test_delete_blocked_for_default_and_running_subscription(self):
         self.register()
         root = self.user('root@example.org', global_admin=True)
@@ -339,6 +356,23 @@ class PortalTest(unittest.TestCase):
         self.assertEqual(Section.objects(slug='neu').count(), 1)
         Section.objects(slug='neu').update_one(set__cancel_at_period_end=True)
         client.post('/portal/sektion/neu/loeschen', base_url=PORTAL, data={'confirm': 'neu'})
+        self.assertEqual(Section.objects(slug='neu').count(), 0)
+
+    def test_delete_asks_stripe_about_running_subscription(self):
+        """Abo aus dem Testmodus: Live-Stripe kennt es nicht, dann darf geloescht werden"""
+        import stripe  # pylint: disable=import-outside-toplevel
+        self.register()
+        client = self.login(self.user('root@example.org', global_admin=True))
+        Section.objects(slug='neu').update_one(set__subscription_status='active',
+                                               set__subscription_id='sub_test')
+        live = {'id': 'sub_test', 'status': 'active', 'metadata': {'section_id': str(Section.objects.get(slug='neu').pk)}}
+        missing = stripe.InvalidRequestError("No such subscription", 'id', code='resource_missing')
+        with mock.patch.dict(app.config, {'SUBSCRIPTIONS_ENABLED': True}):
+            with mock.patch('stripe.Subscription.retrieve', return_value=live):
+                client.post('/portal/sektion/neu/loeschen', base_url=PORTAL, data={'confirm': 'neu'})
+            self.assertEqual(Section.objects(slug='neu').count(), 1)
+            with mock.patch('stripe.Subscription.retrieve', side_effect=missing):
+                client.post('/portal/sektion/neu/loeschen', base_url=PORTAL, data={'confirm': 'neu'})
         self.assertEqual(Section.objects(slug='neu').count(), 0)
 
     def test_global_admin_approves_unconfirmed_section_admin(self):

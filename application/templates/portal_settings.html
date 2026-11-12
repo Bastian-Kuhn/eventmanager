@@ -84,7 +84,6 @@
       </form>
     </div>
   </section>
-  {% if current_user.is_global_admin() %}
   <section class="card border-danger mt-4" aria-labelledby="delete-heading">
     <div class="card-body">
       <h2 class="h5 text-danger" id="delete-heading">{{ t.one }} löschen</h2>
@@ -93,6 +92,5 @@
       <a class="btn btn-outline-danger" href="{{ url_for('PORTAL.delete', slug=section.slug) }}">Weiter zum Löschen</a>
     </div>
   </section>
-  {% endif %}
 </main>
 {% endblock %}

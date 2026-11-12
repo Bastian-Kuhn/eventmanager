@@ -324,12 +324,12 @@ def settings(slug):
 @PORTAL.route('/sektion/<slug>/loeschen', methods=['GET', 'POST'])
 @login_required
 def delete(slug):
-    """Sektion mit allen Daten loeschen, nur globale Admins, mit Kurzname als Bestaetigung"""
-    if not current_user.is_global_admin():
-        abort(404)
-    section = Section.objects(slug=slug).first()
-    if section is None:
-        abort(404)
+    """Sektion mit allen Daten loeschen (Admins der Sektion), mit Kurzname als Bestaetigung"""
+    section = _managed_section(slug)
+    if section.is_paid and not section.cancel_at_period_end:
+        # Der Webhook kann fehlen, etwa bei einem Abo aus dem Stripe-Testmodus
+        stripe_billing.refresh_subscription(section)
+        section.reload()
     blocked = section_delete.blocked_reason(section)
     if request.method == 'POST' and not blocked:
         if (request.form.get('confirm') or '').strip() != section.slug:

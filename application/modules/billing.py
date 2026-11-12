@@ -162,6 +162,29 @@ def sync_quantity(section):
                                    items=[{'id': item['id'], 'quantity': units(section)}])
 
 
+def refresh_subscription(section):
+    """
+    Abo-Stand direkt bei Stripe nachfragen, etwa vor dem Loeschen. Kennt Stripe
+    das Abo nicht (z.B. aus dem Testmodus, jetzt mit Live-Key), gilt es als
+    beendet. Antwortet Stripe nicht, bleibt alles wie es ist.
+    """
+    if not (section.subscription_id and billing_enabled()):
+        return
+    stripe = _stripe()
+    try:
+        subscription = stripe.Subscription.retrieve(section.subscription_id)
+    except stripe.InvalidRequestError as exc:
+        if getattr(exc, 'code', None) == 'resource_missing':
+            log.warning("billing: Abo %s von %s unbekannt bei Stripe, gilt als beendet",
+                        section.subscription_id, section.slug)
+            Section.objects(pk=section.pk).update_one(set__subscription_status='canceled')
+        return
+    except Exception:  # pylint: disable=broad-except
+        log.exception("billing: Abo %s nicht abrufbar", section.subscription_id)
+        return
+    apply_subscription(subscription, deleted=subscription.get('status') == 'canceled')
+
+
 def verify_webhook(payload, signature):
     stripe = _stripe()
     secret = current_app.config.get('STRIPE_WEBHOOK_SECRET')
