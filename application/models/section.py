@@ -35,7 +35,7 @@ class Section(db.Document):
 
     nav_background_color = db.StringField()
     homepage_link = db.StringField()
-    logo_image = db.ImageField(field="logo_image", collection='logos')
+    logo_image = db.ImageField()  # GridFS-Bucket images
     event_categories_full = db.ListField(field=db.EmbeddedDocumentField(document_type="Category"))
 
     mail_sender = db.StringField()

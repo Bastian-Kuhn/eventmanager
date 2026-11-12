@@ -76,7 +76,7 @@ class User(db.Document, UserMixin):
     # Die Migration uebernimmt sie in memberships und laesst sie stehen.
     legacy_role = db.StringField(choices=roles, db_field='role')
 
-    profile_img = db.ImageField(field="profile_img", collection='logos')
+    profile_img = db.ImageField()  # GridFS-Bucket images
 
     birthdate = db.DateField()
     phone = db.StringField()
