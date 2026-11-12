@@ -10,14 +10,14 @@ TERMS = {
         'one': 'Sektion', 'many': 'Sektionen', 'portal': 'Sektionsportal',
         'the': 'die Sektion', 'The': 'Die Sektion', 'this': 'Diese Sektion',
         'gen': 'der Sektion', 'gen_new': 'der neuen Sektion',
-        'new': 'Neue Sektion', 'no_dat': 'keiner Sektion', 'other_dat': 'einer anderen Sektion',
+        'new': 'Neue Sektion', 'more': 'Weitere Sektion', 'no_dat': 'keiner Sektion', 'other_dat': 'einer anderen Sektion',
         'it': 'sie',
     },
     'verein': {
         'one': 'Verein', 'many': 'Vereine', 'portal': 'Vereinsportal',
         'the': 'der Verein', 'The': 'Der Verein', 'this': 'Dieser Verein',
         'gen': 'des Vereins', 'gen_new': 'des neuen Vereins',
-        'new': 'Neuen Verein', 'no_dat': 'keinem Verein', 'other_dat': 'einem anderen Verein',
+        'new': 'Neuen Verein', 'more': 'Weiteren Verein', 'no_dat': 'keinem Verein', 'other_dat': 'einem anderen Verein',
         'it': 'er',
     },
 }

@@ -78,7 +78,7 @@
     {% else %}
     <p>Du bist noch in {{ t.no_dat }} als Admin eingetragen.</p>
     {% endif %}
-    <a class="btn btn-primary" href="{{ url_for('PORTAL.register') }}">{{ t.new }} registrieren</a>
+    <a class="btn btn-primary" href="{{ url_for('PORTAL.register') }}">{{ t.more if sections else t.new }} registrieren</a>
 
     {% if is_global %}
     <section class="mt-5" aria-labelledby="all-heading">
