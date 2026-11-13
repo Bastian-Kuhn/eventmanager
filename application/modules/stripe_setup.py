@@ -20,8 +20,8 @@ was der Plan sagt. Stripe wird hereingereicht, die Tests geben eine Attrappe.
 from dataclasses import dataclass, field
 
 CURRENCY = "eur"
-# Angezeigter Preis = gezahlter Preis, Stripe Tax rechnet die Steuer heraus
-TAX_BEHAVIOR = "inclusive"
+# Nettopreise, die Umsatzsteuer kommt dazu (Stripe Tax, STRIPE_AUTOMATIC_TAX)
+TAX_BEHAVIOR = "exclusive"
 TAX_CODE = "txcd_10103001"  # SaaS, geschaeftliche Nutzung
 PRODUCT_NAME = "Tourentool"
 PRODUCT_META = {"eventmanager": "section"}

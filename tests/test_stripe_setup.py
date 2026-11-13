@@ -177,6 +177,7 @@ class SetupTest(unittest.TestCase):
         self.assertEqual(prices["eventmanager_section"]["unit_amount"], 1000)
         self.assertEqual(prices["eventmanager_section_yearly"]["unit_amount"], 10800)
         self.assertEqual(prices["eventmanager_section_yearly"]["recurring"]["interval"], "year")
+        self.assertEqual({p["tax_behavior"] for p in prices.values()}, {"exclusive"})
         self.assertEqual({p["product"] for p in prices.values()}, {product["id"]})
         hook = fake.own(fake.hooks)[0]
         self.assertEqual(hook["url"], f"https://{HOST}/portal/stripe/webhook")

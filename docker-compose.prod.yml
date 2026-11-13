@@ -48,6 +48,8 @@ services:
       STRIPE_PRICE_SECTION: ${STRIPE_PRICE_SECTION:-}
       STRIPE_PRICE_SECTION_YEARLY: ${STRIPE_PRICE_SECTION_YEARLY:-}
       STRIPE_PORTAL_CONFIGURATION: ${STRIPE_PORTAL_CONFIGURATION:-}
+      # Stripe Tax (MwSt.) im Checkout, erst nach Steuer-Setup im Dashboard: true
+      STRIPE_AUTOMATIC_TAX: ${STRIPE_AUTOMATIC_TAX:-}
       # Mailserver fuer Sektionen ohne eigenen und fuers Portal
       PLATFORM_MAIL_SERVER: ${PLATFORM_MAIL_SERVER:-}
       PLATFORM_MAIL_PORT: ${PLATFORM_MAIL_PORT:-}
