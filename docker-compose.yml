@@ -8,7 +8,8 @@ services:
     entrypoint: redis-server --appendonly yes
 
   mongo:
-    image: mongo:8.0.34
+    # 8.0 startet auf Kernel ab 6.19 nicht (SERVER-121912), zurueck auf 7.0.45 (FCV 7.0)
+    image: mongo:7.0.45
     volumes:
       - data_db:/data/db
 
