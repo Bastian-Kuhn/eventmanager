@@ -766,6 +766,7 @@ class PortalTest(unittest.TestCase):
         page = response.get_data(as_text=True)
         self.assertIn('hat die Testmail an a@example.org angenommen', page)
         self.assertIn('queued as 4711', page)
+        self.assertIn('250 AUTH PLAIN', page)
         self.assertIn('Anmeldung als neu: erfolgreich', page)
         self.assertNotIn('geheim', page)
         self.assertNotIn(base64.b64encode(b'\0neu\0geheim').decode(), page)

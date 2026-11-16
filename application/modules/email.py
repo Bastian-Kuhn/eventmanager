@@ -178,6 +178,8 @@ def send_test_mail(section, to):
         host.connect(mail.server, mail.port)
         if mail.use_tls:
             host.starttls()
+        # EHLO noch mit Protokoll: zeigt, welche Anmeldeverfahren der Server anbietet
+        host.ehlo_or_helo_if_needed()
         if mail.username and mail.password:
             host.set_debuglevel(0)
             host.login(mail.username, mail.password)
