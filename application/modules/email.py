@@ -170,6 +170,8 @@ def send_test_mail(section, to):
                        "Wenn du sie liest, funktioniert der Versand.\n")
     smtp_class = smtplib.SMTP_SSL if mail.use_ssl else smtplib.SMTP
     host = smtp_class(timeout=TEST_MAIL_TIMEOUT)
+    # Ohne Host im Konstruktor fehlt SMTP_SSL sonst der Name fuer die Zertifikatspruefung
+    host._host = mail.server  # pylint: disable=protected-access
     host._print_debug = capture  # pylint: disable=protected-access
     host.set_debuglevel(1)
     try:

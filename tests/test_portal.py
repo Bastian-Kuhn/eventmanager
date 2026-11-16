@@ -749,9 +749,12 @@ class PortalTest(unittest.TestCase):
         admin = self.user('a@example.org', (section, {'admin': True, 'role': 'guide'}))
         # Port 465 mit SSL gibt es lokal nicht: Klartext auf dem Port des Testservers
         port = server.server_address[1]
-        plain = type('PlainSmtp', (smtplib.SMTP,), {
-            'connect': lambda self, host, _port: smtplib.SMTP.connect(self, host, port)})
-        patcher = mock.patch('application.modules.email.smtplib.SMTP_SSL', plain)
+        class PlainSmtp(smtplib.SMTP):
+            def connect(self, host='localhost', _port=0, source_address=None):
+                # SMTP_SSL braucht den Namen fuer die Zertifikatspruefung
+                assert self._host == host, f"server_hostname fehlt: {self._host!r}"
+                return smtplib.SMTP.connect(self, host, port, source_address)
+        patcher = mock.patch('application.modules.email.smtplib.SMTP_SSL', PlainSmtp)
         patcher.start()
         self.addCleanup(patcher.stop)
         return self.login(admin)
