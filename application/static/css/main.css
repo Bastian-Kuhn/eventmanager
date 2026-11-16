@@ -364,6 +364,7 @@
 /* Portal: Mailfelder nur bei eigenem Mailserver */
 .mail-settings:not(:has(#own_mail:checked)) .own-mail-fields { display: none; }
 .own-mail-fields { border-left: 3px solid #dee2e6; padding-left: 1rem; margin-top: .5rem; }
+.mail-test-log { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 24rem; overflow: auto; font-size: .8rem; background: #f8f9fa; color: #212529; }
 
 /* Detailseite einer Tour */
 .event-head { margin: 1.25rem 0 1rem; }

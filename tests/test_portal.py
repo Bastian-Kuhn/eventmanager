@@ -3,7 +3,11 @@ Portal: Sektionen registrieren sich, verwalten Einstellungen und Abrechnung.
 Stripe ist gemockt.
 Ausfuehren: .venv/bin/python -m unittest tests.test_portal (mongomock)
 """
+import base64
 import io
+import smtplib
+import socketserver
+import threading
 import unittest
 from datetime import datetime, timedelta
 from unittest import mock
@@ -32,6 +36,39 @@ SETTINGS = {
 NEW_SECTION = {'section_name': 'Sektion Neu', 'slug': 'neu', 'member_count': '900',
                'first_name': 'Ada', 'last_name': 'Admin', 'email': 'Ada@Example.org',
                'password': PASSWORD, 'password_repeat': PASSWORD, 'submit': 'Sektion registrieren'}
+
+
+class FakeSmtp(socketserver.StreamRequestHandler):
+    """Kleiner SMTP-Server fuer die Testmail: kein STARTTLS, AUTH PLAIN, merkt sich die Mails"""
+    received = []
+
+    def reply(self, line):
+        self.wfile.write(line.encode() + b'\r\n')
+
+    def handle(self):
+        self.reply('220 smtp.test ready')
+        rcpt = []
+        for raw in self.rfile:
+            line = raw.decode().strip()
+            verb = line.split(' ')[0].upper()
+            if verb == 'EHLO':
+                self.reply('250-smtp.test')
+                self.reply('250 AUTH PLAIN')
+            elif verb == 'AUTH':
+                self.reply('235 ok')
+            elif verb == 'RCPT':
+                rcpt.append(line)
+                self.reply('250 ok')
+            elif verb == 'DATA':
+                self.reply('354 go')
+                data = b''.join(iter(lambda: self.rfile.readline(), b'.\r\n'))
+                FakeSmtp.received.append((rcpt, data))
+                self.reply('250 queued as 4711')
+            elif verb == 'QUIT':
+                self.reply('221 bye')
+                return
+            else:
+                self.reply('250 ok')
 
 
 def setUpModule():
@@ -695,6 +732,65 @@ class PortalTest(unittest.TestCase):
         message, state = thread.call_args.kwargs['args'][1:3]
         self.assertEqual(state.server, 'smtp.example.org')
         self.assertEqual(message.sender, f'{section.name} <noreply@example.org>')
+
+    def mail_test_setup(self, **settings):
+        """Sektion mit eigenem Mailserver auf einem lokalen Testserver, eingeloggter Admin"""
+        server = socketserver.ThreadingTCPServer(('127.0.0.1', 0), FakeSmtp)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        FakeSmtp.received = []
+        self.register()
+        section = Section.objects.get(slug='neu')
+        for key, value in {'mail_server': '127.0.0.1', 'mail_username': 'neu',
+                           'mail_password': 'geheim', 'mail_sender': 'neu@example.org', **settings}.items():
+            setattr(section, key, value)
+        section.save()
+        admin = self.user('a@example.org', (section, {'admin': True, 'role': 'guide'}))
+        # Port 465 mit SSL gibt es lokal nicht: Klartext auf dem Port des Testservers
+        port = server.server_address[1]
+        plain = type('PlainSmtp', (smtplib.SMTP,), {
+            'connect': lambda self, host, _port: smtplib.SMTP.connect(self, host, port)})
+        patcher = mock.patch('application.modules.email.smtplib.SMTP_SSL', plain)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        return self.login(admin)
+
+    def test_test_mail_shows_protocol_without_password(self):
+        client = self.mail_test_setup()
+        response = client.post('/portal/sektion/neu/testmail', base_url=PORTAL)
+        self.assertEqual(response.status_code, 200)
+        page = response.get_data(as_text=True)
+        self.assertIn('hat die Testmail an a@example.org angenommen', page)
+        self.assertIn('queued as 4711', page)
+        self.assertIn('Anmeldung als neu: erfolgreich', page)
+        self.assertNotIn('geheim', page)
+        self.assertNotIn(base64.b64encode(b'\0neu\0geheim').decode(), page)
+        rcpt, data = FakeSmtp.received[0]
+        self.assertIn('a@example.org', rcpt[0])
+        self.assertIn(b'From: neu@example.org', data)
+
+    def test_test_mail_starttls_on_ssl_fails_with_hint(self):
+        client = self.mail_test_setup(mail_use_tls=True)
+        page = client.post('/portal/sektion/neu/testmail', base_url=PORTAL).get_data(as_text=True)
+        self.assertIn('ließ sich nicht verschicken', page)
+        self.assertIn('SMTPNotSupportedError', page)
+        self.assertIn('bitte ausschalten', page)
+        self.assertEqual(FakeSmtp.received, [])
+
+    def test_test_mail_unreachable_server(self):
+        client = self.mail_test_setup(mail_server='127.0.0.1')
+        with mock.patch('application.modules.email.smtplib.SMTP_SSL.connect',
+                        side_effect=ConnectionRefusedError(61, 'Connection refused')):
+            page = client.post('/portal/sektion/neu/testmail', base_url=PORTAL).get_data(as_text=True)
+        self.assertIn('Fehler: ConnectionRefusedError', page)
+
+    def test_test_mail_only_for_admins(self):
+        self.register()
+        section = Section.objects.get(slug='neu')
+        member = self.user('m@example.org', (section, {}))
+        response = self.login(member).post('/portal/sektion/neu/testmail', base_url=PORTAL)
+        self.assertEqual(response.status_code, 404)
 
 
 if __name__ == '__main__':

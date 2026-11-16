@@ -1,6 +1,7 @@
 # Version 1.1
 import html
 import re
+import smtplib
 from threading import Thread
 from flask import current_app, render_template
 from flask_mail import Connection, Mail, Message
@@ -130,3 +131,67 @@ def send_email_inner(to, subject, template, app, mail, section, **kwargs):
         thr = Thread(target=send_async_email, args=[app, msg, mail])
         thr.start()
         return thr
+
+
+TEST_MAIL_TIMEOUT = 20
+TEST_LOG_LINE_MAX = 400
+
+
+def send_test_mail(section, to):
+    """
+    Testmail synchron auf demselben Weg wie send_email (eigener Mailserver der
+    Sektion, sonst Plattform), damit Fehler sichtbar werden statt im Thread zu
+    verschwinden. Gibt (ok, Protokollzeilen) zurueck. Die Anmeldung laeuft
+    ohne Mitschnitt, Zugangsdaten stehen nicht im Protokoll.
+    """
+    app = current_app._get_current_object()  # pylint: disable=protected-access
+    log = []
+    if has_own_mail(section):
+        mail = mail_state(app, section)
+        sender = section.mail_sender or section.mail_username
+        log.append(f"Eigener Mailserver der Sektion: {mail.server}:{mail.port}")
+    else:
+        platform = PlatformSender(app, section.name if section is not None else None)
+        mail, sender = platform.state, platform.mail_sender
+        log.append(f"Mailserver der Plattform: {mail.server or '(nicht eingerichtet)'}:{mail.port}")
+    if not mail.server or not sender:
+        log.append("Kein Mailserver oder kein Absender eingerichtet, es wird nichts verschickt.")
+        return False, log
+    log.append(f"SSL: {'ja' if mail.use_ssl else 'nein'}, zusätzlich STARTTLS: "
+               f"{'ja' if mail.use_tls else 'nein'}, Benutzer: {mail.username or '(ohne Anmeldung)'}")
+    log.append(f"Absender: {sender}, Empfänger: {to}")
+
+    def capture(*args):
+        line = ' '.join(str(arg) for arg in args)
+        log.append(line if len(line) <= TEST_LOG_LINE_MAX else line[:TEST_LOG_LINE_MAX] + ' …')
+
+    msg = Message("Testmail Tourenanmeldung", sender=sender, recipients=[to],
+                  body="Diese Testmail kam über die Mail-Einstellungen in der Verwaltung. "
+                       "Wenn du sie liest, funktioniert der Versand.\n")
+    smtp_class = smtplib.SMTP_SSL if mail.use_ssl else smtplib.SMTP
+    host = smtp_class(timeout=TEST_MAIL_TIMEOUT)
+    host._print_debug = capture  # pylint: disable=protected-access
+    host.set_debuglevel(1)
+    try:
+        host.connect(mail.server, mail.port)
+        if mail.use_tls:
+            host.starttls()
+        if mail.username and mail.password:
+            host.set_debuglevel(0)
+            host.login(mail.username, mail.password)
+            host.set_debuglevel(1)
+            log.append(f"Anmeldung als {mail.username}: erfolgreich")
+        host.sendmail(sender, [to], msg.as_bytes())
+        host.quit()
+    except Exception as error:  # pylint: disable=broad-except
+        log.append(f"Fehler: {type(error).__name__}: {error}")
+        if mail.use_tls and mail.use_ssl:
+            log.append("Hinweis: Port 465 ist schon per SSL verschlüsselt, "
+                       "„TLS am Mailserver aktivieren“ bitte ausschalten.")
+        try:
+            host.close()
+        except Exception:  # pylint: disable=broad-except
+            pass
+        return False, log
+    log.append("Der Mailserver hat die Mail angenommen.")
+    return True, log

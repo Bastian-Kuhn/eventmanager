@@ -18,7 +18,7 @@ from application.models.section import Section, ref_id
 from application.models.user import Membership, User
 from application.modules import billing as stripe_billing
 from application.modules import section_delete, section_transfer
-from application.modules.email import has_own_mail, send_email
+from application.modules.email import has_own_mail, send_email, send_test_mail
 from application.auth.views import mail_allowed
 from application.portal.forms import RegisterForm, RegisterLoggedInForm, SettingsForm
 from application.portal.terms import label_forms, terms
@@ -276,9 +276,22 @@ def _logo_bytes(upload):
     return out
 
 
-def _settings_page(form, section):
+def _settings_page(form, section, mail_test=None):
     return render_template('portal_settings.html', form=form, section=section,
-                           address=section_address(section), logo=section_logo(section))
+                           address=section_address(section), logo=section_logo(section),
+                           mail_test=mail_test)
+
+
+def _settings_form(section, fresh):
+    """Formular der Einstellungen, frisch aus der Sektion befuellt oder aus dem POST"""
+    form = label_forms(SettingsForm(obj=section, **({'formdata': None} if fresh else {})), terms())
+    if fresh:
+        form.own_mail.data = has_own_mail(section)
+        for category in section.event_categories_full:
+            form.categories.append_entry({'name': category.name, 'color': category.color})
+        for _ in range(EMPTY_CATEGORY_ROWS):
+            form.categories.append_entry({'name': '', 'color': '#5aaa28'})
+    return form
 
 
 @PORTAL.route('/sektion/<slug>', methods=['GET', 'POST'])
@@ -286,14 +299,7 @@ def _settings_page(form, section):
 def settings(slug):
     """Einstellungen einer Sektion"""
     section = _managed_section(slug)
-    form = label_forms(SettingsForm(obj=section), terms())
-    if request.method == 'GET':
-        form.own_mail.data = has_own_mail(section)
-    if request.method == 'GET':
-        for category in section.event_categories_full:
-            form.categories.append_entry({'name': category.name, 'color': category.color})
-        for _ in range(EMPTY_CATEGORY_ROWS):
-            form.categories.append_entry({'name': '', 'color': '#5aaa28'})
+    form = _settings_form(section, fresh=request.method == 'GET')
     if form.validate_on_submit() and _own_mail_complete(form, section):
         if form.logo.data:
             logo = _logo_bytes(form.logo.data)
@@ -332,6 +338,19 @@ def settings(slug):
         flash("Einstellungen gespeichert", 'success')
         return redirect(url_for('PORTAL.settings', slug=section.slug))
     return _settings_page(form, section)
+
+
+@PORTAL.route('/sektion/<slug>/testmail', methods=['POST'])
+@login_required
+@limiter.limit("10/hour", methods=['POST'])
+def test_mail(slug):
+    """Testmail an die eigene Adresse mit den gespeicherten Einstellungen, Protokoll auf der Seite"""
+    section = _managed_section(slug)
+    ok, log = send_test_mail(section, current_user.email)
+    current_app.logger.info("Testmail %s an %s: %s", section.slug, current_user.email,
+                            'angenommen' if ok else log[-1])
+    return _settings_page(_settings_form(section, fresh=True), section,
+                          mail_test={'ok': ok, 'log': log, 'to': current_user.email})
 
 
 @PORTAL.route('/sektion/<slug>/loeschen', methods=['GET', 'POST'])

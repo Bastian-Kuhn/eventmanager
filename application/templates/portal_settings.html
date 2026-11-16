@@ -72,7 +72,26 @@
     </fieldset>
     {{ wtf.form_field(form.submit, button_map={'submit': 'primary'}) }}
   </form>
-  <section class="card mt-5" aria-labelledby="export-heading">
+  <section class="card mt-5" id="mail-test" aria-labelledby="mail-test-heading">
+    <div class="card-body">
+      <h2 class="h5" id="mail-test-heading">Mailversand testen</h2>
+      <p>Schickt eine Testmail an {{ current_user.email }}, mit den gespeicherten Einstellungen.
+        Änderungen oben vorher speichern.</p>
+      <form method="post" action="{{ url_for('PORTAL.test_mail', slug=section.slug) }}#mail-test">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-outline-primary">Testmail senden</button>
+      </form>
+      {% if mail_test %}
+      <div class="alert {{ 'alert-success' if mail_test.ok else 'alert-danger' }} mt-3 mb-2" role="status">
+        {% if mail_test.ok %}Der Mailserver hat die Testmail an {{ mail_test.to }} angenommen. Kommt sie
+        nicht an, auch im Spamordner nachsehen.{% else %}Die Testmail ließ sich nicht verschicken, Details im
+        Protokoll.{% endif %}
+      </div>
+      <pre class="mail-test-log border rounded p-2 mb-0" tabindex="0" aria-label="Protokoll der Testmail">{{ mail_test.log | join('\n') }}</pre>
+      {% endif %}
+    </div>
+  </section>
+  <section class="card mt-4" aria-labelledby="export-heading">
     <div class="card-body">
       <h2 class="h5" id="export-heading">Daten exportieren</h2>
       <p>Alle Touren, Buchungen, Hütten, Einstellungen und Konten {{ t.gen }} als Datei, etwa für den Umzug
