@@ -46,7 +46,7 @@ from application import limiter
 from application.auth.views import do_login, LOGIN_LIMIT, TFA_PENDING
 from application.events.forms import EventForm, EventRegisterForm, EventSearchForm, COMMENT_MAX, \
                                      CUSTOM_FIELD_MAX, TICKET_NAME_MAX, PHONE_MAX, EMAIL_MAX, max_length
-from application.models.section import Section, current_section, ref_id, section_or_none
+from application.models.section import Section, current_section, notify_enabled, ref_id, section_or_none
 from application.models.user import User
 from application.events.models import OwnedTicket, new_booking_ref
 
@@ -417,14 +417,15 @@ def notify_new_booking(event, user, participation):
     persons = [x for x in participation.tickets if not x.is_extra_ticket] or participation.tickets
     common = {'event': event, 'booker': user, 'participation': participation, 'persons': persons,
               'ticket_status': ticket_status, 'guides': event_guides(event)}
+    section = event.owner_section()
     try:
-        for guide in common['guides']:
+        for guide in common['guides'] if notify_enabled(section, 'notify_guide_booking') else []:
             send_email(guide.email, f"Neue Anmeldung: {event.event_name}", 'email/newparticipant',
                        user=guide, **common)
     except Exception:  # pylint: disable=broad-except
         current_app.logger.exception("Mail zur neuen Anmeldung fehlgeschlagen")
     try:
-        if user.email:
+        if user.email and notify_enabled(section, 'notify_booking_received'):
             send_email(user.email, f"Anmeldung eingegangen: {event.event_name}",
                        'email/booking_received', user=user, **common)
     except Exception:  # pylint: disable=broad-except
@@ -437,6 +438,8 @@ def notify_confirmed(event, ticket, from_waitlist):
     E-Mail auf dem Ticket, falls die eine andere ist. Kam der Platz von der
     Warteliste, mit Frist zum Absagen.
     """
+    if not notify_enabled(event.owner_section(), 'notify_waitlist' if from_waitlist else 'notify_confirmed'):
+        return
     participation = next((x for x in event.participations
                           if any(y.ticket_id == ticket.ticket_id for y in x.tickets)), None)
     booker = participation.account if participation else None

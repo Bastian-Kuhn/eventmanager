@@ -26,6 +26,7 @@ from application.events.views import difficult_to_icon
 from application.huts.models import Hut, HutBooking, HutRoom
 from application.huts.views import MAX_NIGHTS, MAX_OPEN_BOOKINGS
 from application.models.config import Config
+from application.models.section import Section
 from application.models.user import User
 from application.modules import tfa
 from application.modules.sanitize import csv_safe, is_local_path, safe_url, sanitize_html
@@ -1186,6 +1187,21 @@ class BookingMailTest(AppTestCase):
         deadline = (datetime.now() + timedelta(days=3)).strftime('%d.%m.%Y')
         self.assertIn(deadline, mails[0].html)
         self.assertIn('verbindlich', mails[0].html)
+
+    def test_switched_off_mails_stay_home(self):
+        section = Section(name='S', slug='s', notify_booking_received=False, notify_waitlist=False)
+        event = self.event(places=1)
+        guide = self.owner(event)
+        self.booking(self.user('other@example.org'), event, ticket_id='t0', confirmed=True)
+        client = self.login(self.user())
+        with mock.patch.object(Event, 'owner_section', return_value=section):
+            mails = self._mails(lambda: self._book(client, event, ticket_Teilnahme='1'))
+            self.assertEqual([x.recipients[0] for x in mails], [guide.email])
+            waiting = Event.objects.get(id=event.id).participations[-1].tickets[0]
+            self.assertEqual(self._confirm(event, waiting.ticket_id), [])
+            section.notify_guide_booking = False
+            mails = self._mails(lambda: self._book(client, event, ticket_Teilnahme='1'))
+            self.assertEqual(mails, [])
 
     def test_join_request_mail_is_sent(self):
         # section= kollidierte mit dem Parameter von send_email_inner, die Mail ging nie raus

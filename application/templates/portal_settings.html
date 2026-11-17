@@ -57,6 +57,15 @@
         „Beitrittsanfragen“ annehmt. Bisherige Mitglieder bleiben. Konten anderer Sektionen brauchen
         immer eine Freigabe.</p>
     </fieldset>
+    <fieldset class="mb-4" aria-describedby="notify-hint">
+      <legend class="h5">Benachrichtigungen</legend>
+      <p id="notify-hint" class="text-muted">Welche Mails zur Tourenanmeldung verschickt werden. Bei
+        geteilten Touren gilt die Einstellung {{ t.gen }}, der die Tour gehört.</p>
+      {{ wtf.form_field(form.notify_guide_booking) }}
+      {{ wtf.form_field(form.notify_booking_received) }}
+      {{ wtf.form_field(form.notify_confirmed) }}
+      {{ wtf.form_field(form.notify_waitlist) }}
+    </fieldset>
     <fieldset class="mb-4 mail-settings">
       <legend class="h5">Mailversand</legend>
       <p class="text-muted">Ohne eigenen Mailserver verschickt Tourenanmeldung die Mails im Namen

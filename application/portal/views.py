@@ -14,7 +14,7 @@ from PIL import Image
 
 from application import csrf, limiter, section_logo
 from application.models.config import Category
-from application.models.section import Section, ref_id
+from application.models.section import NOTIFY_FIELDS, Section, ref_id
 from application.models.user import Membership, User
 from application.modules import billing as stripe_billing
 from application.modules import section_delete, section_transfer
@@ -323,6 +323,8 @@ def settings(slug):
             section.mail_sender = None
             section.mail_use_tls = False
         section.require_approval = bool(form.require_approval.data)
+        for field in NOTIFY_FIELDS:
+            setattr(section, field, bool(getattr(form, field).data))
         section.event_categories_full = [
             Category(name=entry.form.name.data.strip(), color=entry.form.color.data or '#5aaa28')
             for entry in form.categories if (entry.form.name.data or '').strip()]

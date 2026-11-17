@@ -23,7 +23,7 @@ from bson import DBRef, ObjectId, json_util
 
 from application.events.models import Event
 from application.huts.models import Hut, HutBooking
-from application.models.section import Section
+from application.models.section import NOTIFY_FIELDS, Section
 from application.models.user import User
 
 FORMAT = 'tourenanmeldung-sektion'
@@ -31,7 +31,7 @@ VERSION = 1
 SECTION_FIELDS = ('name', 'nav_background_color', 'homepage_link', 'event_categories_full',
                   'mail_sender', 'mail_server', 'mail_use_tls', 'mail_username',
                   'mail_subject_prefix', 'mail_password', 'media_consent_text',
-                  'member_count', 'require_approval')
+                  'member_count', 'require_approval') + NOTIFY_FIELDS
 USER_DROP = ('memberships', 'join_requests', 'role', 'admin', 'club_id', 'global_admin',
              'tfa_secret', 'tfa_pending_secret', 'tfa_recovery_codes', 'tfa_last_step')
 

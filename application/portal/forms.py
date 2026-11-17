@@ -90,6 +90,10 @@ class SettingsForm(FlaskForm):
     media_consent_text = TextAreaField("Einwilligungstext Foto/Video (HTML, leer = Standardtext)",
                                        validators=[Optional(), max_length(20000)], render_kw={'rows': 8})
     require_approval = BooleanField("Neue Mitglieder erst nach Freigabe durch die Admins")
+    notify_guide_booking = BooleanField("Tourenleiter bei jeder neuen Anmeldung")
+    notify_booking_received = BooleanField("Teilnehmer: Anmeldung ist eingegangen und wird geprüft")
+    notify_confirmed = BooleanField("Teilnehmer: Tourenleiter hat die Anmeldung bestätigt")
+    notify_waitlist = BooleanField("Teilnehmer: von der Warteliste nachgerückt, mit 3 Tagen Frist zum Absagen")
     own_mail = BooleanField("Eigenen Mailserver verwenden")
     mail_server = StringField("Mailserver (SMTP mit SSL, Port 465)",
                               validators=[Optional(), max_length(200)], render_kw={'maxlength': 200})

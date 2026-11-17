@@ -24,6 +24,15 @@ def normalize_hostname(value):
     return host.split(':', 1)[0].strip('.')
 
 
+# Schalter fuer die Mails zur Tourenanmeldung, Felder auf Section
+NOTIFY_FIELDS = ('notify_guide_booking', 'notify_booking_received', 'notify_confirmed', 'notify_waitlist')
+
+
+def notify_enabled(section, field):
+    """Mail eingeschaltet? Ohne Sektion (vor der Migration) gilt an"""
+    return section is None or getattr(section, field, True) is not False
+
+
 class Section(db.Document):
     """Ein Verein, z.B. eine DAV-Sektion"""
     slug = db.StringField(required=True, unique=True, regex=f'^{SLUG_PATTERN}$')
@@ -65,6 +74,12 @@ class Section(db.Document):
 
     # Neue Konten (auch aus Partnersektionen) erst nach Freigabe durch die Admins
     require_approval = db.BooleanField(default=False)
+
+    # Mails zur Tourenanmeldung, einzeln abschaltbar (siehe NOTIFY_FIELDS)
+    notify_guide_booking = db.BooleanField(default=True)
+    notify_booking_received = db.BooleanField(default=True)
+    notify_confirmed = db.BooleanField(default=True)
+    notify_waitlist = db.BooleanField(default=True)
 
     meta = {
         'strict': False,

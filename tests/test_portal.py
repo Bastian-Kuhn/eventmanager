@@ -239,10 +239,26 @@ class PortalTest(unittest.TestCase):
         self.assertEqual([c.name for c in section.event_categories_full], ['Skitour'])
         self.assertEqual(section.member_count, 300)
         self.assertEqual(section.mail_password, 'geheim')
+        # Nicht angehakte Benachrichtigungen sind aus
+        self.assertFalse(section.notify_guide_booking)
+        self.assertFalse(section.notify_waitlist)
         self.assertEqual(Image.open(section.logo_image).size, (40, 20))
         page = app.test_client().get('/', base_url='https://neu.example.org').get_data(as_text=True)
         self.assertIn('#112233', page)
         self.assertIn('Skitour', page)
+
+    def test_settings_show_notifications_switched_on(self):
+        self.register()
+        section = Section.objects.get(slug='neu')
+        client = self.login(self.user('a@example.org', (section, {'admin': True})))
+        page = client.get('/portal/sektion/neu', base_url=PORTAL).get_data(as_text=True)
+        for field in ('notify_guide_booking', 'notify_booking_received', 'notify_confirmed', 'notify_waitlist'):
+            self.assertRegex(page, rf'<input[^>]*checked[^>]*id="{field}"|<input[^>]*id="{field}"[^>]*checked')
+        client.post('/portal/sektion/neu', base_url=PORTAL, data={
+            'name': 'Sektion Neu', 'member_count': '300', 'notify_confirmed': 'y', 'submit': 'Speichern'})
+        section.reload()
+        self.assertTrue(section.notify_confirmed)
+        self.assertFalse(section.notify_booking_received)
 
     def test_partner_page_search_request_and_end(self):
         self.register()
