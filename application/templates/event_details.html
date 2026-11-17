@@ -157,7 +157,11 @@
             </fieldset>
             {% if person_slots %}
             <hr>
-            <fieldset class="form-group" id="booking-persons">
+            <fieldset class="form-group" id="booking-persons"
+                      data-self-name="{{ current_user.first_name }} {{ current_user.last_name }}"
+                      data-self-email="{{ current_user.email or '' }}"
+                      data-self-phone="{{ current_user.phone or '' }}"
+                      data-self-birthdate="{{ current_user.birthdate.strftime('%Y-%m-%d') if current_user.birthdate else '' }}">
              <legend>Teilnehmende</legend>
              <p class="small mb-2" id="persons_hint">Trage für jede Person ihre Daten ein, damit der Tourenleiter
              eine vollständige Teilnehmerliste hat. Leere Felder bei E-Mail und Handy übernehmen deine Daten.{% if extras_per_person %}
@@ -168,7 +172,7 @@
                        data-select="ticket_{{ slot.ticket }}" data-slot="{{ slot.slot }}">
               <legend class="h6 w-auto px-1 mb-1">{{ slot.ticket }}, Person {{ slot.slot + 1 }}</legend>
               <p class="small text-muted mb-1 person-self" id="{{ prefix }}self" hidden>
-                Leer lassen, wenn du selbst teilnimmst ({{ current_user.first_name }} {{ current_user.last_name }}).
+                Mit deinen Daten vorausgefüllt. Nimmst du nicht selbst teil, überschreibe sie.
               </p>
               <div class="form-row">
                <div class="form-group col-md-6 mb-2">
@@ -178,17 +182,17 @@
                </div>
                <div class="form-group col-md-6 mb-2">
                 <label for="{{ prefix }}birthdate">Geburtsdatum</label>
-                <input class="form-control" type="date" id="{{ prefix }}birthdate" name="{{ prefix }}birthdate"
+                <input class="form-control person-birthdate" type="date" id="{{ prefix }}birthdate" name="{{ prefix }}birthdate"
                        autocomplete="off" value="{{ request.form.get(prefix ~ 'birthdate', '') }}">
                </div>
                <div class="form-group col-md-6 mb-2">
                 <label for="{{ prefix }}email">E-Mail</label>
-                <input class="form-control" type="email" id="{{ prefix }}email" name="{{ prefix }}email"
+                <input class="form-control person-email" type="email" id="{{ prefix }}email" name="{{ prefix }}email"
                        maxlength="{{ email_max }}" autocomplete="off" value="{{ request.form.get(prefix ~ 'email', '') }}">
                </div>
                <div class="form-group col-md-6 mb-2">
                 <label for="{{ prefix }}phone">Handynummer</label>
-                <input class="form-control" type="tel" id="{{ prefix }}phone" name="{{ prefix }}phone"
+                <input class="form-control person-phone" type="tel" id="{{ prefix }}phone" name="{{ prefix }}phone"
                        maxlength="{{ phone_max }}" autocomplete="off" value="{{ request.form.get(prefix ~ 'phone', '') }}">
                </div>
               </div>
@@ -274,11 +278,25 @@
 {{ super() }}
 <script>
   // Personenbloecke nur fuer die Plaetze zeigen, die oben gebucht werden. Die
-  // erste Person darf leer bleiben (dann der Bucher), alle weiteren brauchen einen Namen.
+  // erste Person ist mit den Kontodaten vorausgefuellt (leer = Bucher), alle
+  // weiteren brauchen einen Namen.
   (function () {
     var box = document.getElementById('booking-persons');
     if (!box) { return; }
     var persons = box.querySelectorAll('.booking-person');
+    var fields = ['name', 'email', 'phone', 'birthdate'];
+    function prefill(person) {
+      var empty = fields.every(function (field) {
+        return !person.querySelector('.person-' + field).value;
+      });
+      if (!empty || person.dataset.touched) { return; }
+      fields.forEach(function (field) {
+        person.querySelector('.person-' + field).value = box.dataset['self' + field.charAt(0).toUpperCase() + field.slice(1)];
+      });
+    }
+    persons.forEach(function (person) {
+      person.addEventListener('input', function () { person.dataset.touched = '1'; });
+    });
     function update() {
       var first = true;
       persons.forEach(function (person) {
@@ -295,6 +313,7 @@
         } else {
           name.setAttribute('aria-describedby', 'persons_hint');
         }
+        if (show && first) { prefill(person); }
         if (show) { first = false; }
       });
       box.hidden = first;
