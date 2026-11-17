@@ -150,7 +150,7 @@ def _notify_join_request(user, section):
         link = url_for('JoinRequests.index', _external=True)
         for admin in section_admins(section):
             send_email(admin.email, "Neue Beitrittsanfrage", 'email/join_request',
-                       user=user, section=section, home=user.home_section_names(),
+                       admin=admin, user=user, join_section=section, home=user.home_section_names(),
                        club_id=user.join_request(section).club_id, link=link)
     except Exception:  # pylint: disable=broad-except
         current_app.logger.exception("Mail zur Beitrittsanfrage fehlgeschlagen")

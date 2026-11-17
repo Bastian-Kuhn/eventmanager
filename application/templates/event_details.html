@@ -157,24 +157,57 @@
             </fieldset>
             {% if person_slots %}
             <hr>
-            <fieldset class="form-group" id="extras-per-person">
-             <legend>Zusatztickets pro Person</legend>
-             <p class="small mb-2">Wähle für jede Person ihre Zusatztickets. Sie werden automatisch auf diese Person ausgestellt.</p>
+            <fieldset class="form-group" id="booking-persons">
+             <legend>Teilnehmende</legend>
+             <p class="small mb-2" id="persons_hint">Trage für jede Person ihre Daten ein, damit der Tourenleiter
+             eine vollständige Teilnehmerliste hat. Leere Felder bei E-Mail und Handy übernehmen deine Daten.{% if extras_per_person %}
+             Zusatztickets werden auf die Person ausgestellt, bei der du sie wählst.{% endif %}</p>
              {% for slot in person_slots %}
-             {% set field_name = 'extra_%s_%s'|format(slot.main_idx, slot.slot) %}
-             <fieldset class="border rounded p-2 mb-2 extra-person"
-                       data-select="ticket_{{ slot.main_name }}" data-slot="{{ slot.slot }}">
-              <legend class="h6 w-auto px-1 mb-1">{{ slot.main_name }}, Person {{ slot.slot + 1 }}</legend>
-              {% for extra_idx, extra in extra_tickets %}
-              <div class="form-check">
-                <input class="form-check-input" type="checkbox" name="{{ field_name }}"
-                       value="{{ extra_idx }}" id="{{ field_name }}_{{ extra_idx }}"
-                       {% if extra_idx|string in request.form.getlist(field_name) %}checked{% endif %}>
-                <label class="form-check-label" for="{{ field_name }}_{{ extra_idx }}">
-                  {{ extra.name }}{% if extra.price %} ({{ extra.price|euro }}){% endif %}
-                </label>
+             {% set prefix = 'person_%s_%s_'|format(slot.idx, slot.slot) %}
+             <fieldset class="border rounded p-2 mb-2 booking-person"
+                       data-select="ticket_{{ slot.ticket }}" data-slot="{{ slot.slot }}">
+              <legend class="h6 w-auto px-1 mb-1">{{ slot.ticket }}, Person {{ slot.slot + 1 }}</legend>
+              <p class="small text-muted mb-1 person-self" id="{{ prefix }}self" hidden>
+                Leer lassen, wenn du selbst teilnimmst ({{ current_user.first_name }} {{ current_user.last_name }}).
+              </p>
+              <div class="form-row">
+               <div class="form-group col-md-6 mb-2">
+                <label for="{{ prefix }}name">Name</label>
+                <input class="form-control person-name" id="{{ prefix }}name" name="{{ prefix }}name"
+                       maxlength="{{ name_max }}" autocomplete="off" value="{{ request.form.get(prefix ~ 'name', '') }}">
+               </div>
+               <div class="form-group col-md-6 mb-2">
+                <label for="{{ prefix }}birthdate">Geburtsdatum</label>
+                <input class="form-control" type="date" id="{{ prefix }}birthdate" name="{{ prefix }}birthdate"
+                       autocomplete="off" value="{{ request.form.get(prefix ~ 'birthdate', '') }}">
+               </div>
+               <div class="form-group col-md-6 mb-2">
+                <label for="{{ prefix }}email">E-Mail</label>
+                <input class="form-control" type="email" id="{{ prefix }}email" name="{{ prefix }}email"
+                       maxlength="{{ email_max }}" autocomplete="off" value="{{ request.form.get(prefix ~ 'email', '') }}">
+               </div>
+               <div class="form-group col-md-6 mb-2">
+                <label for="{{ prefix }}phone">Handynummer</label>
+                <input class="form-control" type="tel" id="{{ prefix }}phone" name="{{ prefix }}phone"
+                       maxlength="{{ phone_max }}" autocomplete="off" value="{{ request.form.get(prefix ~ 'phone', '') }}">
+               </div>
               </div>
-              {% endfor %}
+              {% if extras_per_person %}
+              {% set field_name = 'extra_%s_%s'|format(slot.idx, slot.slot) %}
+              <fieldset>
+               <legend class="small font-weight-bold mb-1">Zusatztickets</legend>
+               {% for extra_idx, extra in extra_tickets %}
+               <div class="form-check">
+                 <input class="form-check-input" type="checkbox" name="{{ field_name }}"
+                        value="{{ extra_idx }}" id="{{ field_name }}_{{ extra_idx }}"
+                        {% if extra_idx|string in request.form.getlist(field_name) %}checked{% endif %}>
+                 <label class="form-check-label" for="{{ field_name }}_{{ extra_idx }}">
+                   {{ extra.name }}{% if extra.price %} ({{ extra.price|euro }}){% endif %}
+                 </label>
+               </div>
+               {% endfor %}
+              </fieldset>
+              {% endif %}
              </fieldset>
              {% endfor %}
             </fieldset>
@@ -240,21 +273,31 @@
 {% block scripts %}
 {{ super() }}
 <script>
-  // Zusatztickets nur fuer die Personen zeigen, die oben gebucht werden
+  // Personenbloecke nur fuer die Plaetze zeigen, die oben gebucht werden. Die
+  // erste Person darf leer bleiben (dann der Bucher), alle weiteren brauchen einen Namen.
   (function () {
-    var box = document.getElementById('extras-per-person');
+    var box = document.getElementById('booking-persons');
     if (!box) { return; }
-    var persons = box.querySelectorAll('.extra-person');
+    var persons = box.querySelectorAll('.booking-person');
     function update() {
-      var any = false;
+      var first = true;
       persons.forEach(function (person) {
         var select = document.getElementsByName(person.dataset.select)[0];
         var show = select && Number(select.value) > Number(person.dataset.slot);
+        var name = person.querySelector('.person-name');
+        var self = person.querySelector('.person-self');
         person.hidden = !show;
         person.disabled = !show;
-        any = any || show;
+        self.hidden = !(show && first);
+        name.required = show && !first;
+        if (show && first) {
+          name.setAttribute('aria-describedby', self.id + ' persons_hint');
+        } else {
+          name.setAttribute('aria-describedby', 'persons_hint');
+        }
+        if (show) { first = false; }
       });
-      box.hidden = !any;
+      box.hidden = first;
     }
     document.querySelectorAll('#event-register-form select').forEach(function (select) {
       select.addEventListener('change', update);

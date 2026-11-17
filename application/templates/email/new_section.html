@@ -1,6 +1,10 @@
-{{ kind }} „{{ new_section.name }}“ ({{ new_section.slug }}) hat sich im Portal registriert.<br>
+{% extends 'email/_layout.html' %}
+{% block greeting %}Hallo,{% endblock %}
+{% block content %}
+<p>{{ kind }} „{{ new_section.name }}“ ({{ new_section.slug }}) hat sich im Portal registriert.<br>
 Admin: {{ admin.first_name }} {{ admin.last_name }} ({{ admin.email }})<br>
 {% if new_section.member_count %}Mitglieder laut Angabe: {{ new_section.member_count }}<br>{% endif %}
-Testphase bis {{ new_section.trial_until.strftime('%d.%m.%Y') }}<br>
-<br>
-<a href="{{ link }}">{{ link }}</a>
+Testphase bis {{ new_section.trial_until.strftime('%d.%m.%Y') }}</p>
+
+<p><a href="{{ link }}">{{ link }}</a></p>
+{% endblock %}

@@ -1,0 +1,7 @@
+{# Personen einer Anmeldung mit Stand, fuer Tourenleiter und Bucher. Liste statt Tabelle: bleibt im Textteil lesbar. #}
+<ul>
+  {% for ticket in persons %}
+  <li><strong>{{ ticket.name_on_ticket }}</strong> ({{ ticket.ticket_name }}): {{ ticket_status(ticket) }}
+    {%- if show_contact %}{% for value in (ticket.email_on_ticket, ticket.phone_on_ticket) if value %}, {{ value }}{% endfor %}{% endif %}</li>
+  {% endfor %}
+</ul>

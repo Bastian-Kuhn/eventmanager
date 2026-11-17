@@ -1,0 +1,24 @@
+{% extends 'email/_layout.html' %}
+{% block content %}
+{% if from_waitlist %}
+<p>gute Nachricht: Für <strong>{{ event.event_name }}</strong>{% if event.start_date %} am {{ event.start_date.strftime('%d.%m.%Y') }}{% endif %}
+ist ein Platz frei geworden. {{ ticket.name_on_ticket }} ist von der Warteliste nachgerückt
+und hat jetzt einen festen Platz ({{ ticket.ticket_name }}).</p>
+
+<p><strong>Kannst du den Platz nicht wahrnehmen, melde das bitte bis {{ deadline.strftime('%d.%m.%Y') }}
+({{ days }} Tage) dem Tourenleiter.</strong> Danach ist die Anmeldung verbindlich.</p>
+{% else %}
+<p>der Tourenleiter hat die Anmeldung von {{ ticket.name_on_ticket }} für
+<strong>{{ event.event_name }}</strong>{% if event.start_date %} am {{ event.start_date.strftime('%d.%m.%Y') }}{% endif %}
+bestätigt ({{ ticket.ticket_name }}). Der Platz ist damit sicher.</p>
+{% endif %}
+
+{% if guides %}
+<p>Tourenleitung:
+{% for guide in guides %}{{ guide.first_name }} {{ guide.last_name }} ({{ guide.email }}){% if not loop.last %}, {% endif %}{% endfor %}</p>
+{% endif %}
+
+{% set link = url_for('EVENTS.page_mybooking', event_id=event.id, _external=True) %}
+<p>Deine Buchung:<br>
+<a href="{{ link }}">{{ link }}</a></p>
+{% endblock %}

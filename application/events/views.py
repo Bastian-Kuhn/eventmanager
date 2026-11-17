@@ -58,6 +58,9 @@ roles_dict = dict(roles)
 
 
 def age(date):
+    # Ohne Geburtsdatum kein Alter statt 0
+    if not date:
+        return ''
     now = datetime.now().date()
     return relativedelta.relativedelta(now, date).years
 
@@ -386,6 +389,103 @@ def ticket_input_error(ticket=None):
         if len(value) > limit and value != getattr(ticket, attr, None):
             return f'{label} darf höchstens {limit} Zeichen lang sein'
     return None
+
+
+CONFIRM_OBJECTION_DAYS = 3
+
+
+def event_guides(event):
+    """Tourenleiter mit Konto, Altbestand kann auf geloeschte User zeigen"""
+    return [x for x in event.event_owners if isinstance(x, User) and x.email]
+
+
+def ticket_status(ticket):
+    """Stand eines Tickets fuer die Mails"""
+    if ticket.confirmed:
+        return 'bestätigt'
+    if ticket.waitinglist:
+        return 'Warteliste'
+    return 'wird geprüft'
+
+
+def notify_new_booking(event, user, participation):
+    """
+    Neue Anmeldung: Info an die Tourenleiter, Eingangsbestaetigung an den
+    Bucher. Die Buchung steht schon, ein Mailproblem darf sie nicht als Fehler
+    erscheinen lassen, sonst bucht der Teilnehmer ein zweites Mal.
+    """
+    persons = [x for x in participation.tickets if not x.is_extra_ticket] or participation.tickets
+    common = {'event': event, 'booker': user, 'participation': participation, 'persons': persons,
+              'ticket_status': ticket_status, 'guides': event_guides(event)}
+    try:
+        for guide in common['guides']:
+            send_email(guide.email, f"Neue Anmeldung: {event.event_name}", 'email/newparticipant',
+                       user=guide, **common)
+    except Exception:  # pylint: disable=broad-except
+        current_app.logger.exception("Mail zur neuen Anmeldung fehlgeschlagen")
+    try:
+        if user.email:
+            send_email(user.email, f"Anmeldung eingegangen: {event.event_name}",
+                       'email/booking_received', user=user, **common)
+    except Exception:  # pylint: disable=broad-except
+        current_app.logger.exception("Eingangsbestaetigung der Anmeldung fehlgeschlagen")
+
+
+def notify_confirmed(event, ticket, from_waitlist):
+    """
+    Tourenleiter hat einen Platz bestaetigt: Mail an den Bucher und an die
+    E-Mail auf dem Ticket, falls die eine andere ist. Kam der Platz von der
+    Warteliste, mit Frist zum Absagen.
+    """
+    participation = next((x for x in event.participations
+                          if any(y.ticket_id == ticket.ticket_id for y in x.tickets)), None)
+    booker = participation.account if participation else None
+    # E-Mail -> Vorname fuer die Anrede, die Person auf dem Ticket kann jemand anderes sein
+    recipients = {}
+    for email, name in ((booker.email if booker else None, booker.first_name if booker else ''),
+                        (ticket.email_on_ticket, (ticket.name_on_ticket or '').split(' ')[0])):
+        if email and '@' in email:
+            recipients.setdefault(email.strip().lower(), (email.strip(), name))
+    deadline = datetime.now() + timedelta(days=CONFIRM_OBJECTION_DAYS)
+    subject = (f"Du bist nachgerückt: {event.event_name}" if from_waitlist
+               else f"Anmeldung bestätigt: {event.event_name}")
+    try:
+        for email, name in recipients.values():
+            send_email(email, subject, 'email/booking_confirmed', greeting_name=name, event=event,
+                       ticket=ticket, from_waitlist=from_waitlist, guides=event_guides(event),
+                       deadline=deadline, days=CONFIRM_OBJECTION_DAYS)
+    except Exception:  # pylint: disable=broad-except
+        current_app.logger.exception("Mail zur Bestaetigung fehlgeschlagen")
+
+
+def booking_person(form, slot, first):
+    """
+    Personendaten eines Platzes aus dem Anmeldeformular als (Felder, Fehler).
+    Leere Angaben der ersten Person sind die des Buchers, weitere Personen
+    brauchen einen Namen, E-Mail und Handy fallen auf den Bucher zurueck.
+    """
+    prefix = f"person_{slot['idx']}_{slot['slot']}_" if slot else ''
+    value = lambda key: (form.get(prefix + key) or '').strip()  # pylint: disable=unnecessary-lambda-assignment
+    label = f"{slot['ticket']}, Person {slot['slot'] + 1}" if slot else ''
+    booker = f"{current_user.first_name} {current_user.last_name}"
+    is_booker = first and value('name') in ('', booker)
+    person = {
+        'name_on_ticket': value('name') or (booker if first else ''),
+        'email_on_ticket': value('email') or current_user.email,
+        'phone_on_ticket': value('phone') or current_user.phone,
+        # Ein fremdes Geburtsdatum waere schlimmer als keins
+        'birthdate_on_ticket': parse_form_date(value('birthdate'))
+                               or (current_user.birthdate if is_booker else None),
+    }
+    for key, limit, text in (('name', TICKET_NAME_MAX, 'Der Name'), ('email', EMAIL_MAX, 'Die E-Mail-Adresse'),
+                             ('phone', PHONE_MAX, 'Die Handynummer')):
+        if len(value(key)) > limit:
+            return person, f"{text} bei {label} darf höchstens {limit} Zeichen lang sein."
+    if not person['name_on_ticket']:
+        return person, f"Bitte gib den Namen für {label} an."
+    if value('email') and '@' not in value('email'):
+        return person, f"Die E-Mail-Adresse bei {label} ist ungültig."
+    return person, None
 
 
 @EVENTS.route('/user/change_ticket', methods=['POST'])
@@ -894,6 +994,9 @@ def change_participation():
         return {'success': False, 'message': 'Ticket nicht gefunden'}, 404
 
     response = {}
+    # Mail nur beim Wechsel auf bestaetigt, nicht fuer Zusatztickets
+    notify = job == 'confirm' and not ticket.confirmed and not ticket.is_extra_ticket
+    from_waitlist = bool(ticket.waitinglist)
 
     if job == 'confirm':
         ticket.confirmed = True
@@ -913,6 +1016,8 @@ def change_participation():
         response = event.delete_ticket(ticket_id)
 
     event.save()
+    if notify:
+        notify_confirmed(event, ticket, from_waitlist)
 
     return response
 
@@ -1662,11 +1767,14 @@ def page_details():
     main_tickets = [(idx, x) for idx, x in enumerate(event_tickets) if not x.is_extra_ticket]
     extra_tickets = [(idx, x) for idx, x in enumerate(event_tickets) if x.is_extra_ticket]
     extras_per_person = bool(main_tickets and extra_tickets)
-    person_slots = []
-    if extras_per_person:
-        person_slots = [{'main_idx': idx, 'main_name': x.name, 'slot': slot}
-                        for idx, x in main_tickets for slot in range(x.maximum_tickets)]
     select_tickets = [x for x in event_tickets if not (extras_per_person and x.is_extra_ticket)]
+    # Ein Block pro moeglicher Person (Ticket x Anzahl) fuer Name, Kontakt und
+    # Zusatztickets. Haupt-Tickets zuerst: die erste gebuchte Person ist ohne
+    # Angaben der Bucher selbst.
+    person_slots = [{'idx': idx, 'ticket': x.name, 'slot': slot, 'is_extra': x.is_extra_ticket}
+                    for idx, x in sorted(enumerate(event_tickets), key=lambda y: y[1].is_extra_ticket)
+                    if not (extras_per_person and x.is_extra_ticket)
+                    for slot in range(x.maximum_tickets or 0)]
     for ticket in select_tickets:
         choices = [ (str(x), f'{x} mal') for x in range(ticket.maximum_tickets+1) ]
         places = ticket_stats['max'][ticket.name] - ticket_stats.get(ticket.name, 0)
@@ -1790,6 +1898,10 @@ def page_details():
         'main_tickets': main_tickets,
         'extra_tickets': extra_tickets,
         'person_slots': person_slots,
+        'extras_per_person': extras_per_person,
+        'name_max': TICKET_NAME_MAX,
+        'phone_max': PHONE_MAX,
+        'email_max': EMAIL_MAX,
         'event_id': event_id,
         'event_details' : event_details_list,
         'overview': overview,
@@ -1824,17 +1936,28 @@ def page_details():
 
         # Zusatztickets pro Person: (Haupt-Ticket, Person, Zusatzticket)
         extra_wishes = []
-        for slot in person_slots:
-            for extra_idx in request.form.getlist(f"extra_{slot['main_idx']}_{slot['slot']}"):
+        for slot in person_slots if extras_per_person else []:
+            for extra_idx in request.form.getlist(f"extra_{slot['idx']}_{slot['slot']}"):
                 extra = dict(extra_tickets).get(int(extra_idx)) if extra_idx.isdigit() else None
                 if not extra:
                     continue
-                if slot['slot'] >= wanted_seats.get(slot['main_name'], 0):
-                    flash(f"{extra.name} ist für {slot['main_name']}, Person {slot['slot'] + 1} "
+                if slot['slot'] >= wanted_seats.get(slot['ticket'], 0):
+                    flash(f"{extra.name} ist für {slot['ticket']}, Person {slot['slot'] + 1} "
                           "gewählt, diese Person ist aber nicht gebucht.", 'danger')
                     register_possible = False
                     continue
-                extra_wishes.append((slot['main_name'], slot['slot'], extra.name))
+                extra_wishes.append((slot['ticket'], slot['slot'], extra.name))
+
+        # Personendaten pro gebuchtem Platz, die erste Person ist ohne Angaben der Bucher
+        persons_data = {}
+        for slot in person_slots:
+            if slot['slot'] >= wanted_seats.get(slot['ticket'], 0):
+                continue
+            person, error = booking_person(data, slot, first=not persons_data)
+            if error:
+                flash(error, 'danger')
+                register_possible = False
+            persons_data[(slot['ticket'], slot['slot'])] = person
         for _, extra in extra_tickets:
             num = sum(1 for wish in extra_wishes if wish[2] == extra.name)
             if extra.maximum_tickets and num > extra.maximum_tickets:
@@ -1908,10 +2031,10 @@ def page_details():
                             ticket.ticket_name = ticket_name
                             ticket.ticket_comment = ticket_data[ticket_name]['desc']
                             ticket.confirmed = False
-                            ticket.name_on_ticket = f"{current_user.first_name} {current_user.last_name}"
-                            ticket.email_on_ticket = current_user.email
-                            ticket.phone_on_ticket = current_user.phone
-                            ticket.birthdate_on_ticket = current_user.birthdate
+                            person = persons_data.get((ticket_name, number)) \
+                                or booking_person({}, None, first=True)[0]
+                            for field, value in person.items():
+                                setattr(ticket, field, value)
                             ticket.comment_on_ticket = data['comment']
                             ticket.is_extra_ticket = ticket_data[ticket_name]['is_extra']
                             ticket.waitinglist = waitinglist
@@ -1938,15 +2061,7 @@ def page_details():
 
             current_user.add_event(event)
 
-            # Die Buchung steht: ein Mailproblem darf sie nicht als Fehler erscheinen
-            # lassen, sonst bucht der Teilnehmer ein zweites Mal
-            try:
-                for guide in event.event_owners:
-                    if isinstance(guide, User):
-                        send_email(guide.email, f"Neue Anmeldung: {event.event_name}", 'email/newparticipant',
-                               event=event, user=current_user, tickets=new_participation.tickets, fields=new_participation.custom_fields, form_data=data)
-            except Exception:  # pylint: disable=broad-except
-                current_app.logger.exception("Mail zur neuen Anmeldung fehlgeschlagen")
+            notify_new_booking(event, current_user, new_participation)
 
             return redirect(url_for('EVENTS.page_mybooking', event_id=str(event.id)))
 

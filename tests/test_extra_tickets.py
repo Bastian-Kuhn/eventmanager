@@ -81,7 +81,7 @@ class RegisterExtrasPerPersonTest(unittest.TestCase):
 
     def test_extras_are_linked_to_their_person(self):
         response, parti, _ = self._post({
-            'ticket_Teilnahme': '2', 'comment': '',
+            'ticket_Teilnahme': '2', 'comment': '', 'person_0_1_name': 'Erika Muster',
             'extra_0_0': ['1', '2'], 'extra_0_1': '2',
         })
         self.assertEqual(response.status_code, 302)
@@ -102,6 +102,7 @@ class RegisterExtrasPerPersonTest(unittest.TestCase):
 
     def test_extra_limit_per_booking(self):
         _, parti, _ = self._post({'ticket_Teilnahme': '3', 'comment': '',
+                                  'person_0_1_name': 'B', 'person_0_2_name': 'C',
                                   'extra_0_0': '1', 'extra_0_1': '1', 'extra_0_2': '1'})
         self.assertIsNone(parti)
 
@@ -110,6 +111,7 @@ class RegisterExtrasPerPersonTest(unittest.TestCase):
         self.event.tickets.insert(1, Ticket(name='Jugend', price=5.0, maximum_tickets=2))
         response, parti, _ = self._post({
             'ticket_Teilnahme': '1', 'ticket_Jugend': '2', 'comment': '',
+            'person_1_0_name': 'Jugend A', 'person_1_1_name': 'Jugend B',
             'extra_0_0': '2', 'extra_1_1': ['2', '3'],
         })
         self.assertEqual(response.status_code, 302)
@@ -129,6 +131,7 @@ class RegisterExtrasPerPersonTest(unittest.TestCase):
                               Ticket(name='Liftkarte', price=0.0, maximum_tickets=0, is_extra_ticket=True)]
         response, parti, _ = self._post({
             'ticket_Erwachsene': '1', 'ticket_Kind': '2', 'comment': '',
+            'person_1_0_name': 'Kind A', 'person_1_1_name': 'Kind B',
             'extra_0_0': '3', 'extra_1_0': ['2', '3'], 'extra_1_1': ['2', '3'],
         })
         self.assertEqual(response.status_code, 302)
@@ -160,12 +163,13 @@ class RegisterExtrasPerPersonTest(unittest.TestCase):
         self.assertFalse(parti.waitinglist)
 
     def test_group_stays_together(self):
-        parti = self._book_on_tour(7, 6, {'ticket_Teilnahme': '2'})
+        parti = self._book_on_tour(7, 6, {'ticket_Teilnahme': '2', 'person_0_1_name': 'B'})
         self.assertTrue(all(x.waitinglist for x in parti.tickets))
 
     def test_places_count_across_ticket_types(self):
         self.event.tickets.insert(1, Ticket(name='Jugend', price=5.0, maximum_tickets=2))
-        parti = self._book_on_tour(7, 6, {'ticket_Teilnahme': '1', 'ticket_Jugend': '1'})
+        parti = self._book_on_tour(7, 6, {'ticket_Teilnahme': '1', 'ticket_Jugend': '1',
+                                            'person_1_0_name': 'B'})
         self.assertTrue(all(x.waitinglist for x in parti.tickets))
 
     def test_extras_do_not_take_tour_places(self):

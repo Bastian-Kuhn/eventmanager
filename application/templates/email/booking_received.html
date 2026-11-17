@@ -1,0 +1,26 @@
+{% extends 'email/_layout.html' %}
+{% block content %}
+<p>deine Anmeldung für <strong>{{ event.event_name }}</strong>{% if event.start_date %} am {{ event.start_date.strftime('%d.%m.%Y') }}{% endif %}
+ist eingegangen. Buchungsnummer: {{ participation.booking_ref }}</p>
+
+{% set show_contact = False %}
+{% include 'email/_persons.html' %}
+
+{% if persons|selectattr('waitinglist')|list %}
+<p>Die Tour ist voll, deshalb steht deine Anmeldung auf der Warteliste. Wird ein Platz frei
+und der Tourenleiter gibt ihn dir, bekommst du eine Mail.</p>
+{% endif %}
+{% if persons|rejectattr('waitinglist')|list %}
+<p>Der Tourenleiter prüft deine Anmeldung noch. Sobald er sie bestätigt, bekommst du eine Mail.
+Erst dann ist dein Platz sicher.</p>
+{% endif %}
+
+{% set link = url_for('EVENTS.page_mybooking', event_id=event.id, _external=True) %}
+<p>Deine Buchung und den aktuellen Stand siehst du hier:<br>
+<a href="{{ link }}">{{ link }}</a></p>
+
+{% if guides %}
+<p>Fragen zur Tour beantwortet dir
+{% for guide in guides %}{{ guide.first_name }} {{ guide.last_name }} ({{ guide.email }}){% if not loop.last %}, {% endif %}{% endfor %}.</p>
+{% endif %}
+{% endblock %}

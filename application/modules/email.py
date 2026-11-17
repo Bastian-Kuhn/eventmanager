@@ -87,6 +87,8 @@ def send_email(to, subject, template, **kwargs):
     """
     app = current_app._get_current_object()  # pylint: disable=protected-access
     section = section_or_none()
+    # Fuer den Gruss im Mail-Layout (email/_layout.html)
+    kwargs.setdefault('section_name', section.name if section is not None else None)
     if has_own_mail(section):
         if not section.mail_sender and section.mail_username:
             kwargs.setdefault('SENDER', section.mail_username)

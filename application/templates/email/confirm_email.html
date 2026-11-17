@@ -1,15 +1,9 @@
-Hallo {{ user.first_name }}, <br>
+{% extends 'email/_layout.html' %}
+{% block content %}
+{% set link = url_for('USER.page_user_confirm', token=token, _external=True) %}
+<p>bitte bestätige deine E-Mail-Adresse über den folgenden Link. Dort fragen wir
+nach dem Passwort, das du bei der Registrierung gewählt hast:<br>
+<a href="{{ link }}">{{ link }}</a></p>
 
-<br>
-bitte bestätige deine E-Mail-Adresse über den folgenden Link. Dort fragen wir
-nach dem Passwort, das du bei der Registrierung gewählt hast:
-<br>
-
-{{ url_for('USER.page_user_confirm', token=token, _external=True) }}
-
-<br>
-<br>
-Falls du dich nicht selbst registriert hast, ignoriere diese Mail.
-<br>
-
-Viele Grüße vom Team
+<p>Falls du dich nicht selbst registriert hast, ignoriere diese Mail.</p>
+{% endblock %}

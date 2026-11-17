@@ -1,0 +1,6 @@
+{# Gemeinsamer Rahmen aller Mails: Anrede, Inhalt, Gruss. Der Textteil entsteht per html_to_text. #}
+<p>{% block greeting %}Hallo{% if greeting_name %} {{ greeting_name }}{% elif user and user.first_name %} {{ user.first_name }}{% endif %},{% endblock %}</p>
+{% block content %}{% endblock %}
+<p>Viele Grüße<br>
+{{ section_name or 'Tourenanmeldung' }}</p>
+<p style="color:#6c757d;font-size:small">Diese Mail wurde automatisch verschickt.</p>

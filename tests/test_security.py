@@ -173,7 +173,7 @@ class EmailConfirmTest(AppTestCase):
         with mock.patch('application.modules.email.Thread') as thread:
             app.test_client().post('/user/create', data={**REGISTRATION, **data})
         message = thread.call_args.kwargs['args'][1]
-        return re.search(r'/user/confirm/[^\s<]+', message.html).group(0)
+        return re.search(r'/user/confirm/[^\s<"]+', message.html).group(0)
 
     def _login_works(self, password=PASSWORD):
         response = app.test_client().post('/login', data={
@@ -216,7 +216,7 @@ class EmailConfirmTest(AppTestCase):
         if not thread.called:
             return None
         message = thread.call_args.kwargs['args'][1]
-        return re.search(r'/user/confirm/[^\s<]+', message.html).group(0)
+        return re.search(r'/user/confirm/[^\s<"]+', message.html).group(0)
 
     def test_resend_confirmation(self):
         self._register()
@@ -991,8 +991,10 @@ class BookingLogicTest(AppTestCase):
     """Fachlich falsche Ergebnisse"""
 
     def _book(self, client, event, count=1):
+        # Weitere Personen brauchen einen Namen, die erste ist der Bucher
+        names = {f'person_0_{slot}_name': f'Person {slot}' for slot in range(1, count)}
         return client.post(f'/event/details?event_id={event.id}', data={
-            'comment': '', 'ticket_Teilnahme': str(count), 'submit': 'Anmelden'})
+            'comment': '', 'ticket_Teilnahme': str(count), 'submit': 'Anmelden', **names})
 
     def test_maximum_counts_over_all_bookings_of_an_account(self):
         event = self.event(places=10)
@@ -1097,6 +1099,108 @@ class BookingLogicTest(AppTestCase):
         self.assertEqual(event.event_name, 'Neu')
         self.assertEqual(len(event.participations), 1)
         self.assertEqual(list(event.hidden_categories), [])
+
+
+class BookingMailTest(AppTestCase):
+    """Personendaten im Anmeldeformular und die Mails zur Anmeldung"""
+
+    def setUp(self):
+        super().setUp()
+        Config(enabled=True, mail_sender='a@example.org', mail_server='smtp.example.org').save()
+
+    def _mails(self, func):
+        """Fuehrt func aus und gibt die verschickten Mails zurueck"""
+        with mock.patch('application.modules.email.Thread') as thread:
+            func()
+        return [call.kwargs['args'][1] for call in thread.call_args_list]
+
+    def _book(self, client, event, **data):
+        return client.post(f'/event/details?event_id={event.id}', data={
+            'comment': '', 'submit': 'Anmelden', **data})
+
+    def test_persons_from_form_land_on_tickets(self):
+        event = self.event(places=5)
+        guide = self.owner(event)
+        client = self.login(self.user())
+        mails = self._mails(lambda: self.assertEqual(self._book(
+            client, event, ticket_Teilnahme='2', person_0_1_name='Erika Muster',
+            person_0_1_email='erika@example.org', person_0_1_birthdate='2010-05-01').status_code, 302))
+        tickets = Event.objects.get(id=event.id).participations[0].tickets
+        self.assertEqual([x.name_on_ticket for x in tickets], ['Vor Nach', 'Erika Muster'])
+        self.assertEqual(tickets[0].birthdate_on_ticket, date(1990, 1, 1))
+        self.assertEqual(tickets[1].email_on_ticket, 'erika@example.org')
+        self.assertEqual(tickets[1].phone_on_ticket, '0170')
+        self.assertEqual(tickets[1].birthdate_on_ticket, date(2010, 5, 1))
+        by_to = {x.recipients[0]: x for x in mails}
+        self.assertEqual(set(by_to), {guide.email, 'user@example.org'})
+        self.assertIn('Erika Muster', by_to[guide.email].html)
+        self.assertIn('wird geprüft', by_to['user@example.org'].html)
+        self.assertIn('Tourenleiter prüft', by_to['user@example.org'].body)
+
+    def test_second_person_needs_a_name(self):
+        event = self.event(places=5)
+        client = self.login(self.user())
+        self.assertEqual(self._book(client, event, ticket_Teilnahme='2').status_code, 200)
+        self.assertEqual(len(Event.objects.get(id=event.id).participations), 0)
+
+    def test_unbooked_person_fields_are_ignored(self):
+        event = self.event(places=5)
+        client = self.login(self.user())
+        self._mails(lambda: self._book(client, event, ticket_Teilnahme='1', person_0_1_name='Niemand'))
+        tickets = Event.objects.get(id=event.id).participations[0].tickets
+        self.assertEqual([x.name_on_ticket for x in tickets], ['Vor Nach'])
+
+    def test_waitlist_booking_says_waitlist(self):
+        event = self.event(places=1)
+        self.booking(self.user('other@example.org'), event, confirmed=True)
+        client = self.login(self.user())
+        mails = self._mails(lambda: self._book(client, event, ticket_Teilnahme='1'))
+        self.assertIn('Warteliste', mails[-1].html)
+        self.assertNotIn('Tourenleiter prüft', mails[-1].html)
+
+    def _confirm(self, event, ticket_id='t1'):
+        client = self.login(Event.objects.get(id=event.id).event_owners[0])
+        return self._mails(lambda: client.post('/event/change_participants', data={
+            'job': 'confirm', 'ticket_id': ticket_id, 'event_id': event.id}))
+
+    def test_confirm_mails_booker_and_ticket_person(self):
+        event = self.event()
+        self.owner(event)
+        self.booking(self.user(), event, name='Erika Muster', email_on_ticket='erika@example.org')
+        mails = self._confirm(event)
+        self.assertEqual(sorted(x.recipients[0] for x in mails), ['erika@example.org', 'user@example.org'])
+        self.assertIn('bestätigt', mails[0].subject)
+        self.assertNotIn('Tage', mails[0].html)
+        greetings = sorted(x.body.splitlines()[0] for x in mails)
+        self.assertEqual(greetings, ['Hallo Erika,', 'Hallo Vor,'])
+        # Zweites Bestaetigen schickt nichts mehr
+        self.assertEqual(self._confirm(event), [])
+
+    def test_confirm_from_waitlist_names_deadline(self):
+        event = self.event()
+        self.owner(event)
+        self.booking(self.user(), event, waitinglist=True)
+        mails = self._confirm(event)
+        self.assertEqual(len(mails), 1)
+        self.assertIn('nachgerückt', mails[0].subject)
+        deadline = (datetime.now() + timedelta(days=3)).strftime('%d.%m.%Y')
+        self.assertIn(deadline, mails[0].html)
+        self.assertIn('verbindlich', mails[0].html)
+
+    def test_join_request_mail_is_sent(self):
+        # section= kollidierte mit dem Parameter von send_email_inner, die Mail ging nie raus
+        from application.auth.views import _notify_join_request  # pylint: disable=import-outside-toplevel
+        section = mock.MagicMock()
+        section.name = 'Sektion B'
+        user = self.user()
+        user.home_section_names = lambda: ['Sektion A']
+        user.join_request = lambda _: mock.MagicMock(club_id='42')
+        with app.test_request_context(), \
+             mock.patch('application.auth.views.section_admins', return_value=[self.user('admin@example.org')]), \
+             mock.patch('application.auth.views.url_for', return_value='https://example.org/x'):
+            mails = self._mails(lambda: _notify_join_request(user, section))
+        self.assertEqual(len(mails), 1)
+        self.assertIn('Sektion B', mails[0].html)
 
 
 class CommentLengthTest(AppTestCase):

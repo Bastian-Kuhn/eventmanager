@@ -307,6 +307,9 @@ def translate_bool(what):
     return "Nein"
 
 def age(date):
+    # Ohne Geburtsdatum kein Alter statt 0
+    if not date:
+        return ''
     now = datetime.now().date()
     return relativedelta.relativedelta(now, date).years
 
