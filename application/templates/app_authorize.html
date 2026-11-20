@@ -1,0 +1,25 @@
+{% extends 'auth_card.html' %}
+{% block card_title %}App verbinden{% endblock %}
+{% block card_intro %}
+<p><strong>{{ name }}</strong> möchte auf dein Konto zugreifen: Touren ansehen und buchen
+  {%- if current_user.has_right('guide') %}, Touren anlegen, Teilnehmer verwalten{% endif %}
+ und Hütten buchen.</p>
+<p class="text-muted"><small>Angemeldet als {{ current_user.email }}. Den Zugang beendest du jederzeit
+  im Profil unter „Verbundene Apps“; ein neues Passwort meldet die App ebenfalls ab.</small></p>
+{% endblock %}
+{% block card_form %}
+<form method="POST" action="{{ url_for('APP_LOGIN.authorize') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="state" value="{{ state }}">
+  <input type="hidden" name="name" value="{{ name }}">
+  <div class="form-group">
+    <label class="form-control-label" for="password">Zur Bestätigung dein Passwort</label>
+    <input class="form-control" type="password" id="password" name="password" required
+           autocomplete="current-password" autofocus>
+  </div>
+  <button type="submit" class="btn btn-primary">App verbinden</button>
+</form>
+{% endblock %}
+{% block card_links %}
+<p class="mt-3 mb-0"><a href="{{ url_for('EVENTS.page_list') }}">Abbrechen</a></p>
+{% endblock %}

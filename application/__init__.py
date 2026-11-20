@@ -192,7 +192,8 @@ def require_section():
                           "Diese Sektion ist gerade nicht freigeschaltet.")
     # Sitzungen von vor der Pruefung beim Login: fremde Konten melden sich neu
     # an und stellen dabei die Beitrittsanfrage
-    if request.blueprint not in ('auth', 'LEGAL') and current_user.is_authenticated \
+    # Die App-API meldet per Schluessel an und prueft die Sektion selbst
+    if request.blueprint not in ('auth', 'LEGAL', 'API') and current_user.is_authenticated \
             and not current_user.may_use_section(section):
         logout_user()
         flash("Dein Konto gehört nicht zu dieser Sektion. Melde dich an, um eine "
@@ -425,4 +426,8 @@ app.register_blueprint(EVENTS)
 app.register_blueprint(HUTS)
 app.register_blueprint(PORTAL)
 app.register_blueprint(LEGAL)
+from application.api.v1 import API
+from application.api.authorize import APP_LOGIN
+app.register_blueprint(API)
+app.register_blueprint(APP_LOGIN)
 from application.jobs import *

@@ -61,11 +61,13 @@ def page_user_profil():
     my_hut_bookings = list(
         HutBooking.objects(user=current_user).order_by('-from_date'))
 
+    from application.models.api_token import ApiToken
     context = {
         'consent_form': consent_form,
         'password_form': password_form,
         'past_events': past_events,
         'hut_bookings': my_hut_bookings,
+        'app_tokens': list(ApiToken.objects(user=current_user.id, expires__gt=now).order_by('-created')),
     }
     return render_template('user_profile.html', **context)
 

@@ -141,6 +141,57 @@ def _limit_error(hut, user, from_date, to_date):
     return None
 
 
+def book_hut_for(hut, user, from_date, to_date, places, rooms, comment):
+    """
+    Plaetze fuer user buchen (Web und App-API). Gibt (Buchung, None) oder
+    (None, Fehlertext) zurueck. Mit Freigabepflicht ist die Buchung unbestaetigt.
+    """
+    if not (hut.allow_self_booking or hut.can_manage(user)):
+        return None, "Diese Hütte wird nur über die Hütten-Verwaltung belegt."
+    if not (from_date and to_date and from_date < to_date):
+        return None, "Bitte einen gültigen Zeitraum wählen (Abreise nach Anreise)."
+    # Nachtragen vergangener Belegungen bleibt der Hütten-Verwaltung vorbehalten
+    if from_date < datetime.now().date() and not hut.can_manage(user):
+        return None, "Die Anreise darf nicht in der Vergangenheit liegen."
+    if places < 1:
+        return None, "Bitte die Anzahl der Plätze angeben."
+    if not set(rooms) <= {room.name for room in hut.rooms}:
+        return None, "Bitte nur Zimmer dieser Hütte wählen."
+    if comment and len(comment) > COMMENT_MAX:
+        return None, f"Der Kommentar darf höchstens {COMMENT_MAX} Zeichen lang sein."
+
+    try:
+        with hut_lock(hut.id):
+            # Im Lock, sonst ueberholen parallele Anfragen die Zaehlung
+            error = _limit_error(hut, user, from_date, to_date)
+            if error:
+                return None, error
+            if hut.blocks(from_date, to_date):
+                return None, "Die Hütte ist in diesem Zeitraum gesperrt."
+
+            # Ohne hinterlegte Zimmer ist die Kapazität unbekannt -> keine Platzprüfung,
+            # sonst gälte jede solche Hütte als dauerhaft ausgebucht.
+            if hut.has_capacity():
+                free = hut.free_places(from_date, to_date)
+                if places > free:
+                    return None, f"Nicht genügend freie Plätze: im Zeitraum sind nur noch {free} frei."
+
+            booking = HutBooking(
+                hut=hut,
+                from_date=from_date,
+                to_date=to_date,
+                places=places,
+                rooms=rooms,
+                comment=comment,
+                name=f"{user.first_name} {user.last_name}",
+                user=user,
+                confirmed=not hut.requires_approval,
+            ).save()
+    except LockError:
+        return None, "Gerade buchen viele gleichzeitig. Bitte versuche es in ein paar Sekunden erneut."
+    return booking, None
+
+
 @HUTS.route('/huetten/<hut_id>')
 def page_hut_detail(hut_id):
     """Detailseite einer Hütte inkl. Buchungsformular und Buchungsstatus."""
@@ -309,62 +360,12 @@ def book_hut(hut_id):
                    from_date=request.form.get('from_date', ''),
                    to_date=request.form.get('to_date', ''))
 
-    if not (hut.allow_self_booking or hut.can_manage(current_user)):
-        flash("Diese Hütte wird nur über die Hütten-Verwaltung belegt.", 'danger')
-        return redirect(back)
-    if not (from_date and to_date and from_date < to_date):
-        flash("Bitte einen gültigen Zeitraum wählen (Abreise nach Anreise).", 'danger')
-        return redirect(back)
-    # Nachtragen vergangener Belegungen bleibt der Hütten-Verwaltung vorbehalten
-    if from_date < datetime.now().date() and not hut.can_manage(current_user):
-        flash("Die Anreise darf nicht in der Vergangenheit liegen.", 'danger')
-        return redirect(back)
-    if places < 1:
-        flash("Bitte die Anzahl der Plätze angeben.", 'danger')
-        return redirect(back)
-    if not set(rooms) <= {room.name for room in hut.rooms}:
-        flash("Bitte nur Zimmer dieser Hütte wählen.", 'danger')
-        return redirect(back)
-    if comment and len(comment) > COMMENT_MAX:
-        flash(f"Der Kommentar darf höchstens {COMMENT_MAX} Zeichen lang sein.", 'danger')
+    booking, error = book_hut_for(hut, current_user, from_date, to_date, places, rooms, comment)
+    if error:
+        flash(error, 'danger')
         return redirect(back)
 
-    confirmed = not hut.requires_approval
-    try:
-        with hut_lock(hut.id):
-            # Im Lock, sonst ueberholen parallele Anfragen die Zaehlung
-            error = _limit_error(hut, current_user, from_date, to_date)
-            if error:
-                flash(error, 'danger')
-                return redirect(back)
-            if hut.blocks(from_date, to_date):
-                flash("Die Hütte ist in diesem Zeitraum gesperrt.", 'danger')
-                return redirect(back)
-
-            # Ohne hinterlegte Zimmer ist die Kapazität unbekannt -> keine Platzprüfung,
-            # sonst gälte jede solche Hütte als dauerhaft ausgebucht.
-            if hut.has_capacity():
-                free = hut.free_places(from_date, to_date)
-                if places > free:
-                    flash(f"Nicht genügend freie Plätze: im Zeitraum sind nur noch {free} frei.", 'danger')
-                    return redirect(back)
-
-            HutBooking(
-                hut=hut,
-                from_date=from_date,
-                to_date=to_date,
-                places=places,
-                rooms=rooms,
-                comment=comment,
-                name=f"{current_user.first_name} {current_user.last_name}",
-                user=current_user,
-                confirmed=confirmed,
-            ).save()
-    except LockError:
-        flash("Gerade buchen viele gleichzeitig. Bitte versuche es in ein paar Sekunden erneut.", 'danger')
-        return redirect(back)
-
-    if confirmed:
+    if booking.confirmed:
         flash("Buchung bestätigt.", 'success')
     else:
         flash("Buchungsanfrage gesendet – sie wartet auf Freigabe durch die Hütten-Verwaltung.",

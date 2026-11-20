@@ -282,38 +282,7 @@ def save_event_form(event, form):
     Helper to store Event Object
     """
     form_data = dict(request.form)
-    for field in EVENT_FORM_FIELDS:
-        if field in form_data:
-            setattr(event, field, form_data[field])
-
-    # Nur mit Partnersektion im Formular, sonst bleibt der alte Wert
-    if has_partner_sections():
-        event.members_only = bool(form.members_only.data)
-
-    # Wer nicht alle Touren verwaltet, wird immer Verantwortlicher: sonst koennte er
-    # die eben angelegte Tour nicht mehr bearbeiten
-    if current_user not in event.event_owners and \
-            (form_data.get('add_guide') or not current_user.manages_all_events()):
-        event.event_owners.append(current_user)
-
-
-    # Leere Felder bekommen sinnvolle Vorgaben, damit nur der Beginn Pflicht ist
-    event.start_date = form.start_date.data
-    event.end_date = form.end_date.data or event.start_date
-    event.booking_from = form.booking_from.data or datetime.now().replace(second=0, microsecond=0)
-    event.booking_until = form.booking_until.data or event.start_date
-
-
-    # Huetten-Referenz aufloesen (Formular liefert die id als String)
-    hut_id = request.form.get('hut')
-    event.hut = Hut.objects(id=hut_id).first() if hut_id else None
-
-    # Zimmerauswahl: nur Zimmer der gewaehlten Huette, leere Auswahl = alle Zimmer
-    valid_rooms = {r.name for r in event.hut.rooms if r.name} if event.hut else set()
-    event.hut_rooms = [r for r in request.form.getlist('hut_rooms') if r in valid_rooms]
-
-    event.custom_fields = []
-    event.tickets = []
+    custom_fields = []
     ticket_collector = {}
     for key, value in request.form.items():
         if key.startswith('tickets-0') or key.startswith('custom_fields-0'):
@@ -321,9 +290,7 @@ def save_event_form(event, form):
             continue
         if key.startswith('custom_fields-') and not key.endswith("csrf_token"):
             if value:
-                new_field = CustomFieldDefintion()
-                new_field.field_name = value
-                event.custom_fields.append(new_field)
+                custom_fields.append(value)
         if key.startswith('tickets-') and not key.endswith("csrf_token"):
             splited = key[8:].split('-')
             group = splited[0]
@@ -335,23 +302,84 @@ def save_event_form(event, form):
     if len(ticket_collector) == 1:
         overwrite_max_tickets = request.form['places']
 
-    ## Handle Tickets
+    tickets = []
     for t_data in ticket_collector.values():
         if not t_data.get('name'):
             continue
-        is_extra = True if t_data.get('is_extra_ticket') == 'y' else False
+        maximum = t_data.get('maximum_tickets', 0)
+        if overwrite_max_tickets and int(maximum) == 0:
+            maximum = overwrite_max_tickets
+        tickets.append({'name': t_data['name'], 'price': t_data.get('price', 0),
+                        'description': t_data.get('description'),
+                        'is_extra_ticket': t_data.get('is_extra_ticket') == 'y',
+                        'maximum_tickets': maximum})
+
+    apply_event(event, {
+        'fields': {field: form_data[field] for field in EVENT_FORM_FIELDS if field in form_data},
+        'members_only': bool(form.members_only.data),
+        'add_guide': bool(form_data.get('add_guide')),
+        'start_date': form.start_date.data,
+        'end_date': form.end_date.data,
+        'booking_from': form.booking_from.data,
+        'booking_until': form.booking_until.data,
+        'hut_id': request.form.get('hut'),
+        'hut_rooms': request.form.getlist('hut_rooms'),
+        'custom_fields': custom_fields,
+        'tickets': tickets,
+    })
+    return True
+
+
+def apply_event(event, values):
+    """
+    Tour aus geprueften Werten speichern, fuer das Formular und die App-API.
+    values: fields (EVENT_FORM_FIELDS), members_only, add_guide, start_date,
+    end_date, booking_from, booking_until, hut_id, hut_rooms, custom_fields
+    (Fragen als Text) und tickets (dicts wie Ticket).
+    """
+    for field, value in values['fields'].items():
+        if field in EVENT_FORM_FIELDS:
+            setattr(event, field, value)
+
+    # Nur mit Partnersektion im Formular, sonst bleibt der alte Wert
+    if has_partner_sections():
+        event.members_only = bool(values['members_only'])
+
+    # Wer nicht alle Touren verwaltet, wird immer Verantwortlicher: sonst koennte er
+    # die eben angelegte Tour nicht mehr bearbeiten
+    if current_user not in event.event_owners and \
+            (values['add_guide'] or not current_user.manages_all_events()):
+        event.event_owners.append(current_user)
+
+
+    # Leere Felder bekommen sinnvolle Vorgaben, damit nur der Beginn Pflicht ist
+    event.start_date = values['start_date']
+    event.end_date = values['end_date'] or event.start_date
+    event.booking_from = values['booking_from'] or datetime.now().replace(second=0, microsecond=0)
+    event.booking_until = values['booking_until'] or event.start_date
+
+
+    # Huetten-Referenz aufloesen (Formular liefert die id als String)
+    hut_id = values['hut_id']
+    event.hut = Hut.objects(id=hut_id).first() if hut_id else None
+
+    # Zimmerauswahl: nur Zimmer der gewaehlten Huette, leere Auswahl = alle Zimmer
+    valid_rooms = {r.name for r in event.hut.rooms if r.name} if event.hut else set()
+    event.hut_rooms = [r for r in values['hut_rooms'] if r in valid_rooms]
+
+    event.custom_fields = [CustomFieldDefintion(field_name=x) for x in values['custom_fields'] if x]
+
+    event.tickets = []
+    for t_data in values['tickets']:
         ticket = Ticket()
         ticket.name = t_data['name']
         try:
-            ticket.price = parse_price(t_data.get('price', 0))
-        except ValueError:
+            ticket.price = parse_price(t_data.get('price') or 0)
+        except (ValueError, TypeError):
             ticket.price = 0
         ticket.description = t_data.get('description')
-        ticket.is_extra_ticket = is_extra
-        if overwrite_max_tickets and int(t_data.get('maximum_tickets', 0)) == 0:
-            ticket.maximum_tickets = overwrite_max_tickets
-        else:
-            ticket.maximum_tickets = t_data.get('maximum_tickets', 0)
+        ticket.is_extra_ticket = bool(t_data.get('is_extra_ticket'))
+        ticket.maximum_tickets = t_data.get('maximum_tickets') or 0
         event.tickets.append(ticket)
 
     # Gebuchte Tickets folgen dem Haken "Zusatzticket" ihrer Definition, sonst
@@ -996,6 +1024,16 @@ def change_participation():
     if not ticket:
         return {'success': False, 'message': 'Ticket nicht gefunden'}, 404
 
+    return participant_job(event, ticket, job, request.form)
+
+
+def participant_job(event, ticket, job, values):
+    """
+    Tourenleiter aendert ein gebuchtes Ticket (Web und App-API): confirm,
+    waitlist, update_guide_comment, update_guide oder delete. Speichert das
+    Event und schickt beim Bestaetigen die Mail.
+    """
+    ticket_id = ticket.ticket_id
     response = {}
     # Mail nur beim Wechsel auf bestaetigt, nicht fuer Zusatztickets
     notify = job == 'confirm' and not ticket.confirmed and not ticket.is_extra_ticket
@@ -1008,11 +1046,11 @@ def change_participation():
         ticket.waitinglist = True
         ticket.confirmed = False
     elif job == 'update_guide_comment':
-        guide_comment = request.form.get('guide_comment', '')
+        guide_comment = values.get('guide_comment', '')
         ticket.guide_comment = guide_comment
         response = {'success': True, 'ticket_id': ticket_id, 'guide_comment': guide_comment}
     elif job == 'update_guide':
-        guide = request.form.get('guide', '')
+        guide = values.get('guide', '')
         ticket.guide = guide
         response = {'success': True, 'ticket_id': ticket_id, 'guide': guide}
     elif job == 'delete':
@@ -1286,8 +1324,14 @@ def change_paidstatus():
     if not ticket:
         return {'success': False, 'message': 'Ticket nicht gefunden'}, 404
 
-    response = {}
+    set_paid_status(ticket, job)
+    event.save()
 
+    return {}
+
+
+def set_paid_status(ticket, job):
+    """Zahlstand eines Tickets setzen: paid, unpaid, free, unfree, transfer, untransfer"""
     if job == 'paid':
         ticket.is_paid = True
         ticket.is_transfer = False  # Ueberweisung ist eingegangen
@@ -1303,9 +1347,6 @@ def change_paidstatus():
         ticket.is_transfer = True
     elif job == 'untransfer':
         ticket.is_transfer = False
-    event.save()
-
-    return response
 
 @EVENTS.route('/event/bulk_paidstatus', methods=['POST'])
 @login_required
@@ -1731,6 +1772,209 @@ def delete_cost():
 BOOKING_LIMIT = "5/minute;30/hour"
 
 
+def booking_layout(event):
+    """
+    Was das Anmeldeformular einer Tour anbietet. Gibt es Haupt- und Zusatztickets,
+    waehlt man die Zusatztickets direkt pro Person (= Haupt-Ticket) statt als
+    Anzahl. Anzahl 0 heisst bei Zusatztickets: ohne Limit.
+    """
+    event_tickets = event.tickets
+    main_tickets = [(idx, x) for idx, x in enumerate(event_tickets) if not x.is_extra_ticket]
+    extra_tickets = [(idx, x) for idx, x in enumerate(event_tickets) if x.is_extra_ticket]
+    extras_per_person = bool(main_tickets and extra_tickets)
+    return SimpleNamespace(
+        main_tickets=main_tickets,
+        extra_tickets=extra_tickets,
+        extras_per_person=extras_per_person,
+        select_tickets=[x for x in event_tickets if not (extras_per_person and x.is_extra_ticket)],
+        # Ein Block pro moeglicher Person (Ticket x Anzahl) fuer Name, Kontakt und
+        # Zusatztickets. Haupt-Tickets zuerst: die erste gebuchte Person ist ohne
+        # Angaben der Bucher selbst.
+        person_slots=[{'idx': idx, 'ticket': x.name, 'slot': slot, 'is_extra': x.is_extra_ticket}
+                      for idx, x in sorted(enumerate(event_tickets), key=lambda y: y[1].is_extra_ticket)
+                      if not (extras_per_person and x.is_extra_ticket)
+                      for slot in range(x.maximum_tickets or 0)],
+    )
+
+
+def registration_open(event, now):
+    """Liegt now im Buchungszeitraum der Tour?"""
+    if event.booking_until and event.booking_from:
+        return event.booking_until >= now >= event.booking_from
+    return True
+
+
+def book_event(event, data, getlist):
+    """
+    Anmeldung des angemeldeten Kontos aus Formularfeldern (Web und App-API):
+    ticket_<Name> (Anzahl), person_<idx>_<slot>_<name|email|phone|birthdate>,
+    extra_<idx>_<slot> (Liste, ueber getlist), custom_<idx>, comment und
+    media_optin_event. Gibt (Teilnahme, []) oder (None, Fehlertexte) zurueck.
+    """
+    now = datetime.now()
+    event_id = str(event.id)
+    layout = booking_layout(event)
+    event_tickets, select_tickets = event.tickets, layout.select_tickets
+    extra_tickets, extras_per_person = layout.extra_tickets, layout.extras_per_person
+    person_slots, custom_fields = layout.person_slots, event.custom_fields
+    errors = []
+
+    if event.start_date and event.start_date < now:
+        errors.append("Das Event hat bereits stattgefunden")
+
+    if not registration_open(event, now):
+        errors.append("Die Anmeldung auf das Event ist noch nicht freigeschaltet")
+
+    comment = data.get('comment') or ''
+    if len(comment) > COMMENT_MAX:
+        errors.append(f"Der Kommentar darf höchstens {COMMENT_MAX} Zeichen lang sein.")
+    custom_values = []
+    for idx, field in enumerate(custom_fields):
+        value = (data.get(f"custom_{idx}") or '').strip()
+        if not value:
+            errors.append(f"Bitte beantworte die Frage „{field.field_name}“.")
+        elif len(value) > CUSTOM_FIELD_MAX:
+            errors.append(f"Die Antwort auf „{field.field_name}“ darf höchstens "
+                          f"{CUSTOM_FIELD_MAX} Zeichen lang sein.")
+        custom_values.append((field.field_name, value))
+
+    ticket_data = {ticket.name: {'name': ticket.name, 'desc': ticket.description,
+                                 'is_extra': ticket.is_extra_ticket}
+                   for ticket in event_tickets}
+    wanted_seats = {}
+    for ticket in select_tickets:
+        try:
+            wanted = int(data.get(f'ticket_{ticket.name}') or 0)
+        except ValueError:
+            wanted = -1
+        if not 0 <= wanted <= (ticket.maximum_tickets or 0):
+            errors.append(f"Ungültige Anzahl für {ticket.name}.")
+            continue
+        if wanted == 0:
+            continue
+        wanted_seats[ticket.name] = wanted
+
+    # Zusatztickets pro Person: (Haupt-Ticket, Person, Zusatzticket)
+    extra_wishes = []
+    for slot in person_slots if extras_per_person else []:
+        for extra_idx in getlist(f"extra_{slot['idx']}_{slot['slot']}"):
+            extra = dict(extra_tickets).get(int(extra_idx)) if extra_idx.isdigit() else None
+            if not extra:
+                continue
+            if slot['slot'] >= wanted_seats.get(slot['ticket'], 0):
+                errors.append(f"{extra.name} ist für {slot['ticket']}, Person {slot['slot'] + 1} "
+                              "gewählt, diese Person ist aber nicht gebucht.")
+                continue
+            extra_wishes.append((slot['ticket'], slot['slot'], extra.name))
+
+    # Personendaten pro gebuchtem Platz, die erste Person ist ohne Angaben der Bucher
+    persons_data = {}
+    for slot in person_slots:
+        if slot['slot'] >= wanted_seats.get(slot['ticket'], 0):
+            continue
+        person, error = booking_person(data, slot, first=not persons_data)
+        if error:
+            errors.append(error)
+        persons_data[(slot['ticket'], slot['slot'])] = person
+    for _, extra in extra_tickets:
+        num = sum(1 for wish in extra_wishes if wish[2] == extra.name)
+        if extra.maximum_tickets and num > extra.maximum_tickets:
+            errors.append(f"{extra.name} kann pro Anmeldung höchstens "
+                          f"{extra.maximum_tickets} mal gebucht werden.")
+
+    if not wanted_seats:
+        errors.append("Du hast keine Tickets gewählt.")
+
+    if errors:
+        return None, errors
+
+    new_participation = EventParticipation()
+    new_participation.booking_date = now
+    new_participation.booking_ref = new_booking_ref()
+    for field_name, value in custom_values:
+        new_participation.custom_fields.append(CustomField(name=field_name, value=value))
+
+    try:
+        # Platzvergabe pro Event serialisieren: Ohne Lock lesen viele
+        # gleichzeitige Buchungen (Stichtag!) denselben Stand, alle sehen
+        # freie Plaetze und das Event wird ueberbucht.
+        with event_lock(event_id):
+            event.reload()
+            ticket_stats = event.get_ticket_stats()
+            for wish in extra_wishes:
+                wanted_seats[wish[2]] = wanted_seats.get(wish[2], 0) + 1
+            # Die Hoechstzahl pro Anmeldung gilt fuer alle Buchungen des Kontos
+            # zusammen, sonst fuellt eine Folge von Anmeldungen die Tour
+            already = {}
+            for ticket in event.get_tickets_of_user(current_user):
+                already[ticket.ticket_name] = already.get(ticket.ticket_name, 0) + 1
+            too_many = [ticket for ticket in event_tickets
+                        if ticket.maximum_tickets and ticket.name in wanted_seats
+                        and already.get(ticket.name, 0) + wanted_seats[ticket.name]
+                            > ticket.maximum_tickets]
+            if too_many:
+                return None, [f"{ticket.name} kann pro Konto höchstens {ticket.maximum_tickets} "
+                              f"mal gebucht werden, du hast schon {already.get(ticket.name, 0)}."
+                              for ticket in too_many]
+            # Personen belegen Plaetze der Tour, die Anmeldung bleibt zusammen:
+            # passt sie nicht komplett, geht sie komplett auf die Warteliste
+            free_places = event.free_places()
+            persons = sum(num for name, num in wanted_seats.items()
+                          if not ticket_data[name]['is_extra'])
+            # Haupt-Tickets zuerst, die Zusatztickets haengen sich daran
+            booked = {}
+            for ticket_name, num in sorted(wanted_seats.items(),
+                                           key=lambda x: ticket_data[x[0]]['is_extra']):
+                places = ticket_stats['max'][ticket_name] - ticket_stats.get(ticket_name, 0)
+                if free_places is not None and not ticket_data[ticket_name]['is_extra']:
+                    waitinglist = persons > free_places
+                else:
+                    # Zusatztickets und Touren ohne Platzzahl: Kontingent des Tickets
+                    unlimited = extras_per_person and ticket_data[ticket_name]['is_extra'] \
+                        and not ticket_stats['max'][ticket_name]
+                    waitinglist = places < num and not unlimited
+                extra_mains = [booked[main][slot] for main, slot, extra in extra_wishes
+                               if extra == ticket_name]
+                for number in range(num):
+                    ticket = OwnedTicket()
+                    ticket.ticket_id = uuid.uuid4().hex
+                    ticket.ticket_name = ticket_name
+                    ticket.ticket_comment = ticket_data[ticket_name]['desc']
+                    ticket.confirmed = False
+                    person = persons_data.get((ticket_name, number)) \
+                        or booking_person({}, None, first=True)[0]
+                    for field, value in person.items():
+                        setattr(ticket, field, value)
+                    ticket.comment_on_ticket = comment
+                    ticket.is_extra_ticket = ticket_data[ticket_name]['is_extra']
+                    ticket.waitinglist = waitinglist
+                    if number < len(extra_mains):
+                        ticket.take_person_from(extra_mains[number])
+                    booked.setdefault(ticket_name, []).append(ticket)
+                    new_participation.tickets.append(ticket)
+
+            new_participation.comment = comment
+            new_participation.user = current_user
+            # Geteilte Tour: die allgemeine Einwilligung galt der eigenen Sektion,
+            # hier zaehlt nur die Antwort auf den Text der Sektion der Tour
+            if event.shared_from():
+                new_participation.media_optin = bool(data.get('media_optin_event'))
+            # Warteliste richtet sich nach den Personen, nicht nach ihren Zusatztickets
+            new_participation.waitinglist = any(
+                x.waitinglist for x in new_participation.tickets
+                if not (extras_per_person and x.is_extra_ticket))
+            # all_objects: auch geteilte Touren der Partnersektionen (oben per visible geladen)
+            Event.all_objects(id=event_id).update_one(push__participations=new_participation)
+    except LockError:
+        return None, ["Gerade buchen sehr viele gleichzeitig. Bitte versuche es in ein paar "
+                      "Sekunden erneut."]
+
+    current_user.add_event(event)
+
+    notify_new_booking(event, current_user, new_participation)
+    return new_participation, []
+
+
 @EVENTS.route('/event/details', methods=['GET', 'POST'])
 @limiter.limit(LOGIN_LIMIT, methods=['POST'], exempt_when=lambda: current_user.is_authenticated)
 @limiter.limit(BOOKING_LIMIT, methods=['POST'], key_func=lambda: f"user:{current_user.get_id()}",
@@ -1763,21 +2007,10 @@ def page_details():
 
     ticket_stats = event.get_ticket_stats()
 
-    # Handle Ticket function
-    event_tickets = event.tickets
-    # Gibt es Haupt- und Zusatztickets, waehlt man die Zusatztickets direkt pro
-    # Person (= Haupt-Ticket) statt als Anzahl. Anzahl 0 heisst bei Zusatztickets: ohne Limit
-    main_tickets = [(idx, x) for idx, x in enumerate(event_tickets) if not x.is_extra_ticket]
-    extra_tickets = [(idx, x) for idx, x in enumerate(event_tickets) if x.is_extra_ticket]
-    extras_per_person = bool(main_tickets and extra_tickets)
-    select_tickets = [x for x in event_tickets if not (extras_per_person and x.is_extra_ticket)]
-    # Ein Block pro moeglicher Person (Ticket x Anzahl) fuer Name, Kontakt und
-    # Zusatztickets. Haupt-Tickets zuerst: die erste gebuchte Person ist ohne
-    # Angaben der Bucher selbst.
-    person_slots = [{'idx': idx, 'ticket': x.name, 'slot': slot, 'is_extra': x.is_extra_ticket}
-                    for idx, x in sorted(enumerate(event_tickets), key=lambda y: y[1].is_extra_ticket)
-                    if not (extras_per_person and x.is_extra_ticket)
-                    for slot in range(x.maximum_tickets or 0)]
+    layout = booking_layout(event)
+    main_tickets, extra_tickets = layout.main_tickets, layout.extra_tickets
+    extras_per_person, select_tickets = layout.extras_per_person, layout.select_tickets
+    person_slots = layout.person_slots
     for ticket in select_tickets:
         choices = [ (str(x), f'{x} mal') for x in range(ticket.maximum_tickets+1) ]
         places = ticket_stats['max'][ticket.name] - ticket_stats.get(ticket.name, 0)
@@ -1886,9 +2119,7 @@ def page_details():
     overview = details_overview(event, numbers, free_places, higest_level)
 
     now = datetime.now()
-    registration_enabled = True
-    if event.booking_until and event.booking_from:
-        registration_enabled = event.booking_until >= now >= event.booking_from
+    registration_enabled = registration_open(event, now)
 
     context = {
         'event' : event,
@@ -1913,159 +2144,10 @@ def page_details():
     }
 
     if current_user.is_authenticated and register_form.validate_on_submit():
-        data = request.form
-
-        register_possible = True
-
-        # Count
-        if event.start_date and event.start_date < now:
-            flash("Das Event hat bereits stattgefunden", 'danger')
-            register_possible = False
-
-        if not registration_enabled:
-            flash("Die Anmeldung auf das Event ist noch nicht freigeschaltet", 'danger')
-            register_possible = False
-
-
-        ticket_data = {ticket.name: {'name': ticket.name, 'desc': ticket.description,
-                                     'is_extra': ticket.is_extra_ticket}
-                       for ticket in event_tickets}
-        wanted_seats = {}
-        for ticket in select_tickets:
-            wanted = int(data[f'ticket_{ticket.name}'])
-            if wanted == 0:
-                continue
-            wanted_seats[ticket.name] = wanted
-
-        # Zusatztickets pro Person: (Haupt-Ticket, Person, Zusatzticket)
-        extra_wishes = []
-        for slot in person_slots if extras_per_person else []:
-            for extra_idx in request.form.getlist(f"extra_{slot['idx']}_{slot['slot']}"):
-                extra = dict(extra_tickets).get(int(extra_idx)) if extra_idx.isdigit() else None
-                if not extra:
-                    continue
-                if slot['slot'] >= wanted_seats.get(slot['ticket'], 0):
-                    flash(f"{extra.name} ist für {slot['ticket']}, Person {slot['slot'] + 1} "
-                          "gewählt, diese Person ist aber nicht gebucht.", 'danger')
-                    register_possible = False
-                    continue
-                extra_wishes.append((slot['ticket'], slot['slot'], extra.name))
-
-        # Personendaten pro gebuchtem Platz, die erste Person ist ohne Angaben der Bucher
-        persons_data = {}
-        for slot in person_slots:
-            if slot['slot'] >= wanted_seats.get(slot['ticket'], 0):
-                continue
-            person, error = booking_person(data, slot, first=not persons_data)
-            if error:
-                flash(error, 'danger')
-                register_possible = False
-            persons_data[(slot['ticket'], slot['slot'])] = person
-        for _, extra in extra_tickets:
-            num = sum(1 for wish in extra_wishes if wish[2] == extra.name)
-            if extra.maximum_tickets and num > extra.maximum_tickets:
-                flash(f"{extra.name} kann pro Anmeldung höchstens "
-                      f"{extra.maximum_tickets} mal gebucht werden.", 'danger')
-                register_possible = False
-
-        if not wanted_seats:
-            flash("Du hast keine Tickets gewählt.", 'danger')
-            register_possible = False
-
-
-        if register_possible:
-            new_participation = EventParticipation()
-            new_participation.booking_date = now
-            new_participation.booking_ref = new_booking_ref()
-            for idx, custom_field_def in enumerate(custom_fields):
-                field_name = custom_field_def.field_name
-                field_id = f"custom_{idx}"
-                custom_field = CustomField()
-                custom_field.name = field_name
-                custom_field.value = data[field_id]
-                new_participation.custom_fields.append(custom_field)
-
-            try:
-                # Platzvergabe pro Event serialisieren: Ohne Lock lesen viele
-                # gleichzeitige Buchungen (Stichtag!) denselben Stand, alle sehen
-                # freie Plaetze und das Event wird ueberbucht.
-                with event_lock(event_id):
-                    event.reload()
-                    ticket_stats = event.get_ticket_stats()
-                    for wish in extra_wishes:
-                        wanted_seats[wish[2]] = wanted_seats.get(wish[2], 0) + 1
-                    # Die Hoechstzahl pro Anmeldung gilt fuer alle Buchungen des Kontos
-                    # zusammen, sonst fuellt eine Folge von Anmeldungen die Tour
-                    already = {}
-                    for ticket in event.get_tickets_of_user(current_user):
-                        already[ticket.ticket_name] = already.get(ticket.ticket_name, 0) + 1
-                    too_many = [ticket for ticket in event_tickets
-                                if ticket.maximum_tickets and ticket.name in wanted_seats
-                                and already.get(ticket.name, 0) + wanted_seats[ticket.name]
-                                    > ticket.maximum_tickets]
-                    for ticket in too_many:
-                        flash(f"{ticket.name} kann pro Konto höchstens {ticket.maximum_tickets} "
-                              f"mal gebucht werden, du hast schon {already.get(ticket.name, 0)}.",
-                              'danger')
-                    if too_many:
-                        return render_template('event_details.html', **context)
-                    # Personen belegen Plaetze der Tour, die Anmeldung bleibt zusammen:
-                    # passt sie nicht komplett, geht sie komplett auf die Warteliste
-                    free_places = event.free_places()
-                    persons = sum(num for name, num in wanted_seats.items()
-                                  if not ticket_data[name]['is_extra'])
-                    # Haupt-Tickets zuerst, die Zusatztickets haengen sich daran
-                    booked = {}
-                    for ticket_name, num in sorted(wanted_seats.items(),
-                                                   key=lambda x: ticket_data[x[0]]['is_extra']):
-                        places = ticket_stats['max'][ticket_name] - ticket_stats.get(ticket_name, 0)
-                        if free_places is not None and not ticket_data[ticket_name]['is_extra']:
-                            waitinglist = persons > free_places
-                        else:
-                            # Zusatztickets und Touren ohne Platzzahl: Kontingent des Tickets
-                            unlimited = extras_per_person and ticket_data[ticket_name]['is_extra'] \
-                                and not ticket_stats['max'][ticket_name]
-                            waitinglist = places < num and not unlimited
-                        extra_mains = [booked[main][slot] for main, slot, extra in extra_wishes
-                                       if extra == ticket_name]
-                        for number in range(num):
-                            ticket = OwnedTicket()
-                            ticket.ticket_id = uuid.uuid4().hex
-                            ticket.ticket_name = ticket_name
-                            ticket.ticket_comment = ticket_data[ticket_name]['desc']
-                            ticket.confirmed = False
-                            person = persons_data.get((ticket_name, number)) \
-                                or booking_person({}, None, first=True)[0]
-                            for field, value in person.items():
-                                setattr(ticket, field, value)
-                            ticket.comment_on_ticket = data['comment']
-                            ticket.is_extra_ticket = ticket_data[ticket_name]['is_extra']
-                            ticket.waitinglist = waitinglist
-                            if number < len(extra_mains):
-                                ticket.take_person_from(extra_mains[number])
-                            booked.setdefault(ticket_name, []).append(ticket)
-                            new_participation.tickets.append(ticket)
-
-                    new_participation.comment = data['comment']
-                    new_participation.user = current_user
-                    # Geteilte Tour: die allgemeine Einwilligung galt der eigenen Sektion,
-                    # hier zaehlt nur die Antwort auf den Text der Sektion der Tour
-                    if context['shared_from']:
-                        new_participation.media_optin = bool(data.get('media_optin_event'))
-                    # Warteliste richtet sich nach den Personen, nicht nach ihren Zusatztickets
-                    new_participation.waitinglist = any(
-                        x.waitinglist for x in new_participation.tickets
-                        if not (extras_per_person and x.is_extra_ticket))
-                    # all_objects: auch geteilte Touren der Partnersektionen (oben per visible geladen)
-                    Event.all_objects(id=event_id).update_one(push__participations=new_participation)
-            except LockError:
-                flash("Gerade buchen sehr viele gleichzeitig. Bitte versuche es in ein paar Sekunden erneut.", 'danger')
-                return render_template('event_details.html', **context)
-
-            current_user.add_event(event)
-
-            notify_new_booking(event, current_user, new_participation)
-
+        participation, errors = book_event(event, request.form, request.form.getlist)
+        for error in errors:
+            flash(error, 'danger')
+        if participation:
             return redirect(url_for('EVENTS.page_mybooking', event_id=str(event.id)))
 
     if not current_user.is_authenticated:

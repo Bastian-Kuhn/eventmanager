@@ -203,4 +203,47 @@
     </section>
   </div>
 </div>
+
+<!-- Verbundene Apps -->
+<div class="row">
+  <div class="col-12">
+    <section aria-labelledby="apps-heading" id="apps">
+      <h2 class="h4" id="apps-heading">Verbundene Apps</h2>
+      {% if not app_tokens %}
+      <p class="text-muted">Keine App ist mit deinem Konto verbunden. Die Tourentool-App für iPhone,
+        iPad und Mac meldet sich über diese Seite an.</p>
+      {% else %}
+      <div class="table-responsive">
+        <table class="table table-striped align-middle">
+          <caption class="sr-only">Apps mit Zugang zu deinem Konto</caption>
+          <thead>
+            <tr>
+              <th scope="col">Gerät</th>
+              <th scope="col">Verbunden am</th>
+              <th scope="col">Zuletzt genutzt</th>
+              <th scope="col"><span class="sr-only">Aktion</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for token in app_tokens %}
+            <tr>
+              <th scope="row" class="font-weight-normal">{{ token.name }}</th>
+              <td>{{ token.created.strftime('%d.%m.%Y') if token.created else '–' }}</td>
+              <td>{{ token.last_used.strftime('%d.%m.%Y %H:%M') if token.last_used else '–' }}</td>
+              <td class="text-right">
+                <form method="POST" action="{{ url_for('APP_LOGIN.revoke', token_id=token.id) }}" class="d-inline">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-sm btn-outline-danger"
+                          aria-label="{{ token.name }} abmelden">Abmelden</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+    </section>
+  </div>
+</div>
 {% endblock %}

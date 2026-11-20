@@ -246,12 +246,15 @@ def login():
     context = {
         'LoginForm' : login_form,
     }
+    # Von login_required: nach dem Login dorthin zurueck (z.B. App verbinden)
+    next_url = request.args.get('next')
+    next_url = next_url if is_local_path(next_url) else None
     if login_form.login_submit.data and login_form.validate_on_submit():
-        login = do_login(login_form, context)
+        login = do_login(login_form, context, next_url)
         if login == TFA_PENDING:
             return redirect(url_for('auth.login_2fa'))
         if login:
-            return redirect(url_for('EVENTS.page_list'))
+            return redirect(next_url or url_for('EVENTS.page_list'))
 
     return render_template('login.html', **context)
 
