@@ -61,9 +61,10 @@ class RegisterExtrasPerPersonTest(unittest.TestCase):
                                    force_password_change=False)
 
     def _post(self, form):
-        objects = mock.MagicMock()
-        objects.get.return_value = self.event
-        with mock.patch.object(views.Event, 'objects', objects), \
+        visible, all_objects = mock.MagicMock(), mock.MagicMock()
+        visible.return_value.get.return_value = self.event
+        with mock.patch.object(views.Event, 'visible', visible), \
+             mock.patch.object(views.Event, 'all_objects', all_objects), \
              mock.patch.object(Event, 'reload'), \
              mock.patch.object(views, 'event_lock', return_value=nullcontext()), \
              mock.patch.object(views, 'new_booking_ref', return_value='ABC234'), \
@@ -75,7 +76,7 @@ class RegisterExtrasPerPersonTest(unittest.TestCase):
             app.config['WTF_CSRF_ENABLED'] = False
             with app.test_client() as client:
                 response = client.post(f'/event/details?event_id={self.event.id}', data=form)
-        update = objects.return_value.update_one
+        update = all_objects.return_value.update_one
         participation = update.call_args.kwargs['push__participations'] if update.called else None
         return response, participation, flash
 
