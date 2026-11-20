@@ -276,6 +276,18 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(tour.event_teaser, 't')
         self.assertEqual(tour.tickets[0].name, 'Teilnahme')
 
+    def test_mine_means_booked_or_responsible(self):
+        """Trainer verwalten alle Touren, unter "Meine" stehen trotzdem nur eigene"""
+        trainer = self.token(self.trainer)
+        _, data = self.api('get', '/events?scope=mine', trainer)
+        self.assertEqual(data['events'], [])
+        _, data = self.api('get', '/events', trainer)
+        self.assertTrue(data['events'][0]['can_manage'])
+        self.assertFalse(data['events'][0]['owner'])
+        Event.objects(id=self.tour.id).update(push__event_owners=self.trainer)
+        _, data = self.api('get', '/events?scope=mine', trainer)
+        self.assertTrue(data['events'][0]['owner'])
+
     def test_trainer_edits_all(self):
         status, _ = self.api('put', f'/events/{self.tour.id}', self.token(self.trainer),
                              json={'places': 9})
@@ -315,6 +327,18 @@ class ApiTest(unittest.TestCase):
                            trainer, json={'action': 'delete'})
         self.assertEqual(data['groups']['confirmed'], [])
         self.assertEqual(User.objects.get(id=self.member.id).event_registrations, [])
+
+    def test_participant_extras_point_to_their_person(self):
+        Event.objects(id=self.tour.id).update(push__tickets=Ticket(name='Bus', price=5.0, maximum_tickets=0,
+                                                                    is_extra_ticket=True))
+        member = self.token(self.member)
+        self.api('post', f'/events/{self.tour.id}/bookings', member,
+                 json={'tickets': {'Teilnahme': 1}, 'persons': [{'ticket_index': 0, 'slot': 0, 'extras': [1]}]})
+        _, data = self.api('get', f'/events/{self.tour.id}/participants', self.token(self.trainer))
+        rows = data['groups']['unconfirmed']
+        main = next(x for x in rows if not x['is_extra'])
+        extra = next(x for x in rows if x['is_extra'])
+        self.assertEqual(extra['main_ticket_id'], main['id'])
 
     def test_stranger_sees_no_participants(self):
         status, _ = self.api('get', f'/events/{self.tour.id}/participants', self.token(self.member))

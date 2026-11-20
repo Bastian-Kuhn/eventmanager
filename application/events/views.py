@@ -1184,6 +1184,7 @@ def get_participants(event):
                 'id': ticket.ticket_id,
                 'ticket_owner': ticket.name_on_ticket,
                 'is_extra_ticket': ticket.is_extra_ticket,
+                'main_ticket_id': ticket.main_ticket_id,
                 'booking_date': parti.booking_date,
                 'is_paid': ticket.is_paid,
                 'is_free': getattr(ticket, 'is_free', False),

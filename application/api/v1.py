@@ -140,6 +140,8 @@ def event_summary(event, now):
         'favorite': current_user.is_favorite(event.id),
         'booked': current_user.participate_event(event.id),
         'can_manage': current_user.may_manage_event(event),
+        # Als Verantwortlicher eingetragen; can_manage gilt fuer Trainer und Admins ueberall
+        'owner': str(current_user.id) in {ref_id(x) for x in event._data.get('event_owners') or []},
     }
 
 
@@ -274,7 +276,7 @@ def events():
     found = found.exclude('costs')
     result = [event_summary(x, now) for x in found]
     if scope == 'mine':
-        result = [x for x in result if x['booked'] or x['can_manage']]
+        result = [x for x in result if x['booked'] or x['owner']]
     return jsonify({'events': result})
 
 
@@ -523,6 +525,8 @@ def participants(event_id):
                 'name': row['ticket_owner'],
                 'ticket': info['name'],
                 'is_extra': bool(row['is_extra_ticket']),
+                # Zusatzticket einer Person: id ihres Haupt-Tickets
+                'main_ticket_id': row['main_ticket_id'],
                 'booker': info['bucher'],
                 'phone': info['telefon'] if show_contact else None,
                 'email': info['email'] if show_contact else None,
