@@ -12,7 +12,8 @@ from application import app
 from application.modules import stripe_setup
 
 HOST = "portal.example.com"
-CENTS = {"month": 1000, "year": 10800}
+TIERS = {"month": ((1, 1000), (8, 600), (None, 400)),
+         "year": ((1, 10800), (8, 6480), (None, 4320))}
 
 
 class _Obj(dict):
@@ -105,6 +106,10 @@ class FakeStripe:
                 p = _Obj(id=new_id("price"), active=True,
                          **{k: v for k, v in kw.items() if k != "transfer_lookup_key"})
                 p["recurring"] = dict(p["recurring"], interval_count=1)
+                # Stripe meldet die letzte Stufe mit up_to None und flat_amount None
+                p["tiers"] = [{"up_to": None if t["up_to"] == "inf" else t["up_to"],
+                               "unit_amount": t["unit_amount"], "flat_amount": None}
+                              for t in kw["tiers"]]
                 fake.prices.append(p)
                 return p
 
@@ -150,8 +155,8 @@ class FakeStripe:
         return [i for i in items if i["id"] not in self.foreign]
 
 
-def _run(fake, do_apply=True, host=HOST, cents=None):
-    the_plan = stripe_setup.plan(fake, host, cents or CENTS)
+def _run(fake, do_apply=True, host=HOST, tiers=None):
+    the_plan = stripe_setup.plan(fake, host, tiers or TIERS)
     if do_apply:
         stripe_setup.apply(fake, the_plan)
     return the_plan
@@ -174,8 +179,13 @@ class SetupTest(unittest.TestCase):
         self.assertEqual(product["name"], "Tourentool")
         self.assertEqual(product["metadata"], {"eventmanager": "section"})
         prices = {p["lookup_key"]: p for p in fake.own(fake.prices)}
-        self.assertEqual(prices["eventmanager_section"]["unit_amount"], 1000)
-        self.assertEqual(prices["eventmanager_section_yearly"]["unit_amount"], 10800)
+        monthly = prices["eventmanager_section"]
+        self.assertEqual((monthly["billing_scheme"], monthly["tiers_mode"]), ("tiered", "graduated"))
+        self.assertEqual(monthly["tiers"], [{"up_to": 1, "unit_amount": 1000, "flat_amount": None},
+                                            {"up_to": 8, "unit_amount": 600, "flat_amount": None},
+                                            {"up_to": None, "unit_amount": 400, "flat_amount": None}])
+        self.assertEqual([t["unit_amount"] for t in prices["eventmanager_section_yearly"]["tiers"]],
+                         [10800, 6480, 4320])
         self.assertEqual(prices["eventmanager_section_yearly"]["recurring"]["interval"], "year")
         self.assertEqual({p["tax_behavior"] for p in prices.values()}, {"exclusive"})
         self.assertEqual({p["product"] for p in prices.values()}, {product["id"]})
@@ -209,12 +219,26 @@ class SetupTest(unittest.TestCase):
         fake = FakeStripe()
         _run(fake)
         old = next(p for p in fake.prices if p["lookup_key"] == "eventmanager_section")
-        the_plan = _run(fake, cents={"month": 1200, "year": 10800})
+        the_plan = _run(fake, tiers=dict(TIERS, month=((1, 1200), (8, 600), (None, 400))))
         self.assertEqual([(s.kind, s.action) for s in the_plan.changes], [("price", "move")])
         new = next(p for p in fake.prices if p["lookup_key"] == "eventmanager_section")
-        self.assertEqual(new["unit_amount"], 1200)
+        self.assertEqual(new["tiers"][0]["unit_amount"], 1200)
         self.assertTrue(old["active"])  # bleibt fuer laufende Abos
         self.assertIsNone(old["lookup_key"])
+
+    def test_flat_price_per_unit_gets_tiers(self):
+        """Der alte Preis je Einheit bekommt keine Staffel: neuer Preis, Key zieht um"""
+        fake = FakeStripe()
+        fake.prices.append(_Obj(id="price_old", product="prod_x", unit_amount=1000, currency="eur",
+                                active=True, lookup_key="eventmanager_section",
+                                billing_scheme="per_unit", tax_behavior="exclusive",
+                                recurring=_Obj(interval="month", interval_count=1,
+                                               usage_type="licensed")))
+        the_plan = _run(fake)
+        step = the_plan.find("price", "month")
+        self.assertEqual(step.action, "move")
+        self.assertIn("10.00 EUR / month je Einheit", step.detail)
+        self.assertIsNone(next(p for p in fake.prices if p["id"] == "price_old")["lookup_key"])
 
     def test_drift_is_set_back(self):
         fake = FakeStripe()

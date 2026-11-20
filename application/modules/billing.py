@@ -1,9 +1,10 @@
 """
 Abrechnung der Sektionen ueber Stripe, angelehnt an Cairn.
 
-Eine Sektion hat hoechstens ein Abo, monatlich (STRIPE_PRICE_SECTION,
-10 Euro) oder jaehrlich (STRIPE_PRICE_SECTION_YEARLY, 108 Euro). Menge = angefangene MEMBERS_PER_UNIT Mitglieder laut
-Angabe der Sektion. Den Status schreibt nur der Webhook (apply_subscription),
+Eine Sektion hat hoechstens ein Abo, monatlich (STRIPE_PRICE_SECTION) oder
+jaehrlich (STRIPE_PRICE_SECTION_YEARLY), beide gestaffelt nach PRICE_TIERS_EUR
+bzw. PRICE_TIERS_YEARLY_EUR. Menge = angefangene MEMBERS_PER_UNIT Mitglieder
+laut Angabe der Sektion. Den Status schreibt nur der Webhook (apply_subscription),
 Checkout und Kundenportal laufen bei Stripe.
 
 Alles ist aus, solange SUBSCRIPTIONS_ENABLED nicht gesetzt ist, und braucht
@@ -43,12 +44,24 @@ def units(section):
     return max(1, math.ceil((section.member_count or 1) / per_unit))
 
 
+def tiered_price(count, tiers):
+    """Preis fuer count Einheiten, jede Einheit zum Preis ihrer Stufe (wie Stripe graduated)"""
+    total, done = 0, 0
+    for up_to, euro in tiers:
+        step = (count if up_to is None else min(count, up_to)) - done
+        if step <= 0:
+            break
+        total += step * euro
+        done += step
+    return round(total, 2)
+
+
 def monthly_price(section):
-    return units(section) * current_app.config.get('PRICE_PER_UNIT_EUR', 10)
+    return tiered_price(units(section), current_app.config['PRICE_TIERS_EUR'])
 
 
 def yearly_price(section):
-    return units(section) * current_app.config.get('PRICE_PER_UNIT_YEARLY_EUR', 108)
+    return tiered_price(units(section), current_app.config['PRICE_TIERS_YEARLY_EUR'])
 
 
 def yearly_available():

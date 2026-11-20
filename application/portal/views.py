@@ -402,8 +402,6 @@ def billing(slug):
                            yearly_price=stripe_billing.yearly_price(section),
                            yearly=stripe_billing.yearly_available(),
                            per_unit=current_app.config['MEMBERS_PER_UNIT'],
-                           unit_price=current_app.config['PRICE_PER_UNIT_EUR'],
-                           unit_price_yearly=current_app.config['PRICE_PER_UNIT_YEARLY_EUR'],
                            # Eine Anfrage an Stripe, nur auf dieser Seite. None = Stripe antwortet nicht
                            invoices=stripe_billing.list_invoices(section),
                            now=datetime.now(), is_global=current_user.is_global_admin(),

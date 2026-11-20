@@ -46,9 +46,9 @@ def stripe_setup_cmd(do_apply, live):
         raise click.ClickException("Das ist ein LIVE-Key: --apply --live, um live zu schreiben.")
 
     hostname = cfg.get('PORTAL_HOSTNAME') or ''
-    cents = {'month': round(cfg['PRICE_PER_UNIT_EUR'] * 100),
-             'year': round(cfg['PRICE_PER_UNIT_YEARLY_EUR'] * 100)}
-    the_plan = setup.plan(stripe, hostname, cents)
+    tiers = {interval: tuple((up_to, round(euro * 100)) for up_to, euro in cfg[name])
+             for interval, name in (('month', 'PRICE_TIERS_EUR'), ('year', 'PRICE_TIERS_YEARLY_EUR'))}
+    the_plan = setup.plan(stripe, hostname, tiers)
     if not hostname:
         click.echo("PORTAL_HOSTNAME ist leer: kein Webhook, Portal ohne Ruecksprung-URL.")
     if not do_apply:

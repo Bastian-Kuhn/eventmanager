@@ -554,7 +554,12 @@ class PortalTest(unittest.TestCase):
             for members, units in ((1, 1), (250, 1), (251, 2), (900, 4)):
                 section.member_count = members
                 self.assertEqual(billing.units(section), units, members)
-            self.assertEqual(billing.monthly_price(section), 40)
+            # gestaffelt: erste Einheit 10, bis zur achten je 6, danach je 4 Euro
+            for members, month, year in ((250, 10, 108), (500, 16, 172.8), (2000, 52, 561.6),
+                                         (2001, 56, 604.8), (10000, 180, 1944)):
+                section.member_count = members
+                self.assertEqual(billing.monthly_price(section), month, members)
+                self.assertEqual(billing.yearly_price(section), year, members)
 
     def test_global_admin_switches_section_to_billing_and_back(self):
         url = '/portal/sektion/dav/abrechnung'
@@ -583,7 +588,7 @@ class PortalTest(unittest.TestCase):
         admin = self.user('a@example.org', (section, {'admin': True}))
         client = self.login(admin)
         page = client.get('/portal/sektion/neu/abrechnung', base_url=PORTAL).get_data(as_text=True)
-        self.assertIn('40,00', page)
+        self.assertIn('28,00', page)
         stripe = mock.MagicMock()
         stripe.checkout.Session.create.return_value = {'url': 'https://checkout.stripe.example/s'}
         with mock.patch.object(billing, '_stripe', return_value=stripe):
@@ -627,7 +632,7 @@ class PortalTest(unittest.TestCase):
             page = client.get('/portal/sektion/neu/abrechnung', base_url=PORTAL).get_data(as_text=True)
         stripe.Invoice.list.assert_called_once_with(customer='cus_1', limit=12)
         self.assertIn('RE-0002', page)
-        self.assertIn('40,00', page)
+        self.assertIn('28,00', page)
         self.assertIn('Bezahlt', page)
         self.assertIn('https://invoice.stripe.example/2.pdf', page)
         self.assertEqual(page.count('<tr>'), 2)  # Kopf und eine Rechnung, der Entwurf fehlt
@@ -644,7 +649,7 @@ class PortalTest(unittest.TestCase):
             section = Section.objects.get(slug='neu')
             client = self.login(self.user('a@example.org', (section, {'admin': True})))
             page = client.get('/portal/sektion/neu/abrechnung', base_url=PORTAL).get_data(as_text=True)
-            self.assertIn('432,00', page)
+            self.assertIn('302,40', page)
             stripe = mock.MagicMock()
             stripe.checkout.Session.create.return_value = {'url': 'https://checkout.stripe.example/y'}
             with mock.patch.object(billing, '_stripe', return_value=stripe):

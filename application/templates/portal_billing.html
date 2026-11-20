@@ -24,8 +24,9 @@
     <dl class="row">
       <dt class="col-sm-5">Mitglieder laut Angabe</dt><dd class="col-sm-7">{{ section.member_count or 1 }}</dd>
       <dt class="col-sm-5">Preis</dt>
-      <dd class="col-sm-7">{{ price|euro }} im Monat zzgl. MwSt. ({{ units }} × {{ unit_price }}&nbsp;€ je angefangene {{ per_unit }} Mitglieder)
-        {% if yearly %}<br>oder {{ yearly_price|euro }} im Jahr zzgl. MwSt. ({{ units }} × {{ unit_price_yearly }}&nbsp;€, 10&nbsp;% günstiger){% endif %}</dd>
+      <dd class="col-sm-7">{{ price|euro }} im Monat zzgl. MwSt.
+        {% if yearly %}<br>oder {{ yearly_price|euro }} im Jahr zzgl. MwSt. (10&nbsp;% günstiger){% endif %}
+        <br><small class="text-muted">{{ units }} × angefangene {{ per_unit }} Mitglieder. {% include '_price_tiers.html' %}</small></dd>
       <dt class="col-sm-5">Status</dt>
       <dd class="col-sm-7">
         {% if section.is_paid %}

@@ -5,14 +5,14 @@ gefunden und geaendert wird nur, was dem Eventmanager gehoert.
 
 Was dazugehoert:
 - ein Produkt (``metadata.eventmanager=section``)
-- ein Monats- und ein Jahrespreis je Einheit (Lookup-Keys
-  ``eventmanager_section`` / ``eventmanager_section_yearly``)
+- ein Monats- und ein Jahrespreis, gestaffelt je Einheit (graduated,
+  Lookup-Keys ``eventmanager_section`` / ``eventmanager_section_yearly``)
 - der Webhook ``https://<PORTAL_HOSTNAME>/portal/stripe/webhook``
 - eine eigene Kundenportal-Konfiguration (``metadata.eventmanager=1``)
 
 Beliebig oft ausfuehrbar: erst wird gesucht, dann nur Fehlendes angelegt oder
 Abweichendes angeglichen. Preise sind bei Stripe unveraenderlich: passt einer
-nicht mehr (Betrag, Intervall, archiviert), bekommt ein neuer Preis den
+nicht mehr (Staffel, Intervall, archiviert), bekommt ein neuer Preis den
 Lookup-Key, der alte bleibt wie er ist (laufende Abos behalten ihn). Nichts
 wird archiviert oder geloescht. :func:`plan` liest nur, :func:`apply` schreibt,
 was der Plan sagt. Stripe wird hereingereicht, die Tests geben eine Attrappe.
@@ -90,15 +90,32 @@ def _id(ref):
     return ref if isinstance(ref, str) else _get(ref, "id", "")
 
 
-def _money(cents, interval):
-    return f"{cents / 100:.2f} {CURRENCY.upper()} / {interval}"
+def _money(tiers, interval):
+    """``tiers``: ((bis Einheit, Cent), ...), None = alle weiteren"""
+    parts = [f"{'Rest' if up_to is None else f'bis {up_to}'}: {cents / 100:.2f}"
+             for up_to, cents in tiers]
+    return f"{', '.join(parts)} {CURRENCY.upper()} / {interval}"
 
 
-def _price_fits(price, cents, interval):
+def _stripe_tiers(tiers):
+    return [{"up_to": "inf" if up_to is None else up_to, "unit_amount": cents}
+            for up_to, cents in tiers]
+
+
+def _tiers_of(price):
+    """Staffel eines Stripe-Preises: ((bis, Cent, Pauschale), ...), () ohne Staffel"""
+    if _get(price, "billing_scheme", "per_unit") != "tiered":
+        return ()
+    return tuple((_get(t, "up_to", None), _get(t, "unit_amount", None),
+                  _get(t, "flat_amount", 0) or 0) for t in _get(price, "tiers", []) or [])
+
+
+def _price_fits(price, tiers, interval):
     rec = _get(price, "recurring", {}) or {}
     return (bool(_get(price, "active", False))
             and _get(price, "currency", "") == CURRENCY
-            and _get(price, "unit_amount", None) == cents
+            and _get(price, "tiers_mode", "") == "graduated"
+            and _tiers_of(price) == tuple((up_to, cents, 0) for up_to, cents in tiers)
             and _get(rec, "interval", "") == interval
             and _get(rec, "interval_count", 1) == 1
             and _get(rec, "usage_type", "licensed") == "licensed"
@@ -107,7 +124,10 @@ def _price_fits(price, cents, interval):
 
 def _describe(price):
     rec = _get(price, "recurring", {}) or {}
-    parts = [_money(_get(price, "unit_amount", 0) or 0, _get(rec, "interval", "?"))]
+    interval = _get(rec, "interval", "?")
+    tiers = [(up_to, cents) for up_to, cents, _flat in _tiers_of(price)]
+    parts = [_money(tiers, interval) if tiers
+             else _money(((None, _get(price, "unit_amount", 0) or 0),), interval) + " je Einheit"]
     if _get(price, "currency", CURRENCY) != CURRENCY:
         parts.append(f"Waehrung {_get(price, 'currency')}")
     if _get(price, "tax_behavior", TAX_BEHAVIOR) != TAX_BEHAVIOR:
@@ -151,13 +171,14 @@ def portal_params(portal_url):
     return params
 
 
-def plan(stripe, portal_hostname, cents):
+def plan(stripe, portal_hostname, tiers):
     """Was angelegt, angeglichen oder wiederverwendet wuerde. Liest nur.
-    ``cents``: {'month': 1000, 'year': 10800}"""
+    ``tiers``: {'month': ((1, 1000), (8, 600), (None, 400)), 'year': ...}"""
     steps = []
     keys = list(LOOKUP_KEYS.values())
     found = {_get(p, "lookup_key", ""): p for p in
-             stripe.Price.list(lookup_keys=keys, limit=10).auto_paging_iter()}
+             stripe.Price.list(lookup_keys=keys, limit=10,
+                               expand=["data.tiers"]).auto_paging_iter()}
     products = [p for p in stripe.Product.list(limit=100, active=True).auto_paging_iter()]
     product = next((p for p in products
                     if _get(_get(p, "metadata", {}), "eventmanager", "") == "section"), None)
@@ -181,8 +202,9 @@ def plan(stripe, portal_hostname, cents):
             steps.append(Step("product", "reuse", PRODUCT_NAME, _get(product, "id")))
 
     for interval, key in LOOKUP_KEYS.items():
-        amount = cents[interval]
-        params = {"currency": CURRENCY, "unit_amount": amount,
+        amount = tuple(tiers[interval])
+        params = {"currency": CURRENCY, "billing_scheme": "tiered", "tiers_mode": "graduated",
+                  "tiers": _stripe_tiers(amount),
                   "recurring": {"interval": interval, "usage_type": "licensed"},
                   "tax_behavior": TAX_BEHAVIOR, "lookup_key": key,
                   "nickname": key, "metadata": {"eventmanager": key}}
