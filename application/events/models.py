@@ -147,6 +147,12 @@ class EventParticipation(db.EmbeddedDocument):
     # None = globalen Wert aus dem Profil verwenden, True/False = bewusst gesetzt.
     media_optin = db.BooleanField()
 
+    # Bucher, wenn sein Konto geloescht wurde: bleibt fuer Abrechnung und
+    # Teilnehmerliste stehen (remove_user_references)
+    booker_name = db.StringField()
+    booker_email = db.StringField()
+    booker_phone = db.StringField()
+
     @property
     def account(self):
         """

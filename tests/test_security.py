@@ -598,6 +598,49 @@ class MemberAdminTest(AppTestCase):
         self.assertEqual(User.objects.get(id=member.id).email, 'neu@example.org')
 
 
+class AccountDeleteTest(AppTestCase):
+    """Eigenes Konto im Profil loeschen, die Abrechnung behaelt die Buchung"""
+
+    DELETE = {'delete_password': PASSWORD, 'delete_confirm': 'y', 'submit_delete': 'Konto löschen'}
+
+    def test_wrong_password_or_missing_confirm_keeps_account(self):
+        user = self.user()
+        client = self.login(user)
+        client.post('/user/profile/delete', data={**self.DELETE, 'delete_password': 'falsch'})
+        client.post('/user/profile/delete', data={'delete_password': PASSWORD})
+        self.assertEqual(User.objects(id=user.id).count(), 1)
+
+    def test_delete_keeps_billing(self):
+        user = self.user(first_name='Erika', last_name='Muster')
+        event = self.event()
+        self.booking(user, event, confirmed=True, name='Erika Muster', is_paid=True)
+        HutBooking(hut=Hut(name='H').save(), user=user, name='Erika Muster', places=1).save()
+        client = self.login(user)
+        self.assertIn(b'Konto l', client.get('/user/profile').data)
+        response = client.post('/user/profile/delete', data=self.DELETE)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(User.objects(id=user.id).count(), 0)
+        # Die Session ist weg
+        self.assertEqual(client.get('/user/profile').status_code, 302)
+
+        parti = Event.objects.get(id=event.id).participations[0]
+        self.assertEqual((parti.booker_name, parti.booker_email, parti.booker_phone),
+                         ('Erika Muster', 'user@example.org', '0170'))
+        self.assertTrue(parti.tickets[0].is_paid)
+        self.assertEqual(HutBooking.objects.first().name, 'Erika Muster')
+        guide = self.login(self.owner(event))
+        for page in ('participants', 'billing', 'finance'):
+            response = guide.get(f'/event/{page}?event_id={event.id}')
+            self.assertEqual(response.status_code, 200, page)
+        self.assertIn('Erika Muster (Konto gelöscht)'.encode(),
+                      guide.get(f'/event/participants?event_id={event.id}').data)
+
+    def test_global_admin_cannot_delete_himself(self):
+        admin = self.user('admin@example.org', global_admin=True)
+        self.login(admin).post('/user/profile/delete', data=self.DELETE)
+        self.assertEqual(User.objects(id=admin.id).count(), 1)
+
+
 class XssTest(AppTestCase):
     """Ausgabe von Nutzereingaben"""
 
@@ -837,7 +880,7 @@ class CrashTest(AppTestCase):
         self.assertEqual(client.get(f'/event/details?event_id={event.id}').status_code, 200)
         response = client.get(f'/event/participants?event_id={event.id}')
         self.assertEqual(response.status_code, 200)
-        self.assertIn('Gelöschter Account'.encode(), response.data)
+        self.assertIn('Vor Nach (Konto gelöscht)'.encode(), response.data)
         # Andere Teilnehmer und ihre Buchung sind davon nicht betroffen
         other = self.user('other@example.org')
         self.booking(other, event, ticket_id='t2')
@@ -847,6 +890,15 @@ class CrashTest(AppTestCase):
             'job': 'delete', 'ticket_id': 't1', 'event_id': event.id})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(Event.objects.get(id=event.id).participations), 1)
+
+    def test_legacy_deleted_user_without_name(self):
+        """Buchungen von vor dem Namens-Snapshot zeigen den Platzhalter"""
+        doomed = self.user('doomed@example.org')
+        event = self.event()
+        self.booking(doomed, event, confirmed=True)
+        doomed.delete()
+        response = self.login(self.owner(event)).get(f'/event/participants?event_id={event.id}')
+        self.assertIn('Gelöschter Account'.encode(), response.data)
 
     def test_admin_event_list_is_read_only(self):
         booker = self.user()

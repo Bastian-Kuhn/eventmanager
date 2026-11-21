@@ -328,6 +328,23 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(data['groups']['confirmed'], [])
         self.assertEqual(User.objects.get(id=self.member.id).event_registrations, [])
 
+    def test_delete_account(self):
+        member = self.token(self.member)
+        self.api('post', f'/events/{self.tour.id}/bookings', member, json={'tickets': {'Teilnahme': 1}})
+        status, _ = self.api('post', '/me/delete', member, json={'password': 'falsch'})
+        self.assertEqual(status, 403)
+        self.assertEqual(User.objects(id=self.member.id).count(), 1)
+        status, data = self.api('post', '/me/delete', member, json={'password': PASSWORD})
+        self.assertEqual((status, data), (200, {'deleted': True}))
+        self.assertEqual(User.objects(id=self.member.id).count(), 0)
+        self.assertEqual(ApiToken.objects(user=self.member.id).count(), 0)
+        self.assertEqual(self.api('get', '/me', member)[0], 401)
+        # Die Buchung bleibt mit Name und Kontakt in der Teilnehmerliste
+        _, data = self.api('get', f'/events/{self.tour.id}/participants', self.token(self.trainer))
+        row = data['groups']['unconfirmed'][0]
+        self.assertEqual(row['booker'], 'Vor Nach (Konto gelöscht)')
+        self.assertEqual((row['email'], row['phone']), ('member@example.org', '0170'))
+
     def test_participant_extras_point_to_their_person(self):
         Event.objects(id=self.tour.id).update(push__tickets=Ticket(name='Bus', price=5.0, maximum_tickets=0,
                                                                     is_extra_ticket=True))

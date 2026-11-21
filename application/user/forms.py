@@ -29,6 +29,16 @@ class ChangePasswordForm(FlaskForm):
     submit_password = SubmitField("Passwort ändern")
 
 
+class DeleteAccountForm(FlaskForm):
+    """
+    Eigenes Konto loeschen (aktuelles Passwort erforderlich)
+    """
+    delete_password = PasswordField("Passwort zur Bestätigung", validators=[InputRequired()])
+    delete_confirm = BooleanField("Ich möchte mein Konto endgültig löschen",
+                                  validators=[InputRequired()])
+    submit_delete = SubmitField("Konto löschen")
+
+
 # Buchstaben, getrennt durch Leerzeichen, Bindestrich, Apostroph oder "Punkt
 # Leerzeichen" (Abkuerzung). Keine Ziffern, Links oder Satzzeichen: der Name
 # steht in Mails des Vereins an die angegebene Adresse.

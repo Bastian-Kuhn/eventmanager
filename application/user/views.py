@@ -4,7 +4,7 @@ Frontend User
 # pylint: disable=no-member
 from datetime import datetime
 from application import limiter
-from application.models.user import User
+from application.models.user import User, delete_account
 from application.models.section import section_or_none
 from application.events.models import Event, with_event_lock
 from application.auth.forms import RequestPasswordForm
@@ -13,10 +13,10 @@ from application.modules.email import send_email
 
 from flask import request, render_template, current_app, \
      flash, redirect, session, Blueprint, url_for
-from flask_login import current_user, login_required
+from flask_login import current_user, login_required, logout_user
 from mongoengine.errors import NotUniqueError
 from mongoengine.queryset.visitor import Q
-from .forms import NewUserForm, ConsentForm, ChangePasswordForm, ConfirmEmailForm
+from .forms import NewUserForm, ConsentForm, ChangePasswordForm, ConfirmEmailForm, DeleteAccountForm
 
 
 USER = Blueprint('USER', __name__)
@@ -65,6 +65,7 @@ def page_user_profil():
     context = {
         'consent_form': consent_form,
         'password_form': password_form,
+        'delete_form': DeleteAccountForm(),
         'past_events': past_events,
         'hut_bookings': my_hut_bookings,
         'app_tokens': list(ApiToken.objects(user=current_user.id, expires__gt=now).order_by('-created')),
@@ -113,6 +114,32 @@ def page_user_password():
         for _, messages in form.errors.items():
             flash(messages[0], 'danger')
     return redirect(url_for('USER.page_user_profil'))
+
+
+@USER.route('/user/profile/delete', methods=['POST'])
+@login_required
+@limiter.limit(PASSWORD_LIMIT)
+def page_user_delete():
+    """
+    Eigenes Konto loeschen. Buchungen bleiben mit Name und Kontakt fuer die
+    Abrechnung der Touren stehen.
+    """
+    form = DeleteAccountForm()
+    if not form.validate_on_submit():
+        flash("Bitte Passwort eingeben und das Löschen bestätigen", 'danger')
+        return redirect(url_for('USER.page_user_profil', _anchor='delete'))
+    if current_user.global_admin:
+        flash("Globale Admins können ihr Konto nicht selbst löschen.", 'danger')
+        return redirect(url_for('USER.page_user_profil', _anchor='delete'))
+    if not current_user.check_password(form.delete_password.data):
+        flash("Passwort ist falsch", 'danger')
+        return redirect(url_for('USER.page_user_profil', _anchor='delete'))
+    user = current_user._get_current_object()  # pylint: disable=protected-access
+    session.clear()
+    logout_user()
+    delete_account(user)
+    flash("Dein Konto ist gelöscht.", 'success')
+    return redirect("/")
 
 
 @USER.route('/user/profile/event_optin', methods=['POST'])

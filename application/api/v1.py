@@ -15,6 +15,7 @@ from mongoengine.queryset.visitor import Q
 from redis.exceptions import LockError
 
 from application import csrf, limiter, login_manager
+from application.auth.views import PASSWORD_LIMIT
 from application.events import views as ev
 from application.events.forms import COMMENT_MAX, CUSTOM_FIELD_MAX
 from application.events.models import Event, difficulties, event_lock, event_types
@@ -22,7 +23,7 @@ from application.huts import views as hv
 from application.huts.models import Hut, HutBooking
 from application.models.api_token import ApiToken, token_hash
 from application.models.section import current_section, ref_id
-from application.models.user import User
+from application.models.user import User, delete_account
 from application.modules.sanitize import sanitize_html
 
 API = Blueprint('API', __name__, url_prefix='/api/v1')
@@ -258,6 +259,19 @@ def me():
         'categories': categories(),
         'has_huts': Hut.objects.count() > 0,
     })
+
+
+@API.route('/me/delete', methods=['POST'])
+@limiter.limit(PASSWORD_LIMIT, key_func=token_limit_key)
+def delete_me():
+    """Eigenes Konto loeschen, wie im Profil der Webseite: mit Passwort"""
+    password = (request.get_json(silent=True) or {}).get('password')
+    if current_user.global_admin:
+        return fail(403, "Globale Admins können ihr Konto nicht selbst löschen.")
+    if not isinstance(password, str) or not current_user.check_password(password):
+        return fail(403, "Das Passwort ist falsch.")
+    delete_account(current_user._get_current_object())
+    return jsonify({'deleted': True})
 
 
 @API.route('/events')

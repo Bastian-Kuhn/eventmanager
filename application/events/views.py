@@ -1129,9 +1129,17 @@ def get_hidden_categories():
 
 
 def deleted_booker(parti):
-    """Platzhalter fuer eine Buchung, deren Account geloescht wurde"""
-    return SimpleNamespace(id=parti.to_mongo().get('user'), first_name="Gelöschter", last_name="Account",
-                           role=None, phone=None, email=None, birthdate=None,
+    """
+    Platzhalter fuer eine Buchung, deren Account geloescht wurde. Name und
+    Kontakt kommen aus der Buchung, Altbestand ohne diese Daten zeigt
+    "Gelöschter Account".
+    """
+    if parti.booker_name:
+        first, last = parti.booker_name, "(Konto gelöscht)"
+    else:
+        first, last = "Gelöschter", "Account"
+    return SimpleNamespace(id=parti.to_mongo().get('user'), first_name=first, last_name=last,
+                           role=None, phone=parti.booker_phone, email=parti.booker_email, birthdate=None,
                            media_optin=False, data_optin=False)
 
 

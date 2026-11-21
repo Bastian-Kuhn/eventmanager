@@ -246,4 +246,36 @@
     </section>
   </div>
 </div>
+
+<!-- Konto loeschen -->
+<div class="row">
+  <div class="col-md-8 mb-4">
+    <section class="card border-danger" aria-labelledby="delete-heading" id="delete">
+      <div class="card-header"><h2 class="h5 mb-0" id="delete-heading">Konto löschen</h2></div>
+      <div class="card-body">
+        {% if current_user.global_admin %}
+        <p class="mb-0">Globale Admins können ihr Konto nicht selbst löschen.</p>
+        {% else %}
+        <p id="delete-help">Dein Konto, dein Profilbild und deine App-Zugänge werden endgültig gelöscht,
+          in allen Sektionen. Deine Tour- und Hüttenbuchungen bleiben mit Name und Kontaktdaten
+          für die Abrechnung der Sektion stehen. Melde dich bei laufenden Anmeldungen bitte vorher ab.</p>
+        <form method="POST" action="{{ url_for('USER.page_user_delete') }}"
+              onsubmit="return confirm('Konto wirklich endgültig löschen?');">
+          {{ delete_form.hidden_tag() }}
+          <div class="form-group">
+            {{ delete_form.delete_password.label(class="form-control-label") }}
+            {{ delete_form.delete_password(class="form-control", autocomplete="current-password",
+                                           **{'aria-describedby': 'delete-help'}) }}
+          </div>
+          <div class="form-check mb-3">
+            {{ delete_form.delete_confirm(class="form-check-input") }}
+            {{ delete_form.delete_confirm.label(class="form-check-label") }}
+          </div>
+          {{ delete_form.submit_delete(class="btn btn-danger") }}
+        </form>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+</div>
 {% endblock %}

@@ -504,11 +504,28 @@ def remove_event_references(event):
 def remove_user_references(user):
     """
     Verweise auf einen User entfernen, der gleich geloescht wird. Seine gebuchten
-    Tickets bleiben fuer die Abrechnung erhalten, die Teilnehmerliste zeigt sie
-    als "Geloeschter Account".
+    Tickets bleiben fuer die Abrechnung erhalten, Name und Kontakt des Buchers
+    werden dazu in jede seiner Buchungen geschrieben.
     """
     from application.huts.models import Hut, HutBooking  # pylint: disable=import-outside-toplevel
-    # all_objects: das Konto kann in mehreren Sektionen stecken
+    from application.models.api_token import ApiToken  # pylint: disable=import-outside-toplevel
+    # all_objects: das Konto kann in mehreren Sektionen stecken.
+    # Eine Buchung pro Konto und Tour, darum reicht der Positions-Operator.
+    Event.all_objects(participations__user=user).update(
+        set__participations__S__booker_name=f"{user.first_name or ''} {user.last_name or ''}".strip(),
+        set__participations__S__booker_email=user.email,
+        set__participations__S__booker_phone=user.phone)
     Event.all_objects(event_owners=user).update(pull__event_owners=user)
     Hut.all_objects(admins=user).update(pull__admins=user)
     HutBooking.all_objects(user=user).update(unset__user=True)
+    ApiToken.objects(user=user.id).delete()
+
+
+def delete_account(user):
+    """
+    Konto endgueltig loeschen (Profil und App). Buchungen und Huettenbuchungen
+    bleiben mit Name und Kontakt fuer die Abrechnung stehen, das Profilbild
+    geht mit dem Konto.
+    """
+    remove_user_references(user)
+    user.delete()
