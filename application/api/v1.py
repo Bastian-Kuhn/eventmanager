@@ -24,10 +24,14 @@ from application.huts.models import Hut, HutBooking
 from application.models.api_token import ApiToken, token_hash
 from application.models.section import current_section, ref_id
 from application.models.user import User, delete_account
+from application.models.website import Website
 from application.modules.sanitize import sanitize_html
 
 API = Blueprint('API', __name__, url_prefix='/api/v1')
 csrf.exempt(API)
+
+# Was ein Schluessel einer Website (scope booker) darf: Touren ansehen und buchen
+BOOKER_ENDPOINTS = {'API.me', 'API.events', 'API.event', 'API.book', 'API.bookings'}
 
 DIFFICULTY_KEYS = [x[0] for x in difficulties]
 EVENT_TYPE_KEYS = [x[0] for x in event_types]
@@ -69,9 +73,16 @@ def token_login():
     if not user or not hmac.compare_digest(user.password_fingerprint(),
                                            token.password_fingerprint or ''):
         return fail(401, "Bitte melde dich in der App neu an.")
+    if token.scope == 'booker':
+        website_id = ref_id(token._data.get('website'))
+        if not website_id or not Website.objects(id=website_id, section=section.pk).first():
+            return fail(401, "Bitte melde dich neu an.")
+        if request.endpoint not in BOOKER_ENDPOINTS:
+            return fail(403, "Dieser Zugang darf nur Touren ansehen und buchen.")
     if not user.may_use_section(section):
         return fail(403, "Dein Konto gehört nicht zu dieser Sektion.")
     g._login_user = user
+    g.api_booker = token.scope == 'booker'
     # Hoechstens einmal pro Stunde schreiben
     now = datetime.now()
     if not token.last_used or (now - token.last_used).total_seconds() > 3600:
@@ -99,6 +110,11 @@ def parse_day(value):
         return None
 
 
+def full_rights():
+    """Angemeldet und nicht nur als Bucher einer Website"""
+    return current_user.is_authenticated and not g.get('api_booker')
+
+
 def categories():
     """Kategorien der Sektion: Schluessel (wie gespeichert), Name, Farbe"""
     return [{'key': x.name.lower(), 'name': x.name, 'color': x.color}
@@ -109,6 +125,7 @@ def categories():
 
 def event_summary(event, now):
     """Was die Liste einer Tour braucht"""
+    user = current_user.is_authenticated
     numbers = event.get_numbers()
     category = event.event_category if event.event_category not in (None, 'None') else None
     try:
@@ -138,11 +155,12 @@ def event_summary(event, now):
         'altitude_difference': event.altitude_difference,
         'hut': hut.name if hut else None,
         'shared_from': event.shared_from(),
-        'favorite': current_user.is_favorite(event.id),
-        'booked': current_user.participate_event(event.id),
-        'can_manage': current_user.may_manage_event(event),
+        # Ohne Konto (Website ohne Anmeldung) alles False
+        'favorite': user and current_user.is_favorite(event.id),
+        'booked': user and current_user.participate_event(event.id),
+        'can_manage': full_rights() and current_user.may_manage_event(event),
         # Als Verantwortlicher eingetragen; can_manage gilt fuer Trainer und Admins ueberall
-        'owner': str(current_user.id) in {ref_id(x) for x in event._data.get('event_owners') or []},
+        'owner': user and str(current_user.id) in {ref_id(x) for x in event._data.get('event_owners') or []},
     }
 
 
@@ -159,6 +177,8 @@ def my_tickets(event):
     """Eigene gebuchte Tickets einer Tour"""
     prices = {x.name: x.price for x in event.tickets}
     result = []
+    if not current_user.is_authenticated:
+        return result
     for parti in event.participations:
         if parti.account != current_user:
             continue
@@ -191,7 +211,9 @@ def event_detail(event, now):
     data.update({
         'description_html': sanitize_html(event.event_description or ''),
         'min_places': event.min_places or None,
-        'guides': [{'name': f"{x.first_name} {x.last_name}", 'email': x.email}
+        # E-Mail nur fuer angemeldete Konten, wie auf der Webseite
+        'guides': [{'name': f"{x.first_name} {x.last_name}",
+                    'email': x.email if current_user.is_authenticated else None}
                    for x in ev.event_guides(event)],
         'tickets': [{'index': idx, 'name': x.name, 'description': x.description,
                      'price': x.price or 0, 'maximum': x.maximum_tickets or 0,
@@ -203,7 +225,7 @@ def event_detail(event, now):
         'consent_html': sanitize_html(owner_section.media_consent_text or '')
                         if event.shared_from() and owner_section is not None else None,
         'my_tickets': my_tickets(event),
-        'can_see_participants': current_user.may_see_participants(event),
+        'can_see_participants': full_rights() and current_user.may_see_participants(event),
     })
     if data['can_manage']:
         data['edit'] = {
@@ -253,9 +275,9 @@ def me():
         'section': {'name': section.name, 'slug': section.slug,
                     'color': section.nav_background_color or None},
         'timezone': current_app.config.get('TIMEZONE') or 'Europe/Berlin',
-        'rights': {'create_events': current_user.has_right('guide'),
-                   'manage_all_events': current_user.manages_all_events(),
-                   'manage_huts': hv.can_manage_huts(current_user)},
+        'rights': {'create_events': full_rights() and current_user.has_right('guide'),
+                   'manage_all_events': full_rights() and current_user.manages_all_events(),
+                   'manage_huts': full_rights() and hv.can_manage_huts(current_user)},
         'categories': categories(),
         'has_huts': Hut.objects.count() > 0,
     })

@@ -1,0 +1,125 @@
+{% extends 'admin/master.html' %}
+{% macro site_fields(prefix, website=None) %}
+<div class="form-row">
+  <div class="form-group col-md-4">
+    <label for="{{ prefix }}name">Name</label>
+    <input class="form-control" id="{{ prefix }}name" name="name" maxlength="100" required
+           value="{{ website.name if website else '' }}">
+  </div>
+  <div class="form-group col-md-8">
+    <label for="{{ prefix }}return_url">Rücksprungadresse</label>
+    <input class="form-control" type="url" id="{{ prefix }}return_url" name="return_url" maxlength="500" required
+           aria-describedby="{{ prefix }}return_help" placeholder="https://www.example.org/wp-json/tourentool/v1/callback"
+           value="{{ website.return_url if website else '' }}">
+    <small class="form-text text-muted" id="{{ prefix }}return_help">Steht im Plugin unter Einstellungen &gt; Tourentool.</small>
+  </div>
+</div>
+<div class="form-group">
+  <label for="{{ prefix }}sso_mode">Anmeldung mit dem WordPress-Konto</label>
+  <select class="form-control" id="{{ prefix }}sso_mode" name="sso_mode">
+    {% for key, text in modes %}
+    <option value="{{ key }}" {% if website and website.sso_mode == key %}selected{% endif %}>{{ text }}</option>
+    {% endfor %}
+  </select>
+</div>
+{% endmacro %}
+{% block body %}
+<h1 class="h3">Websites</h1>
+<p class="text-muted">Mit dem Tourentool-Plugin für WordPress zeigt eine Website die Touren von {{ section.name }}
+  und nimmt Anmeldungen an. Der Schlüssel der Website erlaubt nur das Lesen der Touren und das Buchen für angemeldete Bucher,
+  keine Verwaltung. Bucher melden sich mit ihrem Konto hier an oder, wenn ihr es einschaltet, mit ihrem WordPress-Konto.
+  Wer seine Website-Konten nicht selbst verwaltet, nimmt besser „Nach Freigabe“: bei „Automatisch“ kann jeder Admin der
+  Website im Namen eines Kontos mit derselben E-Mail buchen.</p>
+
+{% if new_key %}
+<div class="alert alert-success" role="status">
+  <p class="mb-1">Schlüssel für <strong>{{ new_key_site.name }}</strong>. Trag ihn im Plugin ein, er wird nur jetzt angezeigt:</p>
+  <label class="sr-only" for="new_key">Schlüssel</label>
+  <input class="form-control" id="new_key" readonly value="{{ new_key }}" onfocus="this.select()">
+</div>
+{% endif %}
+
+{% if pending %}
+<section aria-labelledby="pending-heading" class="mb-4">
+  <h2 class="h4" id="pending-heading">Warten auf Freigabe</h2>
+  <ul class="list-group">
+    {% for link, user in pending %}
+    <li class="list-group-item d-flex flex-wrap justify-content-between align-items-center">
+      <span class="mr-3">{{ link.first_name }} {{ link.last_name }}, {{ link.email }}
+        <br><small class="text-muted">über {{ link.website.name }}, {{ 'Konto vorhanden' if user else 'neues Konto' }},
+          angefragt am {{ link.created.strftime('%d.%m.%Y') }}</small></span>
+      <span class="mt-2 mt-sm-0">
+        {% for action, text, css in [('accept', 'Freigeben', 'btn-primary'), ('reject', 'Ablehnen', 'btn-outline-secondary')] %}
+        <form method="post" action="{{ url_for('.link') }}" class="d-inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="link_id" value="{{ link.pk }}">
+          <input type="hidden" name="action" value="{{ action }}">
+          <button type="submit" class="btn btn-sm {{ css }}" aria-label="{{ link.email }} {{ text|lower }}">{{ text }}</button>
+        </form>
+        {% endfor %}
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% for website in websites %}
+<section class="card mb-3" aria-labelledby="site-{{ website.pk }}">
+  <div class="card-body">
+    <h2 class="h5" id="site-{{ website.pk }}">{{ website.name }}</h2>
+    <p class="text-muted small mb-2">{{ mode_names[website.sso_mode] }}.
+      Zuletzt genutzt: {{ website.last_used.strftime('%d.%m.%Y %H:%M') if website.last_used else 'noch nie' }}</p>
+    <form method="post" action="{{ url_for('.update', website_id=website.pk) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {{ site_fields('site' ~ website.pk ~ '_', website) }}
+      <button type="submit" class="btn btn-primary btn-sm">Speichern</button>
+    </form>
+    <div class="mt-2">
+      <form method="post" action="{{ url_for('.rekey', website_id=website.pk) }}" class="d-inline"
+            onsubmit="return confirm('Neuer Schlüssel: der alte gilt sofort nicht mehr. Weiter?')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-outline-secondary btn-sm">Neuer Schlüssel</button>
+      </form>
+      <form method="post" action="{{ url_for('.delete', website_id=website.pk) }}" class="d-inline"
+            onsubmit="return confirm('{{ website.name }} entfernen? Alle Bucher sind dort abgemeldet.')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-outline-danger btn-sm">Entfernen</button>
+      </form>
+    </div>
+  </div>
+</section>
+{% endfor %}
+
+<section class="card mb-4" aria-labelledby="new-heading">
+  <div class="card-body">
+    <h2 class="h5" id="new-heading">Website hinzufügen</h2>
+    <form method="post" action="{{ url_for('.create') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {{ site_fields('new_') }}
+      <button type="submit" class="btn btn-primary">Hinzufügen</button>
+    </form>
+  </div>
+</section>
+
+{% if active %}
+<section aria-labelledby="linked-heading">
+  <h2 class="h4" id="linked-heading">Verknüpfte WordPress-Konten</h2>
+  <ul class="list-group">
+    {% for link, user in active %}
+    <li class="list-group-item d-flex flex-wrap justify-content-between align-items-center">
+      <span class="mr-3">{{ user.first_name if user else link.first_name }} {{ user.last_name if user else link.last_name }},
+        {{ user.email if user else link.email }}<br><small class="text-muted">über {{ link.website.name }}</small></span>
+      <form method="post" action="{{ url_for('.link') }}" class="d-inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="link_id" value="{{ link.pk }}">
+        <input type="hidden" name="action" value="remove">
+        <button type="submit" class="btn btn-sm btn-outline-secondary"
+                aria-label="Verknüpfung von {{ link.email }} trennen">Trennen</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% endblock %}

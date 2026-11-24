@@ -193,7 +193,7 @@ def require_section():
     # Sitzungen von vor der Pruefung beim Login: fremde Konten melden sich neu
     # an und stellen dabei die Beitrittsanfrage
     # Die App-API meldet per Schluessel an und prueft die Sektion selbst
-    if request.blueprint not in ('auth', 'LEGAL', 'API') and current_user.is_authenticated \
+    if request.blueprint not in ('auth', 'LEGAL', 'API', 'SITE_API') and current_user.is_authenticated \
             and not current_user.may_use_section(section):
         logout_user()
         flash("Dein Konto gehört nicht zu dieser Sektion. Melde dich an, um eine "
@@ -290,6 +290,7 @@ from application.models.user import User
 from application.views.user import UserView
 from application.views.members import MemberView
 from application.views.join_requests import JoinRequestView
+from application.views.websites import WebsiteView
 from application.views.transfer import TransferView
 
 from application.events.models import Event
@@ -408,6 +409,7 @@ admin.add_view(HutView(Hut, name="Hütten"))
 admin.add_view(HutBookingView(HutBooking, name="Hüttenbuchungen"))
 admin.add_view(MemberView(User, name="Mitglieder", endpoint="Members"))
 admin.add_view(JoinRequestView(name="Beitrittsanfragen", endpoint="JoinRequests"))
+admin.add_view(WebsiteView(name="Websites", endpoint="Websites"))
 admin.add_view(UserView(User, category='System'))
 admin.add_view(SectionView(Section, name='Sektionen', category='System'))
 admin.add_view(LogView(LogEntry, name="Log", category="System"))
@@ -428,6 +430,8 @@ app.register_blueprint(PORTAL)
 app.register_blueprint(LEGAL)
 from application.api.v1 import API
 from application.api.authorize import APP_LOGIN
+from application.api.site import SITE_API
 app.register_blueprint(API)
+app.register_blueprint(SITE_API)
 app.register_blueprint(APP_LOGIN)
 from application.jobs import *

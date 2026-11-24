@@ -1,13 +1,15 @@
 """
 Sektion endgueltig loeschen (nur globale Admins, im Portal): Touren mit allen
 Buchungen, Huetten, Hüttenbuchungen, Logo und die Konten, die nur in dieser
-Sektion Mitglied sind. Konten mit weiteren Mitgliedschaften verlieren nur
+Sektion Mitglied sind, dazu ihre Websites und App-Zugaenge. Konten mit weiteren Mitgliedschaften verlieren nur
 diese, globale Admins bleiben immer.
 """
 from application.events.models import Event
 from application.huts.models import Hut, HutBooking
+from application.models.api_token import ApiToken
 from application.models.section import Section, ref_id
 from application.models.user import User, remove_user_references
+from application.models.website import Website, WebsiteCode, WebsiteLink
 
 
 def blocked_reason(section):
@@ -55,6 +57,11 @@ def delete_section(section):
         remove_user_references(user)
         user.delete()
     User.objects(join_requests__section=section.pk).update(pull__join_requests__section=section.pk)
+    websites = [x.pk for x in Website.objects(section=section.pk).only('id')]
+    ApiToken.objects(section=section.pk).delete()
+    WebsiteLink.objects(website__in=websites).delete()
+    WebsiteCode.objects(website__in=websites).delete()
+    Website.objects(section=section.pk).delete()
     HutBooking.all_objects(section=section.pk).delete()
     Hut.all_objects(section=section.pk).delete()
     Event.all_objects(section=section.pk).delete()

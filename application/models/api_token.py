@@ -1,7 +1,8 @@
 """
 Zugangsschluessel der Tourentool-App. Gespeichert wird nur der SHA-256 des
 Schluessels; er gilt fuer ein Konto in einer Sektion und endet mit einem
-Passwortwechsel, dem Ablauf oder dem Widerruf im Profil.
+Passwortwechsel, dem Ablauf oder dem Widerruf im Profil. Schluessel einer
+Website (scope 'booker') duerfen nur Touren ansehen und buchen.
 """
 # pylint: disable=no-member, too-few-public-methods
 import hashlib
@@ -23,6 +24,9 @@ class ApiToken(db.Document):
     user = db.ReferenceField(document_type='User', required=True)
     section = db.ReferenceField(document_type='Section', required=True)
     name = db.StringField(max_length=100)
+    # None: App mit allen Rechten des Kontos, 'booker': nur ansehen und buchen
+    scope = db.StringField(choices=['booker'])
+    website = db.ReferenceField(document_type='Website')
     token_hash = db.StringField(required=True, unique=True)
     # password_fingerprint() beim Anlegen: ein neues Passwort meldet die App ab
     password_fingerprint = db.StringField()
@@ -36,10 +40,11 @@ class ApiToken(db.Document):
     }
 
     @classmethod
-    def issue(cls, user, section, name):
+    def issue(cls, user, section, name, website=None):
         """Neuen Schluessel anlegen, gibt (Token, Klartext) zurueck"""
         raw = secrets.token_urlsafe(32)
         token = cls(user=user, section=section, name=(name or 'App')[:100],
+                    website=website, scope='booker' if website else None,
                     token_hash=token_hash(raw), password_fingerprint=user.password_fingerprint(),
                     expires=datetime.now() + timedelta(days=TOKEN_DAYS)).save()
         return token, raw

@@ -519,6 +519,9 @@ def remove_user_references(user):
     Hut.all_objects(admins=user).update(pull__admins=user)
     HutBooking.all_objects(user=user).update(unset__user=True)
     ApiToken.objects(user=user.id).delete()
+    from application.models.website import WebsiteCode, WebsiteLink  # pylint: disable=import-outside-toplevel
+    WebsiteLink.objects(user=user.id).delete()
+    WebsiteCode.objects(user=user.id).delete()
 
 
 def delete_account(user):
